@@ -1,0 +1,349 @@
+{% extends 'febase.html' %}
+
+{% block title %}Home - Sunrise Hostel{% endblock %}
+
+{% block hero %}
+<div class="hero-section position-relative">
+    <div class="hero-overlay"></div>
+    <div class="container position-relative">
+        <div class="row min-vh-75 align-items-center">
+            <div class="col-lg-6 text-white">
+                <h1 class="display-3 fw-bold mb-4 animate-up">Find Your Perfect Student Home</h1>
+                <p class="lead mb-4 animate-up delay-1">Experience comfortable living with modern amenities, 24/7 security, and a supportive community at Sunrise Hostel.</p>
+                <div class="d-flex gap-3 animate-up delay-2">
+                    <a href="#" class="btn btn-primary btn-lg px-4">View Hostels</a>
+                    <a href="#" class="btn btn-outline-light btn-lg px-4">Contact Us</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block content %}
+<!-- Quick Stats Section -->
+<section class="quick-stats py-5">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-md-3">
+                <div class="stat-card text-center p-4 rounded-3 shadow-sm">
+                    <i class="bi bi-building text-primary mb-3" style="font-size: 2.5rem;"></i>
+                    <h3 class="h2 fw-bold mb-2">5+</h3>
+                    <p class="text-muted mb-0">Premium Hostels</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card text-center p-4 rounded-3 shadow-sm">
+                    <i class="bi bi-people text-primary mb-3" style="font-size: 2.5rem;"></i>
+                    <h3 class="h2 fw-bold mb-2">1000+</h3>
+                    <p class="text-muted mb-0">Happy Students</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card text-center p-4 rounded-3 shadow-sm">
+                    <i class="bi bi-shield-check text-primary mb-3" style="font-size: 2.5rem;"></i>
+                    <h3 class="h2 fw-bold mb-2">24/7</h3>
+                    <p class="text-muted mb-0">Security</p>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="stat-card text-center p-4 rounded-3 shadow-sm">
+                    <i class="bi bi-star text-primary mb-3" style="font-size: 2.5rem;"></i>
+                    <h3 class="h2 fw-bold mb-2">4.8</h3>
+                    <p class="text-muted mb-0">Average Rating</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Features Section -->
+<section class="features py-5 bg-light">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold mb-3">Why Choose Sunrise Hostel?</h2>
+            <p class="lead text-muted">Experience the best student accommodation with our premium features</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="feature-card p-4 rounded-3 bg-white shadow-sm h-100">
+                    <div class="feature-icon mb-4">
+                        <i class="bi bi-wifi text-primary" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <h3 class="h5 fw-bold mb-3">High-Speed Internet</h3>
+                    <p class="text-muted mb-0">Stay connected with our high-speed WiFi available 24/7 throughout the hostel.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card p-4 rounded-3 bg-white shadow-sm h-100">
+                    <div class="feature-icon mb-4">
+                        <i class="bi bi-book text-primary" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <h3 class="h5 fw-bold mb-3">Study Rooms</h3>
+                    <p class="text-muted mb-0">Dedicated study spaces with comfortable seating and proper lighting.</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="feature-card p-4 rounded-3 bg-white shadow-sm h-100">
+                    <div class="feature-icon mb-4">
+                        <i class="bi bi-cup-hot text-primary" style="font-size: 2.5rem;"></i>
+                    </div>
+                    <h3 class="h5 fw-bold mb-3">Dining Facilities</h3>
+                    <p class="text-muted mb-0">Nutritious meals prepared in our modern, hygienic kitchen.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Popular Hostels Section -->
+<section class="hostels py-5">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold mb-3">Our Premium Hostels</h2>
+            <p class="lead text-muted">Choose from our selection of modern, well-maintained hostels</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="hostel-card rounded-3 overflow-hidden shadow-sm">
+                    <div class="position-relative">
+                        <img src="https://images.unsplash.com/photo-1560185127-6ed189bf02f4?ixlib=rb-4.0.3" 
+                             class="w-100" style="height: 250px; object-fit: cover;" alt="Girls Hostel">
+                        <div class="position-absolute top-0 end-0 m-3">
+                            <span class="badge bg-primary">Girls Only</span>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="h5 fw-bold mb-2">Sunrise Girls Hostel</h3>
+                        <p class="text-muted mb-3">Modern amenities with a focus on comfort and security.</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-star-fill text-warning me-1"></i>
+                                <span class="fw-bold">4.9</span>
+                            </div>
+                            <a href="#" class="btn btn-outline-primary">View Details</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="hostel-card rounded-3 overflow-hidden shadow-sm">
+                    <div class="position-relative">
+                        <img src="https://images.unsplash.com/photo-1560185007-5f0bb1866cab?ixlib=rb-4.0.3" 
+                             class="w-100" style="height: 250px; object-fit: cover;" alt="Boys Hostel">
+                        <div class="position-absolute top-0 end-0 m-3">
+                            <span class="badge bg-primary">Boys Only</span>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="h5 fw-bold mb-2">Sunrise Boys Hostel</h3>
+                        <p class="text-muted mb-3">Spacious rooms with study areas and recreational facilities.</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-star-fill text-warning me-1"></i>
+                                <span class="fw-bold">4.8</span>
+                            </div>
+                            <a href="@" class="btn btn-outline-primary">View Details</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="hostel-card rounded-3 overflow-hidden shadow-sm">
+                    <div class="position-relative">
+                        <img src="https://images.unsplash.com/photo-1560185893-a55cbc8c57e8?ixlib=rb-4.0.3" 
+                             class="w-100" style="height: 250px; object-fit: cover;" alt="Premium Hostel">
+                        <div class="position-absolute top-0 end-0 m-3">
+                            <span class="badge bg-primary">Premium</span>
+                        </div>
+                    </div>
+                    <div class="p-4">
+                        <h3 class="h5 fw-bold mb-2">Sunrise Premium Hostel</h3>
+                        <p class="text-muted mb-3">Luxury accommodation with premium facilities and services.</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-star-fill text-warning me-1"></i>
+                                <span class="fw-bold">4.9</span>
+                            </div>
+                            <a href="#" class="btn btn-outline-primary">View Details</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Testimonials Section -->
+<section class="testimonials py-5 bg-light">
+    <div class="container">
+        <div class="text-center mb-5">
+            <h2 class="display-5 fw-bold mb-3">What Our Students Say</h2>
+            <p class="lead text-muted">Hear from our satisfied residents about their experience</p>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="testimonial-card p-4 rounded-3 bg-white shadow-sm h-100">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="testimonial-rating">
+                            <i class="bi bi-star-fill text-warning"></i>
+                            <i class="bi bi-star-fill text-warning"></i>
+                            <i class="bi bi-star-fill text-warning"></i>
+                            <i class="bi bi-star-fill text-warning"></i>
+                            <i class="bi bi-star-fill text-warning"></i>
+                        </div>
+                    </div>
+                    <p class="testimonial-text mb-4">"The facilities are amazing and the staff is very helpful. It feels like a second home! The study rooms are perfect for my late-night study sessions."</p>
+                    <div class="d-flex align-items-center">
+                        <div class="testimonial-avatar me-3">
+                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                                SJ
+                            </div>
+                        </div>
+                        <div>
+                            <h6 class="mb-0 fw-bold">Sarah Johnson</h6>
+                            <small class="text-muted">Medical Student</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="testimonial-card p-4 rounded-3 bg-white shadow-sm h-100">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="testimonial-rating">
+                            <i class="bi bi-star-fill text-warning"></i>
+                            <i class="bi bi-star-fill text-warning"></i>
+                            <i class="bi bi-star-fill text-warning"></i>
+                            <i class="bi bi-star-fill text-warning"></i>
+                            <i class="bi bi-star-fill text-warning"></i>
+                        </div>
+                    </div>
+                    <p class="testimonial-text mb-4">"Great environment for studying and making friends. The security is top-notch, and the WiFi is super fast. Perfect for engineering students!"</p>
+                    <div class="d-flex align-items-center">
+                        <div class="testimonial-avatar me-3">
+                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                                MC
+                            </div>
+                        </div>
+                        <div>
+                            <h6 class="mb-0 fw-bold">Michael Chen</h6>
+                            <small class="text-muted">Engineering Student</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="testimonial-card p-4 rounded-3 bg-white shadow-sm h-100">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="testimonial-rating">
+                            <i class="bi bi-star-fill text-warning"></i>
+                            <i class="bi bi-star-fill text-warning"></i>
+                            <i class="bi bi-star-fill text-warning"></i>
+                            <i class="bi bi-star-fill text-warning"></i>
+                            <i class="bi bi-star-fill text-warning"></i>
+                        </div>
+                    </div>
+                    <p class="testimonial-text mb-4">"The rooms are clean and well-maintained. The staff is always available to help. Perfect for students who want to focus on their studies."</p>
+                    <div class="d-flex align-items-center">
+                        <div class="testimonial-avatar me-3">
+                            <div class="rounded-circle bg-primary text-white d-flex align-items-center justify-content-center" style="width: 48px; height: 48px;">
+                                ED
+                            </div>
+                        </div>
+                        <div>
+                            <h6 class="mb-0 fw-bold">Emily Davis</h6>
+                            <small class="text-muted">Business Student</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="cta py-5 bg-primary text-white">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-8 text-center text-lg-start">
+                <h2 class="display-5 fw-bold mb-3">Ready to Join Our Community?</h2>
+                <p class="lead mb-0">Book your stay now and experience the best student accommodation in town.</p>
+            </div>
+            <div class="col-lg-4 text-center text-lg-end mt-4 mt-lg-0">
+                <a href="#" class="btn btn-light btn-lg px-5">Book Now</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    /* Hero Section */
+    .hero-section {
+        background: linear-gradient(rgba(0, 0, 0, 0.6), rgba(0, 0, 0, 0.6)), url('https://images.unsplash.com/photo-1560185007-5f0bb1866cab?ixlib=rb-4.0.3') center/cover;
+        min-height: 75vh;
+        display: flex;
+        align-items: center;
+    }
+
+    /* Animation Classes */
+    .animate-up {
+        opacity: 0;
+        transform: translateY(20px);
+        animation: fadeInUp 0.6s ease forwards;
+    }
+
+    .delay-1 {
+        animation-delay: 0.2s;
+    }
+
+    .delay-2 {
+        animation-delay: 0.4s;
+    }
+
+    @keyframes fadeInUp {
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* Card Hover Effects */
+    .feature-card, .hostel-card, .testimonial-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .feature-card:hover, .hostel-card:hover, .testimonial-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+    }
+
+    /* Responsive Typography */
+    @media (max-width: 768px) {
+        .display-5 {
+            font-size: 2.5rem;
+        }
+        .display-3 {
+            font-size: 2.5rem;
+        }
+    }
+
+    /* Custom Card Styles */
+    .stat-card {
+        background: white;
+        transition: transform 0.3s ease;
+    }
+
+    .stat-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .testimonial-text {
+        font-size: 1.1rem;
+        line-height: 1.6;
+    }
+
+    .testimonial-rating {
+        font-size: 1.2rem;
+    }
+</style>
+{% endblock %}

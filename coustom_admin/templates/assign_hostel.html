@@ -1,0 +1,281 @@
+{% extends 'base.html' %}
+{% block title %}Assign Hostel{% endblock %}
+
+{% block header_title %}
+<i class="bi bi-building-fill"></i> Assign Hostel
+{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <div class="row justify-content-center">
+        <div class="col-md-6 col-sm-12">
+            <div class="card assign-card fade-in">
+                <div class="card-header">
+                    <h5 class="card-title mb-0">Assign Hostel to Warden</h5>
+                </div>
+                <div class="card-body">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} slide-in">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    <form method="POST" action="{% url 'assignHostel' %}" id="assignForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="warden_id" value="{{ warden_id }}">
+                        
+                        <div class="mb-3">
+                            <label for="hostel" class="form-label">Select Hostel</label>
+                            <select class="form-select" id="hostel" name="hostel" required>
+                                <option selected disabled value="">Select hostel</option>
+                                {% for hostel in hostels %}
+                                    <option value="{{ hostel.id }}">{{ hostel.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+
+                        <div class="d-grid gap-2">
+                            <button type="submit" class="btn btn-primary" id="assignButton">Assign Hostel</button>
+                            <a href="{% url 'manageWardens' %}" class="btn btn-secondary">Cancel</a>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .assign-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(12px);
+        border-radius: 1.5rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid rgba(79, 70, 229, 0.2);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .assign-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), transparent);
+        pointer-events: none;
+    }
+
+    .card-header {
+        background: transparent;
+        border-bottom: 1px solid rgba(79, 70, 229, 0.2);
+        padding: 1.5rem;
+    }
+
+    .card-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        font-size: 1.5rem;
+        position: relative;
+    }
+
+    .card-title::after {
+        content: '';
+        display: block;
+        width: 50px;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        margin-top: 0.5rem;
+        border-radius: 2px;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: var(--text-color);
+        font-size: 0.95rem;
+    }
+
+    .form-select {
+        border-radius: 0.75rem;
+        border: 1px solid rgba(79, 70, 229, 0.3);
+        padding: 0.75rem;
+        transition: all var(--transition-speed);
+        background: rgba(255, 255, 255, 0.8);
+    }
+
+    .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+        background: white;
+        transform: scale(1.02);
+    }
+
+    .form-select::placeholder {
+        color: #9ca3af;
+        font-size: 0.9rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        border: none;
+        border-radius: 0.75rem;
+        padding: 0.75rem;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all var(--transition-speed);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3);
+    }
+
+    .btn-primary::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.3), transparent);
+        transition: left var(--transition-speed);
+    }
+
+    .btn-primary:hover::before {
+        left: 0;
+    }
+
+    .btn-primary:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    .btn-secondary {
+        background: #6b7280;
+        border: none;
+        border-radius: 0.75rem;
+        padding: 0.75rem;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all var(--transition-speed);
+    }
+
+    .btn-secondary:hover {
+        background: #4b5563;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .alert {
+        border-radius: 0.75rem;
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        font-size: 0.9rem;
+        position: relative;
+    }
+
+    .alert-success {
+        background: rgba(34, 197, 94, 0.1);
+        color: var(--success-color);
+        border: 1px solid var(--success-color);
+    }
+
+    .alert-danger {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger-color);
+        border: 1px solid var(--danger-color);
+    }
+
+    .slide-in {
+        animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    /* Loading Spinner for Button */
+    .btn-loading::after {
+        content: '';
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid white;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-left: 0.5rem;
+        vertical-align: middle;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Responsive Design */
+    @media (max-width: 576px) {
+        .assign-card {
+            margin: 0 0.5rem;
+            padding: 1rem;
+            border-radius: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .form-select {
+            padding: 0.6rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary, .btn-secondary {
+            padding: 0.6rem;
+            font-size: 0.9rem;
+        }
+    }
+</style>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.getElementById('assignForm');
+        const assignButton = document.getElementById('assignButton');
+
+        form.addEventListener('submit', function(e) {
+            assignButton.disabled = true;
+            assignButton.classList.add('btn-loading');
+            assignButton.textContent = 'Assigning...';
+        });
+
+        // Smooth focus animation for select
+        const select = document.querySelector('.form-select');
+        select.addEventListener('focus', function() {
+            this.style.transform = 'scale(1.02)';
+        });
+        select.addEventListener('blur', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+</script>
+{% endblock %}

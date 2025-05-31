@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="welcome-card">
+    <h2>Welcome, {{ request.user.username }}!</h2>
+    <p>This is your admin dashboard.</p>
+</div>
+
+<div class="row">
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Total Hostels</h5>
+                <p class="card-text display-4">{{ total_hostels }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">Active Bookings</h5>
+                <p class="card-text display-4">0</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-4">
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">System Status</h5>
+                <p class="card-text text-success">Online</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

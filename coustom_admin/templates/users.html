@@ -1,0 +1,858 @@
+{% extends 'base.html' %}
+{% block title %}Manage Users{% endblock %}
+
+{% block header_title %}
+<i class="bi bi-people-fill"></i> Manage Users
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Messages Section -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} slide-in">
+                {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Filters Section -->
+    <div class="card filter-card mb-4 fade-in">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Filter Users</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3" id="filterForm">
+                <div class="col-md-3 col-sm-6">
+                    <label for="role" class="form-label">Role</label>
+                    <select class="form-select" id="role" name="role">
+                        <option value="">All Roles</option>
+                        <option value="student" {% if role_filter == 'student' %}selected{% endif %}>Student</option>
+                        <option value="warden" {% if role_filter == 'warden' %}selected{% endif %}>Warden</option>
+                    </select>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select" id="status" name="status">
+                        <option value="">All Status</option>
+                        <option value="active" {% if status_filter == 'active' %}selected{% endif %}>Active</option>
+                        <option value="inactive" {% if status_filter == 'inactive' %}selected{% endif %}>Inactive</option>
+                    </select>
+                </div>
+                <div class="col-md-3 col-sm-12">
+                    <label for="search" class="form-label">Search</label>
+                    <input type="text" class="form-control" id="search" name="search" 
+                           placeholder="Search by name or email" value="{{ search_query }}">
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary me-2" id="filterButton">
+                        <i class="bi bi-funnel-fill me-1"></i> Apply Filters
+                    </button>
+                    <a href="{% url 'users' %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Users Table -->
+    <div class="card users-card fade-in">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">User List</h5>
+            <span class="badge bg-primary">Total: {{ total_users }}</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover users-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Name</th>
+                            <th>Email</th>
+                            <th>Role</th>
+                            <th>Status</th>
+                            <th>Joined Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for user in users %}
+                        <tr>
+                            <td>#{{ user.id }}</td>
+                            <td>{{ user.get_full_name }}</td>
+                            <td>{{ user.email }}</td>
+                            <td>
+                                {% if user.is_superuser %}
+                                    <span class="badge bg-danger">Admin</span>
+                                {% elif user.is_staff %}
+                                    <span class="badge bg-warning">Staff</span>
+                                {% else %}
+                                    <span class="badge bg-info">Student</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if user.is_active %}
+                                    <span class="badge bg-success">Active</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>{{ user.date_joined|date:"Y-m-d" }}</td>
+                            <td class="action-buttons">
+                                <button class="btn btn-sm btn-info" data-bs-toggle="modal" 
+                                        data-bs-target="#viewModal" 
+                                        data-user-id="{{ user.id }}"
+                                        data-user-name="{{ user.get_full_name }}"
+                                        data-user-email="{{ user.email }}"
+                                        data-user-role="{% if user.is_superuser %}Admin{% elif user.is_staff %}Staff{% else %}Student{% endif %}"
+                                        data-user-status="{% if user.is_active %}Active{% else %}Inactive{% endif %}"
+                                        data-user-joined="{{ user.date_joined|date:'Y-m-d' }}">
+                                    <i class="bi bi-eye-fill"></i> View
+                                </button>
+                                {% if not user.is_superuser %}
+                                <button class="btn btn-sm btn-primary edit-user" data-bs-toggle="modal" 
+                                        data-bs-target="#editModal" 
+                                        data-user-id="{{ user.id }}">
+                                    <i class="bi bi-pencil-fill"></i> Edit
+                                </button>
+                                <button class="btn btn-sm btn-danger" data-bs-toggle="modal" 
+                                        data-bs-target="#deleteModal" 
+                                        data-user-id="{{ user.id }}"
+                                        data-user-name="{{ user.get_full_name|escapejs }}">
+                                    <i class="bi bi-trash-fill"></i> Delete
+                                </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center text-muted">No users found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View User Modal -->
+<div class="modal fade" id="viewModal" tabindex="-1" aria-labelledby="viewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-custom fade-in">
+            <div class="modal-header">
+                <h5 class="modal-title" id="viewModalLabel">User Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <h6>User Information</h6>
+                    <p><strong>Name:</strong> <span id="modal-user-name"></span></p>
+                    <p><strong>Email:</strong> <span id="modal-user-email"></span></p>
+                    <p><strong>Role:</strong> <span id="modal-user-role"></span></p>
+                    <p><strong>Status:</strong> <span id="modal-user-status"></span></p>
+                    <p><strong>Joined Date:</strong> <span id="modal-user-joined"></span></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Edit User Modal -->
+<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-custom fade-in">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editModalLabel">Edit User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="editFormMessage" class="alert d-none slide-in" role="alert"></div>
+                <form id="editForm" method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" id="edit_id" name="id">
+                    <div class="mb-3">
+                        <label for="edit_name" class="form-label">Full Name</label>
+                        <input type="text" class="form-control" id="edit_name" name="name" placeholder="Enter full name" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_email" class="form-label">Email Address</label>
+                        <input type="email" class="form-control" id="edit_email" name="email" placeholder="Enter email address" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_role" class="form-label">Role</label>
+                        <select class="form-select" id="edit_role" name="role" required>
+                            <option selected disabled value="">Select role</option>
+                            <option value="student">Student</option>
+                            <option value="warden">Warden</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="edit_is_active" name="is_active">
+                            <label class="form-check-label" for="edit_is_active">Active Status</label>
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary" id="editButton">Update</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete User Modal -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content modal-custom fade-in">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteModalLabel">Delete User</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="deleteFormMessage" class="alert d-none slide-in" role="alert"></div>
+                <p>Are you sure you want to delete user "<span id="delete-user-name"></span>"?</p>
+                <p class="text-danger">This action cannot be undone.</p>
+                <form id="deleteForm" method="POST">
+                    {% csrf_token %}
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger" id="deleteButton">Confirm Delete</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    :root {
+        --primary-color: #4f46e5;
+        --secondary-color: #7c3aed;
+        --accent-color: #60a5fa;
+        --text-color: #1f2937;
+        --light-bg: #f1f5f9;
+        --success-color: #22c55e;
+        --danger-color: #ef4444;
+        --warning-color: #f59e0b;
+        --info-color: #06b6d4;
+        --card-shadow: 0 6px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+        --transition-speed: 0.3s;
+    }
+
+    .filter-card, .users-card {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(12px);
+        border-radius: 1.5rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid rgba(79, 70, 229, 0.2);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .filter-card::before, .users-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), transparent);
+        pointer-events: none;
+    }
+
+    .card-header {
+        background: transparent;
+        border-bottom: 1px solid rgba(79, 70, 229, 0.2);
+        padding: 1.5rem;
+    }
+
+    .card-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        font-size: 1.5rem;
+        position: relative;
+    }
+
+    .card-title::after {
+        content: '';
+        display: block;
+        width: 50px;
+        height: 3px;
+        background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
+        margin-top: 0.5rem;
+        border-radius: 2px;
+    }
+
+    .card-body {
+        padding: 1.5rem;
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: var(--text-color);
+        font-size: 0.95rem;
+    }
+
+    .form-control, .form-select {
+        border-radius: 0.75rem;
+        border: 1px solid rgba(79, 70, 229, 0.3);
+        padding: 0.75rem;
+        transition: all var(--transition-speed);
+        background: rgba(255, 255, 255, 0.8);
+    }
+
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+        background: white;
+        transform: scale(1.02);
+    }
+
+    .form-control::placeholder, .form-select::placeholder {
+        color: #9ca3af;
+        font-size: 0.9rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        border: none;
+        border-radius: 0.75rem;
+        padding: 0.75rem;
+        font-weight: 600;
+        transition: all var(--transition-speed);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(79, 70, 229, 0.3);
+    }
+
+    .btn-primary::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.3), transparent);
+        transition: left var(--transition-speed);
+    }
+
+    .btn-primary:hover::before {
+        left: 0;
+    }
+
+    .btn-primary:disabled {
+        opacity: 0.7;
+        cursor: not-allowed;
+    }
+
+    .btn-info {
+        background: var(--info-color);
+        border: none;
+        border-radius: 0.5rem;
+        transition: all var(--transition-speed);
+    }
+
+    .btn-info:hover {
+        background: #0891b2;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(6, 182, 212, 0.3);
+    }
+
+    .btn-danger {
+        background: var(--danger-color);
+        border: none;
+        border-radius: 0.5rem;
+        transition: all var(--transition-speed);
+    }
+
+    .btn-danger:hover {
+        background: #dc2626;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(239, 68, 68, 0.3);
+    }
+
+    .btn-secondary {
+        background: #6b7280;
+        border: none;
+        border-radius: 0.5rem;
+        transition: all var(--transition-speed);
+    }
+
+    .btn-secondary:hover {
+        background: #4b5563;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+    }
+
+    .users-table {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(12px);
+        border-radius: 1rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid rgba(79, 70, 229, 0.2);
+    }
+
+    .users-table thead {
+        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        color: white;
+    }
+
+    .users-table th {
+        font-weight: 500;
+        padding: 1rem;
+    }
+
+    .users-table tbody tr {
+        transition: all var(--transition-speed);
+    }
+
+    .users-table tbody tr:hover {
+        background: rgba(79, 70, 229, 0.1);
+        transform: translateY(-2px);
+    }
+
+    .users-table td {
+        vertical-align: middle;
+        padding: 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    .badge {
+        border-radius: 0.5rem;
+        padding: 0.5rem 0.75rem;
+        font-weight: 500;
+        color: white;
+    }
+
+    .badge.bg-success {
+        background: var(--success-color) !important;
+    }
+
+    .badge.bg-danger {
+        background: var(--danger-color) !important;
+    }
+
+    .badge.bg-warning {
+        background: var(--warning-color) !important;
+    }
+
+    .badge.bg-info {
+        background: var(--info-color) !important;
+    }
+
+    .badge.bg-primary {
+        background: var(--primary-color) !important;
+    }
+
+    .action-buttons .btn {
+        margin-right: 0.5rem;
+        padding: 0.5rem 1rem;
+        font-size: 0.85rem;
+    }
+
+    .modal-custom {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(12px);
+        border-radius: 1rem;
+        box-shadow: var(--card-shadow);
+        border: 1px solid rgba(79, 70, 229, 0.2);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .modal-custom::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), transparent);
+        pointer-events: none;
+    }
+
+    .modal-header {
+        border-bottom: 1px solid rgba(79, 70, 229, 0.2);
+    }
+
+    .modal-title {
+        font-weight: 600;
+        color: var(--primary-color);
+        font-size: 1.5rem;
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .alert {
+        border-radius: 0.75rem;
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        font-size: 0.9rem;
+    }
+
+    .alert-success {
+        background: rgba(34, 197, 94, 0.1);
+        color: var(--success-color);
+        border: 1px solid var(--success-color);
+    }
+
+    .alert-danger {
+        background: rgba(239, 68, 68, 0.1);
+        color: var(--danger-color);
+        border: 1px solid var(--danger-color);
+    }
+
+    .slide-in {
+        animation: slideIn 0.3s ease-out;
+    }
+
+    .fade-in {
+        animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translateY(12px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    @keyframes slideIn {
+        from {
+            opacity: 0;
+            transform: translateX(-10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateX(0);
+        }
+    }
+
+    /* Custom Scrollbar for Table */
+    .table-responsive::-webkit-scrollbar {
+        height: 8px;
+    }
+
+    .table-responsive::-webkit-scrollbar-track {
+        background: rgba(241, 245, 249, 0.8);
+        border-radius: 4px;
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb {
+        background: var(--primary-color);
+        border-radius: 4px;
+        transition: all var(--transition-speed);
+    }
+
+    .table-responsive::-webkit-scrollbar-thumb:hover {
+        background: var(--secondary-color);
+    }
+
+    /* Loading Spinner for Buttons */
+    .btn-loading::after {
+        content: '';
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid white;
+        border-top-color: transparent;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-left: 0.5rem;
+        vertical-align: middle;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Responsive Design */
+    @media (max-width: 768px) {
+        .users-table {
+            font-size: 0.85rem;
+        }
+
+        .action-buttons .btn {
+            padding: 0.4rem 0.8rem;
+            font-size: 0.8rem;
+        }
+
+        .card-title {
+            font-size: 1.3rem;
+        }
+    }
+
+    @media (max-width: 576px) {
+        .container {
+            margin: 0 0.5rem;
+        }
+
+        .filter-card, .users-card {
+            border-radius: 1rem;
+            padding: 1rem;
+        }
+
+        .card-body {
+            padding: 1rem;
+        }
+
+        .form-control, .form-select {
+            padding: 0.6rem;
+            font-size: 0.9rem;
+        }
+
+        .btn-primary, .btn-secondary, .btn-info, .btn-danger {
+            padding: 0.6rem;
+            font-size: 0.9rem;
+        }
+
+        .modal-dialog {
+            margin: 0.5rem;
+        }
+
+        .modal-custom {
+            border-radius: 0.75rem;
+        }
+
+        .modal-title {
+            font-size: 1.3rem;
+        }
+    }
+</style>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Utility function to get CSRF token
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        let currentUserId = null;
+
+        // Handle filter form submission
+        const filterForm = document.getElementById('filterForm');
+        const filterButton = document.getElementById('filterButton');
+        filterForm.addEventListener('submit', function(event) {
+            filterButton.disabled = true;
+            filterButton.classList.add('btn-loading');
+            filterButton.textContent = 'Applying...';
+        });
+
+        // Handle view modal
+        const viewModal = document.getElementById('viewModal');
+        viewModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const userName = button.getAttribute('data-user-name');
+            const userEmail = button.getAttribute('data-user-email');
+            const userRole = button.getAttribute('data-user-role');
+            const userStatus = button.getAttribute('data-user-status');
+            const userJoined = button.getAttribute('data-user-joined');
+
+            document.getElementById('modal-user-name').textContent = userName;
+            document.getElementById('modal-user-email').textContent = userEmail;
+            document.getElementById('modal-user-role').textContent = userRole;
+            document.getElementById('modal-user-status').textContent = userStatus;
+            document.getElementById('modal-user-joined').textContent = userJoined;
+        });
+
+        // Handle edit modal
+        document.querySelectorAll('.edit-user').forEach(button => {
+            button.addEventListener('click', function() {
+                currentUserId = this.getAttribute('data-user-id');
+                loadUserData(currentUserId);
+            });
+        });
+
+        // Handle edit form submission
+        const editForm = document.getElementById('editForm');
+        const editButton = document.getElementById('editButton');
+        if (editForm) {
+            editForm.addEventListener('submit', async function(event) {
+                event.preventDefault();
+                editButton.disabled = true;
+                editButton.classList.add('btn-loading');
+                editButton.textContent = 'Updating...';
+
+                const formData = new FormData(editForm);
+                const messageDiv = document.getElementById('editFormMessage');
+
+                try {
+                    const response = await fetch(`/users/update/${currentUserId}/`, {
+                        method: 'POST',
+                        body: formData,
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        credentials: 'same-origin'
+                    });
+
+                    const result = await response.json();
+                    messageDiv.textContent = result.message;
+                    messageDiv.classList.remove('d-none', 'alert-success', 'alert-danger');
+                    messageDiv.classList.add(result.status === 'success' ? 'alert-success' : 'alert-danger');
+
+                    if (result.status === 'success') {
+                        setTimeout(() => {
+                            const modal = document.getElementById('editModal');
+                            bootstrap.Modal.getInstance(modal).hide();
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        editButton.disabled = false;
+                        editButton.classList.remove('btn-loading');
+                        editButton.textContent = 'Update';
+                    }
+                } catch (error) {
+                    console.error('Edit form submission error:', error);
+                    messageDiv.textContent = `An error occurred: ${error.message}`;
+                    messageDiv.classList.remove('d-none', 'alert-success');
+                    messageDiv.classList.add('alert-danger');
+                    editButton.disabled = false;
+                    editButton.classList.remove('btn-loading');
+                    editButton.textContent = 'Update';
+                }
+            });
+        }
+
+        // Handle delete modal
+        const deleteModal = document.getElementById('deleteModal');
+        deleteModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            currentUserId = button.getAttribute('data-user-id');
+            const userName = button.getAttribute('data-user-name');
+            const form = document.getElementById('deleteForm');
+            
+            document.getElementById('delete-user-name').textContent = userName;
+            form.action = `/admin/deleteUser/${currentUserId}/`;
+        });
+
+        // Handle delete form submission
+        const deleteForm = document.getElementById('deleteForm');
+        const deleteButton = document.getElementById('deleteButton');
+        deleteForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            deleteButton.disabled = true;
+            deleteButton.classList.add('btn-loading');
+            deleteButton.textContent = 'Deleting...';
+
+            const formData = new FormData(deleteForm);
+            const messageDiv = document.getElementById('deleteFormMessage');
+
+            try {
+                const response = await fetch(deleteForm.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                });
+
+                const result = await response.json();
+                messageDiv.textContent = result.message;
+                messageDiv.classList.remove('d-none', 'alert-success', 'alert-danger');
+                messageDiv.classList.add(result.status === 'success' ? 'alert-success' : 'alert-danger');
+
+                if (result.status === 'success') {
+                    setTimeout(() => {
+                        const modal = document.getElementById('deleteModal');
+                        bootstrap.Modal.getInstance(modal).hide();
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    deleteButton.disabled = false;
+                    deleteButton.classList.remove('btn-loading');
+                    deleteButton.textContent = 'Confirm Delete';
+                }
+            } catch (error) {
+                console.error('Delete form submission error:', error);
+                messageDiv.textContent = `An error occurred: ${error.message}`;
+                messageDiv.classList.remove('d-none', 'alert-success');
+                messageDiv.classList.add('alert-danger');
+                deleteButton.disabled = false;
+                deleteButton.classList.remove('btn-loading');
+                deleteButton.textContent = 'Confirm Delete';
+            }
+        });
+
+        // Function to load user data for editing
+        async function loadUserData(userId) {
+            try {
+                const response = await fetch(`/admin/getUser/${userId}/`, {
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                });
+
+                const data = await response.json();
+                if (data.status === 'success') {
+                    document.getElementById('edit_id').value = userId;
+                    document.getElementById('edit_name').value = data.user.name;
+                    document.getElementById('edit_email').value = data.user.email;
+                    document.getElementById('edit_role').value = data.user.role;
+                    document.getElementById('edit_is_active').checked = data.user.is_active;
+                } else {
+                    const messageDiv = document.getElementById('editFormMessage');
+                    messageDiv.textContent = data.message;
+                    messageDiv.classList.remove('d-none', 'alert-success');
+                    messageDiv.classList.add('alert-danger');
+                }
+            } catch (error) {
+                console.error('Error loading user data:', error);
+                const messageDiv = document.getElementById('editFormMessage');
+                messageDiv.textContent = `An error occurred: ${error.message}`;
+                messageDiv.classList.remove('d-none', 'alert-success');
+                messageDiv.classList.add('alert-danger');
+            }
+        }
+
+        // Smooth focus animation for inputs and selects
+        const inputs = document.querySelectorAll('.form-control, .form-select');
+        inputs.forEach(input => {
+            input.addEventListener('focus', function() {
+                this.style.transform = 'scale(1.02)';
+            });
+            input.addEventListener('blur', function() {
+                this.style.transform = 'scale(1)';
+            });
+        });
+    });
+</script>
+{% endblock %}

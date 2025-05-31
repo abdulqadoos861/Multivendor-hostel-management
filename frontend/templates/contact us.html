@@ -1,0 +1,179 @@
+{% extends 'febase.html' %}
+
+{% block title %}Contact Us - Sunrise Hostel{% endblock %}
+
+{% block hero %}
+<section class="hero-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-8 mx-auto text-center">
+                <h1 class="display-3 fw-bold mb-4 animate-up">Contact Us</h1>
+                <p class="lead mb-0 animate-up delay-1">Get in touch with us for any inquiries about our hostels</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block content %}
+<!-- Contact Information Section -->
+<section class="contact-info py-5">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="contact-card text-center p-4 h-100">
+                    <div class="icon-box bg-primary text-white rounded-circle p-3 mx-auto mb-4" style="width: 80px; height: 80px;">
+                        <i class="bi bi-geo-alt" style="font-size: 2rem;"></i>
+                    </div>
+                    <h3 class="h5 fw-bold mb-3">Our Location</h3>
+                    <p class="text-muted mb-0">123 Hostel Street<br>Near Graduate College<br>Jhang, Pakistan</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="contact-card text-center p-4 h-100">
+                    <div class="icon-box bg-primary text-white rounded-circle p-3 mx-auto mb-4" style="width: 80px; height: 80px;">
+                        <i class="bi bi-telephone" style="font-size: 2rem;"></i>
+                    </div>
+                    <h3 class="h5 fw-bold mb-3">Phone Number</h3>
+                    <p class="text-muted mb-0">+92 123 456 7890<br>+92 123 456 7891</p>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="contact-card text-center p-4 h-100">
+                    <div class="icon-box bg-primary text-white rounded-circle p-3 mx-auto mb-4" style="width: 80px; height: 80px;">
+                        <i class="bi bi-envelope" style="font-size: 2rem;"></i>
+                    </div>
+                    <h3 class="h5 fw-bold mb-3">Email Address</h3>
+                    <p class="text-muted mb-0">info@sunrisehostel.com<br>support@sunrisehostel.com</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Contact Form Section -->
+<section class="contact-form py-5 bg-light">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4 p-md-5">
+                        <h2 class="text-center mb-4">Send us a Message</h2>
+                        <form id="contactForm">
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <div class="form-floating mb-3">
+                                        <input type="text" class="form-control" id="name" placeholder="Your Name" required>
+                                        <label for="name">Your Name</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-floating mb-3">
+                                        <input type="email" class="form-control" id="email" placeholder="Your Email" required>
+                                        <label for="email">Your Email</label>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-floating mb-3">
+                                        <input type="text" class="form-control" id="subject" placeholder="Subject" required>
+                                        <label for="subject">Subject</label>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <div class="form-floating mb-3">
+                                        <textarea class="form-control" id="message" placeholder="Your Message" style="height: 150px" required></textarea>
+                                        <label for="message">Your Message</label>
+                                    </div>
+                                </div>
+                                <div class="col-12 text-center">
+                                    <button type="submit" class="btn btn-primary btn-lg px-5">Send Message</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Map Section -->
+<section class="map-section py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-10">
+                <div class="ratio ratio-21x9">
+                    <iframe src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3405.6072514772094!2d72.3257!3d31.2707!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x0%3A0x0!2zMzHCsDE2JzE0LjUiTiA3MsKwMTknMzIuMiJF!5e0!3m2!1sen!2s!4v1635000000000!5m2!1sen!2s" 
+                            style="border:0;" allowfullscreen="" loading="lazy" class="rounded-3 shadow"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Business Hours Section -->
+<section class="business-hours py-5 bg-light">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center">
+                <h2 class="mb-4">Business Hours</h2>
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body p-4">
+                                <h3 class="h5 fw-bold mb-3">Office Hours</h3>
+                                <ul class="list-unstyled mb-0">
+                                    <li class="mb-2">Monday - Friday: 9:00 AM - 6:00 PM</li>
+                                    <li class="mb-2">Saturday: 9:00 AM - 2:00 PM</li>
+                                    <li>Sunday: Closed</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body p-4">
+                                <h3 class="h5 fw-bold mb-3">Reception Hours</h3>
+                                <ul class="list-unstyled mb-0">
+                                    <li class="mb-2">Monday - Friday: 24/7</li>
+                                    <li class="mb-2">Saturday: 24/7</li>
+                                    <li>Sunday: 24/7</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    .contact-card {
+        transition: transform 0.3s ease;
+        border-radius: 10px;
+        background: white;
+        box-shadow: 0 2px 15px rgba(0,0,0,0.1);
+    }
+
+    .contact-card:hover {
+        transform: translateY(-5px);
+    }
+
+    .form-control:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.25rem rgba(37, 99, 235, 0.25);
+    }
+
+    .btn-primary {
+        padding: 0.8rem 2rem;
+        font-weight: 500;
+    }
+
+    @media (max-width: 768px) {
+        .display-3 {
+            font-size: 2.5rem;
+        }
+    }
+</style>
+{% endblock %} 
