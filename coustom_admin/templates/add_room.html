@@ -1,160 +1,386 @@
-{% extends 'admin/base_site.html' %}
+{% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Add New Room | {{ site_title|default:_('Django site admin') }}{% endblock %}
-
-{% block extrastyle %}
-{{ block.super }}
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-<style>
-    .form-container {
-        background: #fff;
-        padding: 30px;
-        border-radius: 8px;
-        box-shadow: 0 0 15px rgba(0, 0, 0, 0.1);
-        margin-top: 20px;
-    }
-    .form-header {
-        border-bottom: 1px solid #eaeaea;
-        padding-bottom: 15px;
-        margin-bottom: 25px;
-    }
-    .form-header h2 {
-        color: #333;
-        margin: 0;
-    }
-    .form-group {
-        margin-bottom: 20px;
-    }
-    .form-label {
-        font-weight: 600;
-        margin-bottom: 8px;
-        display: block;
-    }
-    .form-control {
-        border-radius: 4px;
-        border: 1px solid #ddd;
-        padding: 10px 12px;
-        width: 100%;
-        transition: border-color 0.3s;
-    }
-    .form-control:focus {
-        border-color: #4a90e2;
-        box-shadow: 0 0 0 0.2rem rgba(74, 144, 226, 0.25);
-    }
-    .btn-submit {
-        background-color: #4a90e2;
-        color: white;
-        padding: 10px 20px;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        font-weight: 600;
-        transition: background-color 0.3s;
-    }
-    .btn-submit:hover {
-        background-color: #3a7bc8;
-    }
-    .required-field::after {
-        content: " *";
-        color: #dc3545;
-    }
-</style>
-{% endblock %}
-
 {% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-12">
-            <div class="form-container">
-                <div class="form-header d-flex justify-content-between align-items-center">
-                    <h2><i class="fas fa-plus-circle me-2"></i>Add New Room</h2>
-                    <a href="{% url 'admin:index' %}" class="btn btn-outline-secondary">
-                        <i class="fas fa-arrow-left me-1"></i> Back to Dashboard
-                    </a>
-                </div>
-                
-                <form method="post" id="roomForm">
-                    {% csrf_token %}
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="room_number" class="form-label required-field">Room Number</label>
-                                <input type="text" class="form-control" id="room_number" name="room_number" required>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="room_type" class="form-label required-field">Room Type</label>
-                                <select class="form-control" id="room_type" name="room_type" required>
-                                    <option value="" selected disabled>Select Room Type</option>
-                                    <option value="single">Single</option>
-                                    <option value="double">Double</option>
-                                    <option value="triple">Triple</option>
-                                    <option value="dormitory">Dormitory</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="row">
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="capacity" class="form-label required-field">Capacity</label>
-                                <input type="number" class="form-control" id="capacity" name="capacity" min="1" required>
-                            </div>
-                        </div>
-                        
-                        <div class="col-md-6">
-                            <div class="form-group">
-                                <label for="floor" class="form-label">Floor</label>
-                                <input type="number" class="form-control" id="floor" name="floor" min="0">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="description" class="form-label">Description</label>
-                        <textarea class="form-control" id="description" name="description" rows="3"></textarea>
-                    </div>
-                    
-                    <div class="form-group">
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" id="is_available" name="is_available" checked>
-                            <label class="form-check-label" for="is_available">
-                                Room is currently available
-                            </label>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group mt-4">
-                        <button type="submit" class="btn-submit">
-                            <i class="fas fa-save me-2"></i>Save Room
-                        </button>
-                        <button type="reset" class="btn btn-outline-secondary ms-2">
-                            <i class="fas fa-undo me-2"></i>Reset
-                        </button>
-                    </div>
-                </form>
+<div class="card">
+    <div class="card-header">
+        <h4>Add Room</h4>
+    </div>
+    <div class="card-body">
+        <form method="POST" id="roomForm">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="hostel" class="form-label">Select Hostel</label>
+                <select class="form-select" id="hostel" name="hostel" required>
+                    <option value="">Select a hostel</option>
+                    {% for hostel in hostels %}
+                        <option value="{{ hostel.id }}" data-floors="{{ hostel.total_floors }}">{{ hostel.name }}</option>
+                    {% endfor %}
+                </select>
             </div>
+            <div class="mb-3">
+                <label for="floor_number" class="form-label">Floor Number</label>
+                <input type="number" class="form-control" id="floor_number" name="floor_number" min="0" required>
+                <div id="floorError" class="text-danger" style="display: none;"></div>
+            </div>
+            <div class="mb-3">
+                <label for="room_number" class="form-label">Room Number</label>
+                <input type="text" class="form-control" id="room_number" name="room_number" required>
+            </div>
+            <div class="mb-3">
+                <label for="room_type" class="form-label">Room Type</label>
+                <select class="form-select" id="room_type" name="room_type" required>
+                    <option value="Single">Single</option>
+                    <option value="Double">Double</option>
+                    <option value="Shared">Shared</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="description" class="form-label">Description</label>
+                <textarea class="form-control" id="description" name="description" rows="4"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Add Room</button>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h4>Room Details</h4>
+        <div class="mb-3">
+            <label for="filter_hostel" class="form-label">Filter by Hostel</label>
+            <select class="form-select" id="filter_hostel">
+                <option value="">All Hostels</option>
+                {% for hostel in hostels %}
+                    <option value="{{ hostel.id }}">{{ hostel.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Hostel Name</th>
+                        <th>Floor Number</th>
+                        <th>Room Number</th>
+                        <th>Room Type</th>
+                        <th>Rent per head</th>
+                        <th>Status</th>
+                        <th>Occupants/Capacity</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody id="roomTable">
+                    {% for room in rooms %}
+                        <tr data-hostel="{{ room.hostel_id.id }}">
+                            <td>{{ room.hostel_id.name }}</td>
+                            <td>{{ room.floor_number }}</td>
+                            <td>{{ room.room_number }}</td>
+                            <td>{{ room.room_type }}</td>
+                            <td>{{ room.rent }}</td>
+                            <td>{{ room.status }}</td>
+                            <td>{{ room.current_occupants }}/{{ room.capacity }}</td>
+                            <td>
+                                <button class="btn btn-sm btn-warning edit-room" 
+                                        data-id="{{ room.id }}"
+                                        data-hostel-id="{{ room.hostel_id.id }}"
+                                        data-floor="{{ room.floor_number }}"
+                                        data-room-number="{{ room.room_number }}"
+                                        data-room-type="{{ room.room_type }}"
+                                        data-description="{{ room.description|default:'' }}"
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#editRoomModal">
+                                    Edit
+                                </button>
+                                <button class="btn btn-sm btn-danger delete-room" 
+                                        data-id="{{ room.id }}"
+                                        data-room-number="{{ room.room_number }}">
+                                    Delete
+                                </button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Room Modal -->
+<div class="modal fade" id="editRoomModal" tabindex="-1" aria-labelledby="editRoomModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form id="editRoomForm" method="POST" action="{% url 'update_room' 0 %}">
+                {% csrf_token %}
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editRoomModalLabel">Edit Room</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" id="edit_room_id" name="room_id">
+                    <div class="mb-3">
+                        <label for="edit_hostel" class="form-label">Select Hostel</label>
+                        <select class="form-select" id="edit_hostel" name="hostel" required>
+                            {% for hostel in hostels %}
+                                <option value="{{ hostel.id }}" data-floors="{{ hostel.total_floors }}">{{ hostel.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_floor_number" class="form-label">Floor Number</label>
+                        <input type="number" class="form-control" id="edit_floor_number" name="floor_number" min="0" required>
+                        <div id="edit_floorError" class="text-danger" style="display: none;"></div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_room_number" class="form-label">Room Number</label>
+                        <input type="text" class="form-control" id="edit_room_number" name="room_number" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_room_type" class="form-label">Room Type</label>
+                        <select class="form-select" id="edit_room_type" name="room_type" required>
+                            <option value="Single">Single</option>
+                            <option value="Double">Double</option>
+                            <option value="Shared">Shared</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit_description" class="form-label">Description</label>
+                        <textarea class="form-control" id="edit_description" name="description" rows="4"></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
 
 <script>
-    document.addEventListener('DOMContentLoaded', function() {
-        const form = document.getElementById('roomForm');
+document.addEventListener('DOMContentLoaded', function() {
+    const hostelSelect = document.getElementById('hostel');
+    const floorInput = document.getElementById('floor_number');
+    const roomTypeSelect = document.getElementById('room_type');
+    const floorError = document.getElementById('floorError');
+    const form = document.getElementById('roomForm');
+    const filterHostel = document.getElementById('filter_hostel');
+
+    // Validate floor number for add room form
+    hostelSelect.addEventListener('change', function() {
+        const selectedOption = hostelSelect.options[hostelSelect.selectedIndex];
+        const maxFloors = selectedOption ? parseInt(selectedOption.getAttribute('data-floors')) : 0;
         
-        form.addEventListener('submit', function(event) {
-            // Add any client-side validation here if needed
-            if (!form.checkValidity()) {
-                event.preventDefault();
-                event.stopPropagation();
+        floorInput.max = maxFloors;
+        floorError.style.display = 'none';
+        
+        if (floorInput.value !== '') {
+            const floorValue = parseInt(floorInput.value);
+            if (floorValue < 0 || floorValue > maxFloors) {
+                floorError.textContent = `Floor number must be between 0 and ${maxFloors}.`;
+                floorError.style.display = 'block';
+                floorInput.value = '';
             }
-            form.classList.add('was-validated');
+        }
+    });
+
+    floorInput.addEventListener('input', function() {
+        const selectedOption = hostelSelect.options[hostelSelect.selectedIndex];
+        const maxFloors = selectedOption ? parseInt(selectedOption.getAttribute('data-floors')) : 0;
+        const floorValue = parseInt(floorInput.value);
+
+        if (floorValue < 0 || floorValue > maxFloors || isNaN(floorValue)) {
+            floorError.textContent = `Floor number must be between 0 and ${maxFloors}.`;
+            floorError.style.display = 'block';
+        } else {
+            floorError.style.display = 'none';
+        }
+    });
+
+    form.addEventListener('submit', function(e) {
+        const selectedOption = hostelSelect.options[hostelSelect.selectedIndex];
+        const maxFloors = selectedOption ? parseInt(selectedOption.getAttribute('data-floors')) : 0;
+        const floorValue = parseInt(floorInput.value);
+
+        if (floorValue < 0 || floorValue > maxFloors || isNaN(floorValue)) {
+            e.preventDefault();
+            floorError.textContent = `Floor number must be between 0 and ${maxFloors}.`;
+            floorError.style.display = 'block';
+        }
+    });
+
+    // Filter table by hostel
+    filterHostel.addEventListener('change', function() {
+        const selectedHostel = filterHostel.value;
+        const rows = document.querySelectorAll('#roomTable tr');
+
+        rows.forEach(row => {
+            if (!selectedHostel || row.getAttribute('data-hostel') === selectedHostel) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
         });
     });
+
+    // Edit Room Modal Setup
+    const editButtons = document.querySelectorAll('.edit-room');
+    const editForm = document.getElementById('editRoomForm');
+    const editHostelSelect = document.getElementById('edit_hostel');
+    const editFloorInput = document.getElementById('edit_floor_number');
+    const editRoomNumberInput = document.getElementById('edit_room_number');
+    const editRoomTypeSelect = document.getElementById('edit_room_type');
+    const editDescriptionInput = document.getElementById('edit_description');
+    const editRoomIdInput = document.getElementById('edit_room_id');
+    const editFloorError = document.getElementById('edit_floorError');
+
+    editButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const roomId = this.getAttribute('data-id');
+            const hostelId = this.getAttribute('data-hostel-id');
+            const floor = this.getAttribute('data-floor');
+            const roomNumber = this.getAttribute('data-room-number');
+            const roomType = this.getAttribute('data-room-type');
+            const description = this.getAttribute('data-description');
+
+            editRoomIdInput.value = roomId;
+            editHostelSelect.value = hostelId;
+            editFloorInput.value = floor;
+            editRoomNumberInput.value = roomNumber;
+            editRoomTypeSelect.value = roomType;
+            editDescriptionInput.value = description;
+
+            // Update form action with room ID
+            editForm.action = `{% url 'update_room' 0 %}`.replace('0', roomId);
+
+            // Set max floors for edit form
+            const selectedOption = editHostelSelect.options[editHostelSelect.selectedIndex];
+            editFloorInput.max = selectedOption ? parseInt(selectedOption.getAttribute('data-floors')) : 0;
+        });
+    });
+
+    // Validate floor number for edit form
+    editHostelSelect.addEventListener('change', function() {
+        const selectedOption = editHostelSelect.options[editHostelSelect.selectedIndex];
+        const maxFloors = selectedOption ? parseInt(selectedOption.getAttribute('data-floors')) : 0;
+        
+        editFloorInput.max = maxFloors;
+        editFloorError.style.display = 'none';
+        
+        if (editFloorInput.value !== '') {
+            const floorValue = parseInt(editFloorInput.value);
+            if (floorValue < 0 || floorValue > maxFloors) {
+                editFloorError.textContent = `Floor number must be between 0 and ${maxFloors}.`;
+                editFloorError.style.display = 'block';
+                editFloorInput.value = '';
+            }
+        }
+    });
+
+    editFloorInput.addEventListener('input', function() {
+        const selectedOption = editHostelSelect.options[editHostelSelect.selectedIndex];
+        const maxFloors = selectedOption ? parseInt(selectedOption.getAttribute('data-floors')) : 0;
+        const floorValue = parseInt(editFloorInput.value);
+
+        if (floorValue < 0 || floorValue > maxFloors || isNaN(floorValue)) {
+            editFloorError.textContent = `Floor number must be between 0 and ${maxFloors}.`;
+            editFloorError.style.display = 'block';
+        } else {
+            editFloorError.style.display = 'none';
+        }
+    });
+
+    editForm.addEventListener('submit', function(e) {
+        const selectedOption = editHostelSelect.options[editHostelSelect.selectedIndex];
+        const maxFloors = selectedOption ? parseInt(selectedOption.getAttribute('data-floors')) : 0;
+        const floorValue = parseInt(editFloorInput.value);
+
+        if (floorValue < 0 || floorValue > maxFloors || isNaN(floorValue)) {
+            e.preventDefault();
+            editFloorError.textContent = `Floor number must be between 0 and ${maxFloors}.`;
+            editFloorError.style.display = 'block';
+        }
+    });
+
+    // Delete Room
+    const deleteButtons = document.querySelectorAll('.delete-room');
+    deleteButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const roomId = this.getAttribute('data-id');
+            const roomNumber = this.getAttribute('data-room-number');
+            if (confirm(`Are you sure you want to delete room ${roomNumber}?`)) {
+                fetch(`{% url 'delete_room' 0 %}`.replace('0', roomId), {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': '{{ csrf_token }}',
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(data.message);
+                        location.reload();
+                    } else {
+                        alert(data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error deleting room: ' + error);
+                });
+            }
+        });
+    });
+});
 </script>
+
+<style>
+.card {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+}
+.card-header {
+    background: #2563eb;
+    color: white;
+    padding: 1rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+.card-header h4 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+.card-body {
+    padding: 1.5rem;
+}
+.btn-primary {
+    background: #2563eb;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 0.3rem;
+    transition: transform 0.3s ease;
+}
+.btn-primary:hover {
+    background: #1e40af;
+    transform: scale(1.05);
+}
+.form-label {
+    font-weight: 500;
+}
+.form-control, .form-select {
+    border-radius: 0.3rem;
+}
+.table-responsive {
+    overflow-x: auto;
+}
+.table th, .table td {
+    vertical-align: middle;
+}
+.table th {
+    background: #f1f5f9;
+}
+</style>
 {% endblock %}

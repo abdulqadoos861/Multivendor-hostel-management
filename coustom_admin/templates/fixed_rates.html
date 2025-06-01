@@ -1,0 +1,182 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>Manage Fixed Room Rates</h4>
+    </div>
+    <div class="card-body">
+        <form method="POST" id="rateForm">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label for="hostel" class="form-label">Select Hostel</label>
+                <select class="form-select" id="hostel" name="hostel" required>
+                    <option value="">Select a hostel</option>
+                    {% for hostel in hostels %}
+                        <option value="{{ hostel.id }}">{{ hostel.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% for room_type in room_types %}
+                <div class="mb-3">
+                    <label for="rate_{{ room_type|lower }}" class="form-label">{{ room_type }} Per-Head Rent</label>
+                    <input type="number" class="form-control" id="rate_{{ room_type|lower }}" name="rate_{{ room_type|lower }}"
+                           placeholder="Enter per-head rent for {{ room_type }}">
+                </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">Save Rates</button>
+        </form>
+    </div>
+</div>
+
+<div class="card mt-4">
+    <div class="card-header">
+        <h4>Current Fixed Rates</h4>
+        <div class="row">
+            <div class="col-md-6 mb-3">
+                <label for="filter_hostel" class="form-label">Filter by Hostel</label>
+                <select class="form-select" id="filter_hostel">
+                    <option value="">All Hostels</option>
+                    {% for hostel in hostels %}
+                        <option value="{{ hostel.id }}">{{ hostel.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 mb-3">
+                <label for="search_hostel" class="form-label">Search Hostel</label>
+                <input type="text" class="form-control" id="search_hostel" placeholder="Enter hostel name">
+            </div>
+        </div>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive">
+            <table class="table table-striped">
+                <thead>
+                    <tr>
+                        <th>Hostel</th>
+                        <th>Room Type</th>
+                        <th>Per-Head Rent</th>
+                    </tr>
+                </thead>
+                <tbody id="rateTable">
+                    {% for rate in rates %}
+                        <tr data-hostel-id="{{ rate.hostel.id }}" data-hostel-name="{{ rate.hostel.name|lower }}">
+                            <td>{{ rate.hostel.name }}</td>
+                            <td>{{ rate.room_type }}</td>
+                            <td>{{ rate.per_head_rent }}</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const hostelSelect = document.getElementById('hostel');
+    const rateInputs = {
+        single: document.getElementById('rate_single'),
+        double: document.getElementById('rate_double'),
+        shared: document.getElementById('rate_shared')
+    };
+    const filterHostel = document.getElementById('filter_hostel');
+    const searchQuery = document.getElementById('search_hostel');
+
+    // Fetch existing rates when hostel is selected
+    hostelSelect.addEventListener('change', function() {
+        const hostelId = hostelSelect.value;
+        if (hostelId) {
+            fetch(`/get_room_rate/${hostelId}/all/`)
+                .then(response => response.json())
+                .then(data => {
+                    for (const roomType in rateInputs) {
+                        rateInputs[roomType].value = data[roomType] || '';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching rates:', error);
+                    for (const roomType in rateInputs) {
+                        rateInputs[roomType].value = '';
+                    }
+                });
+        } else {
+            for (const roomType in rateInputs) {
+                rateInputs[roomType].value = '';
+            }
+        }
+    });
+
+    // Filter rates table by hostel and search
+    function filterTable() {
+        const selectedHostelId = filterHostel.value;
+        const searchText = searchQuery.value.toLowerCase();
+        const rows = document.querySelectorAll('#rateTable tr');
+
+        rows.forEach(row => {
+            const hostelId = row.getAttribute('data-hostel-id');
+            const hostelName = row.getAttribute('data-hostel-name');
+            const matchesHostel = !selectedHostelId || hostelId === selectedHostelId;
+            const matchesSearch = !searchText || hostelName.includes(searchText);
+
+            if (matchesHostel && matchesSearch) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    filterHostel.addEventListener('change', filterTable);
+    searchQuery.addEventListener('input', filterTable);
+});
+</script>
+
+<style>
+.card {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+}
+.card-header {
+    background: #2563eb;
+    color: white;
+    padding: 1rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+.card-header h4 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+.card-body {
+    padding: 1.5rem;
+}
+.btn-primary {
+    background: #2563eb;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 0.3rem;
+    transition: transform 0.3s ease;
+}
+.btn-primary:hover {
+    background: #1e40af;
+}
+.form-label {
+    font-weight: 500;
+}
+.form-control, .form-select {
+    border-radius: 0.3rem;
+}
+.table-responsive {
+    overflow-x: auto;
+}
+.table th, .table td {
+    vertical-align: middle;
+}
+.table th {
+    background: #f1f5f9;
+}
+</style>
+{% endblock %}

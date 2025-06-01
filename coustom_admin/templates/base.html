@@ -524,6 +524,18 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="{% url 'add_room' %}" class="nav-link {% if request.resolver_match.url_name == 'rooms' %}active{% endif %}">
+                        <i class="bi bi-building-fill"></i>
+                        Rooms
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'fixed_rates' %}" class="nav-link {% if request.resolver_match.url_name == 'fixed_rates_page' %}active{% endif %}">
+                        <i class="bi bi-cash-stack"></i>
+                        Fixed Rates
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="{% url 'manageWardens' %}" class="nav-link {% if request.resolver_match.url_name == 'manageWardens' %}active{% endif %}">
                         <i class="bi bi-person-badge-fill"></i>
                         Wardens

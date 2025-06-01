@@ -1,0 +1,125 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="card">
+    <div class="card-header">
+        <h4>Hostel Charges</h4>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <label for="hostel" class="form-label">Select Hostel</label>
+                <select class="form-select" id="hostel" name="hostel">
+                    <option value="">Select a hostel</option>
+                    {% for hostel in hostels %}
+                        <option value="{{ hostel.id }}" {% if selected_hostel.id == hostel.id %}selected{% endif %}>{{ hostel.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6">
+                <label for="search" class="form-label">Search Hostel</label>
+                <input type="text" class="form-control" id="search" placeholder="Enter hostel name" value="{{ search_query }}">
+            </div>
+        </div>
+
+        {% if selected_hostel %}
+            <h5 class="mb-3">Charges for {{ selected_hostel.name }}</h5>
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Room Type</th>
+                            <th>Per-Head Rent</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for room_type in room_types %}
+                            <tr>
+                                <td>{{ room_type }}</td>
+                                <td>
+                                    {% if rates_dict.room_type %}
+                                        {{ rates_dict.room_type }}
+                                    {% else %}
+                                        Not set
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p class="text-muted">Select a hostel to view its charges.</p>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const hostelSelect = document.getElementById('hostel');
+    const searchInput = document.getElementById('search');
+
+    hostelSelect.addEventListener('change', function() {
+        const hostelId = hostelSelect.value;
+        const searchQuery = searchInput.value;
+        let url = '/admin/hostel_charges/';
+        if (hostelId || searchQuery) {
+            url += '?';
+            if (hostelId) url += `hostel=${hostelId}`;
+            if (searchQuery) url += `${hostelId ? '&' : ''}search=${encodeURIComponent(searchQuery)}`;
+        }
+        window.location.href = url;
+    });
+
+    searchInput.addEventListener('input', function() {
+        const searchQuery = searchInput.value;
+        const hostelId = hostelSelect.value;
+        let url = '/admin/hostel_charges/';
+        if (hostelId || searchQuery) {
+            url += '?';
+            if (hostelId) url += `hostel=${hostelId}`;
+            if (searchQuery) url += `${hostelId ? '&' : ''}search=${encodeURIComponent(searchQuery)}`;
+        }
+        window.location.href = url;
+    });
+});
+</script>
+
+<style>
+.card {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    margin-bottom: 1.5rem;
+}
+.card-header {
+    background: #2563eb;
+    color: white;
+    padding: 1rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+.card-header h4 {
+    margin: 0;
+    font-size: 1.5rem;
+}
+.card-body {
+    padding: 1.5rem;
+}
+.form-label {
+    font-weight: 500;
+}
+.form-control, .form-select {
+    border-radius: 0.3rem;
+}
+.table-responsive {
+    overflow-x: auto;
+}
+.table th, .table td {
+    vertical-align: middle;
+}
+.table th {
+    background: #f1f5f9;
+}
+</style>
+{% endblock %}
