@@ -307,13 +307,61 @@ document.addEventListener('DOMContentLoaded', function() {
     const applyForBooking = document.getElementById('applyForBooking');
     const studentNameSpan = document.getElementById('studentName');
     const saveBookingBtn = document.getElementById('saveBookingBtn');
+    const passwordInput = document.getElementById('id_password');
+    const confirmPasswordInput = document.getElementById('id_confirm_password');
+    
+    // Function to validate the form
+    function validateStudentForm() {
+        let isValid = true;
+        
+        // Reset any previous validation
+        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        
+        // Check if passwords match
+        if (passwordInput.value !== confirmPasswordInput.value) {
+            passwordInput.classList.add('is-invalid');
+            confirmPasswordInput.classList.add('is-invalid');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'invalid-feedback d-block';
+            errorDiv.textContent = 'Passwords do not match';
+            
+            // Remove any existing error messages
+            const existingError = confirmPasswordInput.nextElementSibling;
+            if (existingError && existingError.classList.contains('invalid-feedback')) {
+                existingError.remove();
+            }
+            
+            confirmPasswordInput.after(errorDiv);
+            isValid = false;
+        }
+        
+        // Check required fields
+        const requiredFields = studentForm.querySelectorAll('[required]');
+        requiredFields.forEach(field => {
+            if (!field.value.trim()) {
+                field.classList.add('is-invalid');
+                if (!field.nextElementSibling || !field.nextElementSibling.classList.contains('invalid-feedback')) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'invalid-feedback';
+                    errorDiv.textContent = 'This field is required';
+                    field.after(errorDiv);
+                }
+                isValid = false;
+            }
+        });
+        
+        return isValid;
+    }
     
     studentForm.addEventListener('submit', function(e) {
         e.preventDefault();
         console.log('Form submission started');
         
-        // Reset any previous validation
-        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        // Validate form before submission
+        if (!validateStudentForm()) {
+            showAlert('Please correct the errors in the form', 'warning');
+            return;
+        }
         
         // Show loading state
         submitBtn.disabled = true;
@@ -335,13 +383,32 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(response => {
             console.log('Response status:', response.status);
-            if (!response.ok) {
-                return response.text().then(text => {
-                    console.error('Error response:', text);
-                    throw new Error('Network response was not ok');
-                });
-            }
-            return response.json();
+            return response.json().then(data => {
+                if (!response.ok) {
+                    console.error('Error response:', data);
+                    // Handle form validation errors
+                    if (data.errors) {
+                        // Clear previous error messages
+                        document.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+                        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                        
+                        // Display field-specific errors
+                        for (const [field, errors] of Object.entries(data.errors)) {
+                            const input = document.getElementById(`id_${field}`);
+                            if (input) {
+                                input.classList.add('is-invalid');
+                                const errorDiv = document.createElement('div');
+                                errorDiv.className = 'invalid-feedback';
+                                errorDiv.textContent = Array.isArray(errors) ? errors[0] : errors;
+                                input.after(errorDiv);
+                            }
+                        }
+                        throw new Error('Form validation failed');
+                    }
+                    throw new Error(data.message || 'Network response was not ok');
+                }
+                return data;
+            });
         })
         .then(data => {
             console.log('Response data:', data);
