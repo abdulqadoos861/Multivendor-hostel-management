@@ -18,9 +18,10 @@
                     </div>
                 {% endfor %}
             {% endif %}
-            <form method="POST" action="{% url 'register_student' %}">
+            <form id="studentForm" method="POST" action="{% url 'manageStudent' %}">
                 {% csrf_token %}
                 <div class="row">
+                    <input type="hidden" name="apply_for_booking" id="applyForBooking" value="0">
                     <div class="col-md-6 mb-3">
                         <label for="id_username" class="form-label">Username</label>
                         {{ form.username }}
@@ -76,6 +77,14 @@
                     {% endif %}
                 </div>
                 <div class="mb-3">
+                    <label for="id_cnic" class="form-label">CNIC</label>
+                    {{ form.cnic }}
+                    {% if form.cnic.errors %}
+                        <div class="text-danger">{{ form.cnic.errors }}</div>
+                    {% endif %}
+                    <div class="form-text">{{ form.cnic.help_text }}</div>
+                </div>
+                <div class="mb-3">
                     <label for="id_address" class="form-label">Address</label>
                     {{ form.address }}
                     {% if form.address.errors %}
@@ -96,14 +105,67 @@
                         <div class="text-danger">{{ form.institute.errors }}</div>
                     {% endif %}
                 </div>
-                <div class="mb-3">
-                    <label for="id_preferred_hostel" class="form-label">Preferred Hostel</label>
-                    {{ form.preferred_hostel }}
-                    {% if form.preferred_hostel.errors %}
-                        <div class="text-danger">{{ form.preferred_hostel.errors }}</div>
-                    {% endif %}
+                
+                <!-- Hostel booking will be handled via modal after successful registration -->
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Add Student</button>
+                    <a href="{% url 'manageStudent' %}" class="btn btn-secondary">Cancel</a>
                 </div>
-                <button type="submit" class="btn btn-primary">Add Student</button>
+                
+                <!-- Booking Modal -->
+                <div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
+                    <div class="modal-dialog modal-lg">
+                        <div class="modal-content">
+                            <div class="modal-header bg-primary text-white">
+                                <h5 class="modal-title" id="bookingModalLabel">Hostel Booking for <span id="studentName"></span></h5>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div id="bookingForm">
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label for="hostel" class="form-label">Select Hostel</label>
+                                            <select class="form-select" id="hostel" name="hostel">
+                                                <option value="" selected disabled>Select Hostel</option>
+                                                {% for hostel in hostels %}
+                                                    <option value="{{ hostel.id }}">{{ hostel.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <div class="invalid-feedback">Please select a hostel</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="room_type" class="form-label">Room Type</label>
+                                            <select class="form-select" id="room_type" name="room_type" disabled>
+                                                <option value="" selected disabled>Select Room Type</option>
+                                            </select>
+                                            <div class="invalid-feedback">Please select a room type</div>
+                                        </div>
+                                    </div>
+                                    <div class="row mb-3">
+                                        <div class="col-md-6">
+                                            <label for="check_in_date" class="form-label">Check-in Date</label>
+                                            <input type="date" class="form-control" id="check_in_date" name="check_in_date">
+                                            <div class="invalid-feedback">Please select a check-in date</div>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <label for="check_out_date" class="form-label">Check-out Date</label>
+                                            <input type="date" class="form-control" id="check_out_date" name="check_out_date">
+                                            <div class="invalid-feedback">Please select a check-out date</div>
+                                        </div>
+                                    </div>
+                                    <div class="mb-3">
+                                        <label for="message" class="form-label">Additional Message (Optional)</label>
+                                        <textarea class="form-control" id="message" name="message" rows="3" placeholder="Any special requests or notes"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                <button type="button" class="btn btn-primary" id="saveBookingBtn">Save Booking</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </form>
         </div>
     </div>
@@ -123,7 +185,7 @@
                             <th>Email</th>
                             <th>Contact Number</th>
                             <th>Institute</th>
-                            <th>Preferred Hostel</th>
+                            <th>CNIC</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -135,7 +197,7 @@
                                 <td>{{ student.user.email }}</td>
                                 <td>{{ student.contact_number }}</td>
                                 <td>{{ student.institute }}</td>
-                                <td>{{ student.preferred_hostel.name|default:"None" }}</td>
+                                <td>{{ student.cnic }}</td>
                                 <td>
                                     <button class="btn btn-sm btn-warning edit-student"
                                             data-id="{{ student.user.id }}"
@@ -147,7 +209,7 @@
                                             data-address="{{ student.address }}"
                                             data-gender="{{ student.gender }}"
                                             data-institute="{{ student.institute }}"
-                                            data-preferred-hostel="{{ student.preferred_hostel.id|default:'' }}"
+                                            data-cnic="{{ student.cnic }}"
                                             data-bs-toggle="modal"
                                             data-bs-target="#editStudentModal">
                                         Edit
@@ -200,6 +262,12 @@
                             <div id="edit_contactError" class="text-danger" style="display: none;"></div>
                         </div>
                         <div class="mb-3">
+                            <label for="edit_cnic" class="form-label">CNIC</label>
+                            <input type="text" class="form-control" id="edit_cnic" name="cnic" required>
+                            <div id="edit_cnicError" class="text-danger" style="display: none;"></div>
+                            <div class="form-text">Enter CNIC without dashes (e.g., 1234567890123)</div>
+                        </div>
+                        <div class="mb-3">
                             <label for="edit_address" class="form-label">Address</label>
                             <textarea class="form-control" id="edit_address" name="address" rows="4" required></textarea>
                         </div>
@@ -215,15 +283,7 @@
                             <label for="edit_institute" class="form-label">Institute</label>
                             <input type="text" class="form-control" id="edit_institute" name="institute" required>
                         </div>
-                        <div class="mb-3">
-                            <label for="edit_preferred_hostel" class="form-label">Preferred Hostel</label>
-                            <select class="form-select" id="edit_preferred_hostel" name="preferred_hostel">
-                                <option value="">Select a hostel</option>
-                                {% for hostel in hostels %}
-                                    <option value="{{ hostel.id }}">{{ hostel.name }}</option>
-                                {% endfor %}
-                            </select>
-                        </div>
+
                     </div>
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
@@ -237,6 +297,253 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Initialize modal
+    const bookingModal = new bootstrap.Modal(document.getElementById('bookingModal'));
+    let currentStudentId = null;
+    
+    // Handle form submission
+    const studentForm = document.getElementById('studentForm');
+    const submitBtn = document.getElementById('submitBtn');
+    const applyForBooking = document.getElementById('applyForBooking');
+    const studentNameSpan = document.getElementById('studentName');
+    const saveBookingBtn = document.getElementById('saveBookingBtn');
+    
+    studentForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        console.log('Form submission started');
+        
+        // Reset any previous validation
+        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        
+        // Show loading state
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+        
+        // Get form data
+        const formData = new FormData(this);
+        console.log('Form data:', Object.fromEntries(formData.entries()));
+        
+        // Submit the form via AJAX
+        fetch(this.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('Error response:', text);
+                    throw new Error('Network response was not ok');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Response data:', data);
+            
+            if (data.status === 'success') {
+                // Store the student ID for the booking
+                currentStudentId = data.student_id;
+                
+                // Update the student name in the modal
+                studentNameSpan.textContent = data.student_name;
+                
+                // Reset the form
+                this.reset();
+                
+                // Set default dates for booking (today and next month)
+                const today = new Date();
+                const nextMonth = new Date();
+                nextMonth.setMonth(today.getMonth() + 1);
+                
+                // Format dates as YYYY-MM-DD
+                const formatDate = (date) => date.toISOString().split('T')[0];
+                document.getElementById('check_in_date').value = formatDate(today);
+                document.getElementById('check_out_date').value = formatDate(nextMonth);
+                
+                // Reset other booking fields
+                const hostelSelect = document.getElementById('hostel');
+                hostelSelect.selectedIndex = 0;
+                document.getElementById('room_type').innerHTML = '<option value="" selected disabled>Select Room Type</option>';
+                document.getElementById('message').value = '';
+                
+                // Show success message
+                showAlert('Student registered successfully! You can now add a booking if needed.', 'success');
+                
+                // Show the booking modal
+                const bookingModal = new bootstrap.Modal(document.getElementById('bookingModal'));
+                bookingModal.show();
+                
+                // Reload the page when modal is hidden
+                document.getElementById('bookingModal').addEventListener('hidden.bs.modal', function onModalHidden() {
+                    window.location.reload();
+                    this.removeEventListener('hidden.bs.modal', onModalHidden);
+                });
+            } else {
+                // Show error message
+                showAlert(data.message || 'An error occurred while registering the student', 'danger');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Register Student';
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('An error occurred while processing your request: ' + error.message, 'danger');
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Register Student';
+        });
+    });
+    
+    // Handle save booking button
+    saveBookingBtn.addEventListener('click', function() {
+        // Reset validation
+        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        
+        // Get form elements
+        const hostelSelect = document.getElementById('hostel');
+        const roomTypeSelect = document.getElementById('room_type');
+        const checkInDateInput = document.getElementById('check_in_date');
+        const checkOutDateInput = document.getElementById('check_out_date');
+        const messageInput = document.getElementById('message');
+        
+        // Validate form
+        let isValid = true;
+        
+        if (!hostelSelect.value) {
+            hostelSelect.classList.add('is-invalid');
+            isValid = false;
+        }
+        
+        if (!roomTypeSelect.value) {
+            roomTypeSelect.classList.add('is-invalid');
+            isValid = false;
+        }
+        
+        if (!checkInDateInput.value) {
+            checkInDateInput.classList.add('is-invalid');
+            isValid = false;
+        }
+        
+        if (!checkOutDateInput.value) {
+            checkOutDateInput.classList.add('is-invalid');
+            isValid = false;
+        }
+        
+        if (!isValid) {
+            showAlert('Please fill in all required fields', 'warning');
+            return;
+        }
+        
+        // Disable button and show loading state
+        const saveBtn = this;
+        const originalText = saveBtn.innerHTML;
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+        
+        // Create booking data
+        const bookingData = new FormData();
+        bookingData.append('student_id', currentStudentId);
+        bookingData.append('hostel', hostelSelect.value);
+        bookingData.append('room_type', roomTypeSelect.value);
+        bookingData.append('check_in_date', checkInDateInput.value);
+        bookingData.append('check_out_date', checkOutDateInput.value);
+        bookingData.append('message', messageInput.value);
+        bookingData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        
+        console.log('Submitting booking data:', Object.fromEntries(bookingData.entries()));
+        
+        // Submit booking data
+        fetch('{% url "create_booking" %}', {
+            method: 'POST',
+            body: bookingData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            console.log('Booking response status:', response.status);
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('Booking error response:', text);
+                    throw new Error('Network response was not ok');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Booking response data:', data);
+            if (data.status === 'success') {
+                showAlert('Booking request submitted successfully!', 'success');
+                // Hide modal and reload page after a short delay
+                setTimeout(() => {
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('bookingModal'));
+                    if (modal) modal.hide();
+                    window.location.reload();
+                }, 1500);
+            } else {
+                throw new Error(data.message || 'Failed to save booking');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            showAlert('Error saving booking: ' + (error.message || 'Please try again'), 'danger');
+        })
+        .finally(() => {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText;
+        });
+    });
+    
+    // Handle modal hidden event
+    document.getElementById('bookingModal').addEventListener('hidden.bs.modal', function () {
+        if (currentStudentId) {
+            // If modal is closed without saving, just reload the page
+            window.location.reload();
+        }
+    });
+    
+    // Room type loading for modal
+    const modalHostelSelect = document.getElementById('hostel');
+    const modalRoomTypeSelect = document.getElementById('room_type');
+    
+    if (modalHostelSelect) {
+        modalHostelSelect.addEventListener('change', function() {
+            const hostelId = this.value;
+            modalRoomTypeSelect.disabled = !hostelId;
+            modalRoomTypeSelect.innerHTML = '<option value="">Loading...</option>';
+            
+            if (!hostelId) return;
+            
+            fetch(`/admin/get-room-types/?hostel_id=${hostelId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        modalRoomTypeSelect.innerHTML = '<option value="">Select Room Type</option>';
+                        data.room_types.forEach(roomType => {
+                            const option = document.createElement('option');
+                            option.value = roomType.room_type;
+                            option.textContent = `${roomType.room_type} - $${roomType.per_head_rent}/month`;
+                            modalRoomTypeSelect.appendChild(option);
+                        });
+                    } else {
+                        console.error('Error loading room types:', data.message);
+                        modalRoomTypeSelect.innerHTML = '<option value="">Error loading room types</option>';
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    modalRoomTypeSelect.innerHTML = '<option value="">Error loading room types</option>';
+                });
+        });
+    }
+
     // Edit Student Modal Setup
     const editButtons = document.querySelectorAll('.edit-student');
     const editForm = document.getElementById('editStudentForm');
@@ -249,8 +556,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const editAddressInput = document.getElementById('edit_address');
     const editGenderSelect = document.getElementById('edit_gender');
     const editInstituteInput = document.getElementById('edit_institute');
-    const editPreferredHostelSelect = document.getElementById('edit_preferred_hostel');
+    const editCnicInput = document.getElementById('edit_cnic');
     const editContactError = document.getElementById('edit_contactError');
+    const editCnicError = document.getElementById('edit_cnicError');
 
     editButtons.forEach(button => {
         button.addEventListener('click', function() {
@@ -264,7 +572,7 @@ document.addEventListener('DOMContentLoaded', function() {
             editAddressInput.value = this.getAttribute('data-address');
             editGenderSelect.value = this.getAttribute('data-gender');
             editInstituteInput.value = this.getAttribute('data-institute');
-            editPreferredHostelSelect.value = this.getAttribute('data-preferred-hostel') || '';
+            editCnicInput.value = this.getAttribute('data-cnic');
 
             // Update form action with user ID
             editForm.action = `{% url 'edit_student' 0 %}`.replace('0', userId);
@@ -282,12 +590,38 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
+    // Validate CNIC for edit form
+    editCnicInput.addEventListener('input', function() {
+        const cnicValue = editCnicInput.value;
+        if (!/^\d{13}$/.test(cnicValue)) {
+            editCnicError.textContent = 'CNIC must be 13 digits without dashes.';
+            editCnicError.style.display = 'block';
+        } else {
+            editCnicError.style.display = 'none';
+        }
+    });
+
     editForm.addEventListener('submit', function(e) {
+        let isValid = true;
+        
+        // Validate contact number
         const contactValue = editContactNumberInput.value;
         if (!/^\d{11}$/.test(contactValue)) {
-            e.preventDefault();
             editContactError.textContent = 'Contact number must be 11 digits.';
             editContactError.style.display = 'block';
+            isValid = false;
+        }
+        
+        // Validate CNIC
+        const cnicValue = editCnicInput.value;
+        if (!/^\d{13}$/.test(cnicValue)) {
+            editCnicError.textContent = 'CNIC must be 13 digits without dashes.';
+            editCnicError.style.display = 'block';
+            isValid = false;
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
         }
     });
 
@@ -320,7 +654,49 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
+
+    // Room availability check for the modal form
+    function checkRoomAvailability(hostelId, roomType, checkInDate, checkOutDate, callback) {
+        if (!hostelId || !roomType || !checkInDate || !checkOutDate) {
+            showAlert('Please fill in all fields to check availability', 'warning');
+            return;
+        }
+        
+        fetch(`/admin/check-room-availability/?hostel_id=${hostelId}&room_type=${roomType}&check_in=${checkInDate}&check_out=${checkOutDate}`)
+            .then(response => response.json())
+            .then(data => {
+                if (callback) callback(data);
+            })
+            .catch(error => {
+                console.error('Error checking availability:', error);
+                showAlert('Error checking room availability. Please try again.', 'danger');
+            });
+    }
+    
+    // Helper function to show alerts
+    function showAlert(message, type) {
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} alert-dismissible fade show mt-3`;
+        alertDiv.role = 'alert';
+        alertDiv.innerHTML = `
+            ${message}
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        `;
+        
+        const container = document.querySelector('.container');
+        if (container) {
+            container.insertBefore(alertDiv, container.firstChild);
+            
+            // Auto-remove after 5 seconds
+            setTimeout(() => {
+                if (document.body.contains(alertDiv)) {
+                    alertDiv.remove();
+                }
+            }, 5000);
+        }
+    }
 });
+
 </script>
 
 <style>

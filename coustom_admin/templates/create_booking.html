@@ -1,0 +1,152 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h4 class="card-title">New Booking Request</h4>
+                </div>
+                <div class="card-body">
+                    <form method="post" id="bookingForm">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="id_hostel">Hostel</label>
+                                    {{ form.hostel }}
+                                    <small class="text-danger">{{ form.hostel.errors }}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="id_room_type">Room Type</label>
+                                    {{ form.room_type }}
+                                    <small class="text-danger">{{ form.room_type.errors }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="id_check_in_date">Check-in Date</label>
+                                    {{ form.check_in_date }}
+                                    <small class="text-danger">{{ form.check_in_date.errors }}</small>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="form-group">
+                                    <label for="id_check_out_date">Check-out Date</label>
+                                    {{ form.check_out_date }}
+                                    <small class="text-danger">{{ form.check_out_date.errors }}</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <label for="id_message">Special Requests</label>
+                                    {{ form.message }}
+                                    <small class="text-muted">Any special requirements or additional information</small>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <div class="form-group">
+                                    <div id="availabilityResults" class="alert" style="display: none;"></div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="row mt-3">
+                            <div class="col-md-12">
+                                <button type="submit" class="btn btn-primary">Submit Booking Request</button>
+                                <a href="{% url 'manage_booking' %}" class="btn btn-secondary">Cancel</a>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Initialize datepickers
+    $('#id_check_in_date, #id_check_out_date').attr('type', 'date');
+    
+    // Check availability when dates or hostel changes
+    $('#id_check_in_date, #id_check_out_date, #id_hostel').change(function() {
+        checkAvailability();
+    });
+    
+    function checkAvailability() {
+        const hostelId = $('#id_hostel').val();
+        const checkIn = $('#id_check_in_date').val();
+        const checkOut = $('#id_check_out_date').val();
+        
+        if (hostelId && checkIn && checkOut) {
+            $.get('/check-availability/', {
+                'hostel_id': hostelId,
+                'check_in': checkIn,
+                'check_out': checkOut
+            }, function(data) {
+                if (data.status === 'success') {
+                    let html = '<h5>Available Room Types:</h5>';
+                    if (data.availability && data.availability.length > 0) {
+                        html += '<ul class="list-group">';
+                        data.availability.forEach(function(room) {
+                            html += `<li class="list-group-item d-flex justify-content-between align-items-center">
+                                ${room.room_type}
+                                <span class="badge bg-primary rounded-pill">${room.available} / ${room.total_rooms} available</span>
+                                <span class="ms-2">PKR ${room.rate}/month</span>
+                            </li>`;
+                        });
+                        html += '</ul>';
+                        $('#availabilityResults').removeClass('alert-danger').addClass('alert-success').html(html).show();
+                    } else {
+                        $('#availabilityResults').removeClass('alert-success').addClass('alert-danger')
+                            .html('No rooms available for the selected dates.').show();
+                    }
+                } else {
+                    $('#availabilityResults').removeClass('alert-success').addClass('alert-danger')
+                        .html('Error checking availability. Please try again.').show();
+                }
+            }).fail(function() {
+                $('#availabilityResults').removeClass('alert-success').addClass('alert-danger')
+                    .html('Error connecting to server. Please try again.').show();
+            });
+        } else {
+            $('#availabilityResults').hide();
+        }
+    }
+    
+    // Form validation
+    $('#bookingForm').on('submit', function(e) {
+        const checkIn = new Date($('#id_check_in_date').val());
+        const checkOut = new Date($('#id_check_out_date').val());
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        if (checkIn < today) {
+            e.preventDefault();
+            alert('Check-in date cannot be in the past.');
+            return false;
+        }
+        
+        if (checkOut <= checkIn) {
+            e.preventDefault();
+            alert('Check-out date must be after check-in date.');
+            return false;
+        }
+        
+        return true;
+    });
+});
+</script>
+{% endblock %}

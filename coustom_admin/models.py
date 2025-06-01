@@ -31,7 +31,7 @@ class HostelWardens(models.Model):
 class RoomTypeRate(models.Model):
     hostel = models.ForeignKey(Hostels, on_delete=models.CASCADE)
     room_type = models.CharField(max_length=20, choices=[('Single', 'Single'), ('Double', 'Double'), ('Shared', 'Shared')])
-    per_head_rent = models.IntegerField()
+    per_head_rent = models.DecimalField(max_digits=10, decimal_places=2)
     
     class Meta:
         unique_together = ('hostel', 'room_type')
@@ -46,7 +46,7 @@ class Rooms(models.Model):
     room_type = models.CharField(max_length=20, choices=[('Single', 'Single'), ('Double', 'Double'), ('Shared', 'Shared')])
     capacity = models.IntegerField()
     current_occupants = models.IntegerField(default=0)
-    rent = models.IntegerField(null=True, blank=True)  # Nullable for auto-calculation
+    rent = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     description = models.TextField(blank=True, null=True)
     status = models.CharField(max_length=20, choices=[('Available', 'Available'), ('Occupied', 'Occupied')], default='Available')
     created_at = models.DateTimeField(auto_now_add=True)
@@ -54,9 +54,42 @@ class Rooms(models.Model):
     def __str__(self):
         return f"{self.room_number} ({self.hostel_id.name})"
 
-class bookingRequest(models.Model):
-    user_id = models.ForeignKey(User, on_delete=models.CASCADE)
-    hostel_id = models.ForeignKey(Hostels, on_delete=models.CASCADE)
-    room_type = models.CharField(default="Single", choices=[('Single', 'Single'), ('Double', 'Double'), ('Shared', 'Shared')])
+class Student(models.Model):
+    user = models.OneToOneField(User, on_delete=models.CASCADE)
+    contact_number = models.CharField(max_length=11)
+    cnic = models.CharField(max_length=15, unique=True, help_text="Enter CNIC without dashes (e.g., 1234567890123)")
+    address = models.TextField()
+    gender = models.CharField(max_length=10, choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')])
+    institute = models.CharField(max_length=100)
+
+    def __str__(self):
+        return f"{self.user.username} - {self.user.first_name} {self.user.last_name}"
+
+
+class BookingRequest(models.Model):
+    STATUS_CHOICES = [
+        ('Pending', 'Pending'),
+        ('Approved', 'Approved'),
+        ('Rejected', 'Rejected'),
+        ('Cancelled', 'Cancelled')
+    ]
+    
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='booking_requests')
+    hostel = models.ForeignKey(Hostels, on_delete=models.CASCADE)
+    room_type = models.CharField(max_length=20, choices=[
+        ('Single', 'Single'),
+        ('Double', 'Double'),
+        ('Shared', 'Shared')
+    ])
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
     request_date = models.DateTimeField(auto_now_add=True)
-    status = models.CharField(default="Pending", choices=[('Pending', 'Pending'), ('Approved', 'Approved'), ('Rejected', 'Rejected')])
+    check_in_date = models.DateField()
+    check_out_date = models.DateField()
+    message = models.TextField(blank=True, null=True)
+    admin_notes = models.TextField(blank=True, null=True)
+
+    def __str__(self):
+        return f"{self.student.user.username} - {self.hostel.name} ({self.get_status_display()})"
+    
+    class Meta:
+        ordering = ['-request_date']
