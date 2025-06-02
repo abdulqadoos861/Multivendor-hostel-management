@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django.http import JsonResponse
 from django.db import transaction
 from .models import Hostels, Wardens, HostelWardens, Rooms, RoomTypeRate, Student, BookingRequest
 from django.http import HttpResponse, JsonResponse, HttpResponseRedirect
@@ -14,6 +15,12 @@ from .forms import StudentRegistrationForm, BookingRequestForm
 from django.urls import reverse
 import json
 import re
+import logging
+from django.utils.safestring import mark_safe
+from django.db.models import Prefetch
+from .models import Hostels, RoomTypeRate
+
+logger = logging.getLogger(__name__)
 
 def is_student(user):
     return hasattr(user, 'student')
@@ -294,7 +301,7 @@ def Addhostel(request):
             except ValueError:
                 return JsonResponse({"status": "error", "message": "Total floors must be a valid number"}, status=400)
 
-            if gender not in ['Male','male', 'Female', 'female', 'Other', 'other']:
+            if gender not in ['Male', 'male', 'Female', 'female', 'Other', 'other']:
                 return JsonResponse({"status": "error", "message": "Invalid gender value"}, status=400)
 
             created_at_date = None
@@ -307,7 +314,7 @@ def Addhostel(request):
 
             hostel = Hostels(
                 name=name,
-                address=address,
+                address=description or "",
                 gender=gender,
                 contact_number=contact_number,
                 total_floors=total_floors,
@@ -318,7 +325,7 @@ def Addhostel(request):
             
             return JsonResponse({"status": "success", "message": "Hostel added successfully"})
         except Exception as e:
-            print(f"Error in add_hostel: {str(e)}")
+            print(f"Error in add_hostel: {e}")
             return JsonResponse({"status": "error", "message": f"Server error: {str(e)}"}, status=500)
     else:
         return JsonResponse({"status": "error", "message": "Invalid request method"}, status=400)
@@ -334,8 +341,6 @@ def updateHostel(request, id):
             gender = request.POST.get("gender")
             contact_number = request.POST.get("contact_number")
             total_floors = request.POST.get("total_floors")
-            description = request.POST.get("description")
-
             if not all([name, address, gender, contact_number, total_floors]):
                 missing_fields = [field for field, value in {
                     'name': name, 'address': address, 'gender': gender,
@@ -973,29 +978,181 @@ def manage_booking(request):
     # Add status counts for summary
     status_counts = bookings.values('status').annotate(count=Count('status'))
     
+    # Get all hostels with their room types and rates
+    hostels_queryset = Hostels.objects.prefetch_related(
+        Prefetch('roomtyperate_set', 
+                queryset=RoomTypeRate.objects.all().only('room_type', 'per_head_rent'),
+                to_attr='room_types')
+    ).all()
+    
+    # Prepare hostels data with room types for JavaScript
+    hostels_data = []
+    for hostel in hostels_queryset:
+        hostel_data = {
+            'id': hostel.id,
+            'name': hostel.name,
+            'room_types': [
+                {
+                    'room_type': rt.room_type,
+                    'per_head_rent': float(rt.per_head_rent) if rt.per_head_rent else 0.0
+                } for rt in hostel.room_types
+            ]
+        }
+        hostels_data.append(hostel_data)
+    
+    # Convert to JSON and mark as safe
+    hostels_json = mark_safe(json.dumps(hostels_data, ensure_ascii=False))
+    
+    # Get today's date for the date picker
+    from datetime import date
+    
     context = {
         'bookings': bookings.order_by('-request_date'),
         'status_counts': {item['status']: item['count'] for item in status_counts},
         'total_bookings': bookings.count(),
+        'hostels': hostels_queryset,  # Pass the QuerySet for template iteration
+        'hostels_json': hostels_json,  # Pass the JSON string for JavaScript
+        'today': date.today(),    # For setting min date on date picker
     }
     return render(request, 'manageBookings.html', context)
 
 @login_required
-@user_passes_test(is_student, login_url='/admin/')
 def create_booking(request):
-    if request.method == 'POST':
-        form = BookingRequestForm(request.POST, user=request.user)
-        if form.is_valid():
-            booking = form.save(commit=False)
-            booking.student = request.user.student
-            booking.status = 'Pending'
-            booking.save()
-            messages.success(request, 'Your booking request has been submitted successfully!')
-            return redirect('manage_booking')
-    else:
-        form = BookingRequestForm(user=request.user)
+    logger.info(f"Processing booking request. Method: {request.method}")
     
-    return render(request, 'create_booking.html', {'form': form})
+    is_staff = request.user.is_staff or hasattr(request.user, 'warden')
+    
+    if request.method == 'POST':
+        logger.debug(f"POST data: {request.POST}")
+        
+        # For staff users, get the student from the form data
+        if is_staff:
+            student_id = request.POST.get('student_id')
+            if not student_id:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Student selection is required'
+                }, status=400)
+            try:
+                student = Student.objects.get(id=student_id)
+            except Student.DoesNotExist:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Invalid student selected'
+                }, status=400)
+        
+        # For students, use their own student profile
+        elif hasattr(request.user, 'student'):
+            student = request.user.student
+            
+        # Create form data with student set
+        form_data = request.POST.copy()
+        form_data['student'] = str(student.id)
+        
+        logger.debug(f"Form data with student: {form_data}")
+        
+        form = BookingRequestForm(data=form_data, user=request.user)
+        
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    booking = form.save(commit=False)
+                    
+                    # Log the booking data before saving
+                    logger.debug(f"Saving booking with student_id: {booking.student_id}")
+                    
+                    # Ensure student is set
+                    if not booking.student_id:
+                        if not is_staff and hasattr(request.user, 'student'):
+                            booking.student = request.user.student
+                            logger.debug(f"Set student from request.user: {booking.student.id}")
+                        else:
+                            error_msg = f"Student is required for booking. Current student_id: {booking.student_id}"
+                            logger.error(error_msg)
+                            raise ValueError(error_msg)
+                    
+                    booking.status = 'Pending'
+                    booking.save()
+                    
+                    logger.info(f"Booking {booking.id} created successfully by user {request.user.username}")
+                    
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({
+                            'status': 'success',
+                            'message': 'Booking created successfully!',
+                            'booking_id': booking.id
+                        })
+                    
+                    messages.success(request, 'Booking request has been submitted successfully!')
+                    return redirect('manage_booking')
+                    
+            except Exception as e:
+                logger.exception("Error saving booking:")
+                error_message = 'An error occurred while saving the booking. Please try again or contact support.'
+                
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': str(e) or error_message
+                    }, status=400)
+                
+                messages.error(request, error_message)
+        else:
+            logger.warning(f"Form validation failed. Errors: {form.errors}")
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                errors = {}
+                for field, field_errors in form.errors.items():
+                    field_label = form.fields[field].label if field in form.fields and hasattr(form.fields[field], 'label') else field
+                    errors[field] = [str(e) for e in field_errors]
+                
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Please correct the errors below.',
+                    'errors': errors
+                }, status=400)
+            
+            for field, field_errors in form.errors.items():
+                field_label = form.fields[field].label if field in form.fields and hasattr(form.fields[field], 'label') else field
+                for error in field_errors:
+                    messages.error(request, f"{field_label}: {error}")
+    else:
+        initial_data = {}
+        if hasattr(request.user, 'student') and not is_staff:
+            initial_data['student'] = request.user.student
+            
+        form = BookingRequestForm(user=request.user, initial=initial_data)
+    
+    # Get available hostels for the form
+    hostels = Hostels.objects.prefetch_related(
+        Prefetch('roomtyperate_set', 
+                queryset=RoomTypeRate.objects.all().only('room_type', 'per_head_rent'),
+                to_attr='room_types')
+    ).all()
+    
+    # Prepare hostels JSON for JavaScript
+    hostels_data = [
+        {
+            'id': hostel.id,
+            'name': hostel.name,
+            'room_types': [
+                {
+                    'room_type': rt.room_type,
+                    'per_head_rent': float(rt.per_head_rent) if rt.per_head_rent else 0.0
+                } for rt in hostel.room_types
+            ]
+        } for hostel in hostels
+    ]
+    hostels_json = mark_safe(json.dumps(hostels_data, ensure_ascii=False))
+    
+    return render(request, 'create_booking.html', {
+        'form': form,
+        'hostels': hostels,  # Pass QuerySet for template
+        'hostels_json': hostels_json,  # Pass JSON for JavaScript
+        'is_staff': is_staff,
+        'min_date': timezone.now().strftime('%Y-%m-%d'),
+        'default_check_out': (timezone.now() + timedelta(days=30)).strftime('%Y-%m-%d')
+    })
 
 @login_required
 @user_passes_test(lambda u: u.is_staff, login_url='login')
@@ -1014,7 +1171,7 @@ def reject_booking(request, booking_id):
     if request.method == 'POST':
         booking = get_object_or_404(BookingRequest, id=booking_id)
         booking.status = 'Rejected'
-        booking.admin_notes = request.POST.get('admin_notes', '')
+        booking.admin_notes = request.POST.get('rejection_reason', '')
         booking.save()
         messages.warning(request, f'Booking #{booking.id} has been rejected.')
     return redirect('manage_booking')
@@ -1071,7 +1228,7 @@ def check_availability(request):
                     availability.append({
                         'room_type': room_type.room_type,
                         'available': available_rooms,
-                        'rate': room_type.per_head_rent,  # Changed from rate to per_head_rent
+                        'rate': float(room_type.per_head_rent),
                         'total_rooms': total_rooms
                     })
             
@@ -1083,8 +1240,88 @@ def check_availability(request):
     return JsonResponse({'status': 'error', 'message': 'Invalid request method'})
 
 @login_required
+def search_students(request):
+    try:
+        logger.info(f"Search request: {request.GET}")
+        
+        if not request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            logger.warning("Non-AJAX request received")
+            return JsonResponse({'error': 'Invalid request'}, status=400)
+        
+        query = request.GET.get('q', '').strip()
+        if not query or len(query) < 3:
+            logger.warning(f"Search query too short: '{query}'")
+            return JsonResponse({'error': 'Search query too short'}, status=400)
+        
+        logger.info(f"Searching for: {query}")
+        
+        from django.contrib.auth import get_user_model
+        from .models import Student
+        
+        User = get_user_model()
+        
+        student_matches = Student.objects.filter(
+            Q(user__first_name__icontains=query) |
+            Q(user__last_name__icontains=query) |
+            Q(cnic__icontains=query)
+        ).select_related('user')[:10]
+        
+        logger.info(f"Found {len(student_matches)} matching students")
+        
+        results = []
+        for student in student_matches:
+            try:
+                user = student.user
+                results.append({
+                    'id': student.id,  # Use student.id instead of user.id
+                    'full_name': f"{user.first_name or ''} {user.last_name or ''}".strip(),
+                    'email': user.email or '',
+                    'cnic': student.cnic or '',
+                    'phone': student.contact_number or ''
+                })
+            except Exception as e:
+                logger.error(f"Error formatting student {student.id}: {str(e)}")
+                continue
+        
+        if not results:
+            logger.info("No results from Student model, trying User model")
+            user_matches = User.objects.filter(
+                Q(first_name__icontains=query) |
+                Q(last_name__icontains=query) |
+                Q(email__icontains=query)
+            )[:10]
+            
+            for user in user_matches:
+                try:
+                    results.append({
+                        'id': user.id,
+                        'full_name': f"{user.first_name or ''} {user.last_name or ''}".strip(),
+                        'email': user.email or '',
+                        'cnic': '',
+                        'phone': ''
+                    })
+                except Exception as e:
+                    logger.error(f"Error formatting user {user.id}: {str(e)}")
+                    continue
+        
+        logger.info(f"Returning {len(results)} results")
+        return JsonResponse({
+            'students': results,
+            'query': query
+        })
+        
+    except Exception as e:
+        import traceback
+        error_details = traceback.format_exc()
+        logger.error(f"Error in search_students: {str(e)}\n{error_details}")
+        return JsonResponse({
+            'error': 'An error occurred while searching',
+            'details': str(e),
+            'traceback': error_details.split('\n')
+        }, status=500)
+
+@login_required
 def get_room_types(request):
-    """AJAX view to get room types for a specific hostel"""
     if request.method == 'GET' and 'hostel_id' in request.GET:
         try:
             hostel_id = request.GET.get('hostel_id')
@@ -1103,4 +1340,24 @@ def get_room_types(request):
             }, status=400)
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
 
-# manage_booking function is used for handling booking management
+def get_hostels(request):
+    try:
+        hostels = Hostels.objects.prefetch_related('roomtyperate_set').all()
+        hostels_data = []
+        
+        for hostel in hostels:
+            hostel_data = {
+                'id': hostel.id,
+                'name': hostel.name,
+                'room_types': [
+                    {
+                        'room_type': rt.room_type,
+                        'per_head_rent': float(rt.per_head_rent) if rt.per_head_rent else 0.0
+                    } for rt in hostel.roomtyperate_set.all()
+                ]
+            }
+            hostels_data.append(hostel_data)
+            
+        return JsonResponse(hostels_data, safe=False)
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)

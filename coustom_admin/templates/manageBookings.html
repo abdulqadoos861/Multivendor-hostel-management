@@ -6,6 +6,12 @@
 {% endblock %}
 
 {% block content %}
+<!-- Debug: Check hostels data in template -->
+<div style="display: none;" id="debug-hostels">
+    Raw hostels data: {{ hostels|safe }}
+    Type: {{ hostels|stringformat:'r' }}
+</div>
+
 <div class="container mt-4">
     <!-- Filters Section -->
     <div class="card filter-card mb-4 fade-in">
@@ -51,6 +57,164 @@
         </div>
     </div>
 
+    <!-- Create New Booking Section -->
+    <div class="card mb-4 fade-in">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Create New Booking</h5>
+        </div>
+        <div class="card-body">
+            <!-- Student Search -->
+            <div class="mb-4">
+                <h6>Search Student</h6>
+                <div class="input-group">
+                    <input type="text" id="studentSearch" class="form-control" placeholder="Search by student name or CNIC">
+                    <button class="btn btn-primary" type="button" id="searchStudentBtn">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+                <div id="searchResults" class="mt-2" style="display: none;">
+                    <div class="list-group">
+                        <!-- Search results will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Booking Form (initially hidden) -->
+            <div id="bookingFormContainer" style="display: none;">
+                <h6>Booking Details</h6>
+                <form id="bookingForm" method="POST" action="{% url 'create_booking' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="student_id" id="studentId">
+                    
+                    <!-- Student Information -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">Student Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="studentName" class="form-label">Student Name</label>
+                                    <input type="text" class="form-control" id="studentName" readonly>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="studentCnic" class="form-label">CNIC</label>
+                                    <input type="text" class="form-control" id="studentCnic" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Booking Details -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">Booking Details</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="hostel" class="form-label">Hostel</label>
+                                    <select class="form-select" id="hostel" name="hostel" required>
+                                        <option value="" selected disabled>Select Hostel</option>
+                                        {% for hostel in hostels %}
+                                        <option value="{{ hostel.id }}">{{ hostel.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="roomType" class="form-label">Room Type</label>
+                                    <select class="form-select" id="roomType" name="room_type" required disabled>
+                                        <option value="" selected disabled>Select Hostel First</option>
+                                    </select>
+                                    <div id="roomTypeLoading" class="spinner-border spinner-border-sm d-none" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="requestDate" class="form-label">Check-in Date</label>
+                                    <input type="date" class="form-control" id="requestDate" name="check_in_date" required min="{{ today|date:'Y-m-d' }}">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="duration" class="form-label">Duration (Months)</label>
+                                    <input type="number" class="form-control" id="duration" name="duration" min="1" value="1" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Payment Information -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">Payment Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="paymentMethod" class="form-label">Payment Method</label>
+                                    <select class="form-select" id="paymentMethod" name="payment_method" required>
+                                        <option value="" selected disabled>Select Payment Method</option>
+                                        <option value="Cash">Cash</option>
+                                        <option value="Bank Transfer">Bank Transfer</option>
+                                        <option value="EasyPaisa">EasyPaisa</option>
+                                        <option value="JazzCash">JazzCash</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3" id="staffNameContainer" style="display: none;">
+                                    <label for="staffName" class="form-label">Received By (Staff Name)</label>
+                                    <input type="text" class="form-control" id="staffName" name="staff_name">
+                                </div>
+                                <div class="col-md-6 mb-3" id="transactionIdContainer" style="display: none;">
+                                    <label for="transactionId" class="form-label">Transaction ID</label>
+                                    <input type="text" class="form-control" id="transactionId" name="transaction_id">
+                                </div>
+                            </div>
+                            
+                            <!-- Pricing Summary -->
+                            <div class="border-top pt-3 mt-3">
+                                <div class="row">
+                                    <div class="col-md-6 mb-2">
+                                        <span class="text-muted">Monthly Rent:</span>
+                                        <span id="monthlyRentDisplay" class="float-end fw-bold">PKR 0</span>
+                                        <input type="hidden" id="monthlyRent" name="monthly_rent" value="0">
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <span class="text-muted">Duration:</span>
+                                        <span id="durationDisplay" class="float-end">1 Month</span>
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <span class="text-muted">Security Deposit:</span>
+                                        <span id="securityDepositDisplay" class="float-end fw-bold">PKR 0</span>
+                                        <input type="hidden" id="securityDeposit" name="security_deposit" value="0">
+                                    </div>
+                                    <div class="col-md-6 mb-2">
+                                        <span class="text-muted">Subtotal:</span>
+                                        <span id="subtotalDisplay" class="float-end fw-bold">PKR 0</span>
+                                    </div>
+                                    <div class="col-12 mt-2 pt-2 border-top">
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <h5 class="mb-0">Total Amount:</h5>
+                                            <h4 class="mb-0 text-primary" id="totalAmount">PKR 0</h4>
+                                            <input type="hidden" id="totalAmountValue" name="total_amount" value="0">
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" id="cancelBooking">
+                            <i class="bi bi-x-circle me-1"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i> Create Booking
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Bookings Table -->
     <div class="card bookings-card fade-in">
         <div class="card-header d-flex justify-content-between align-items-center">
@@ -75,8 +239,8 @@
                         {% for booking in bookings %}
                         <tr>
                             <td>#{{ booking.id }}</td>
-                            <td>{{ booking.user_id.get_full_name }}</td>
-                            <td>{{ booking.hostel_id.name }}</td>
+                            <td>{{ booking.student.user.get_full_name }}</td>
+                            <td>{{ booking.hostel.name }}</td>
                             <td>{{ booking.room_type }}</td>
                             <td>{{ booking.request_date|date:"Y-m-d H:i" }}</td>
                             <td>
@@ -90,7 +254,7 @@
                             </td>
                             <td class="action-buttons">
                                 {% if booking.status == 'Pending' %}
-                                    <form method="POST" action="{% url 'approveBooking' booking.id %}" class="d-inline" id="approveForm-{{ booking.id }}">
+                                    <form method="POST" action="{% url 'approve_booking' booking.id %}" class="d-inline" id="approveForm-{{ booking.id }}">
                                         {% csrf_token %}
                                         <button type="submit" class="btn btn-sm btn-success approve-btn">
                                             <i class="bi bi-check-circle-fill me-1"></i> Approve
@@ -104,9 +268,9 @@
                                     <button class="btn btn-sm btn-info" data-bs-toggle="modal" 
                                             data-bs-target="#viewModal" 
                                             data-booking-id="{{ booking.id }}"
-                                            data-student-name="{{ booking.user_id.get_full_name }}"
-                                            data-student-email="{{ booking.user_id.email }}"
-                                            data-hostel-name="{{ booking.hostel_id.name }}"
+                                            data-student-name="{{ booking.student.user.get_full_name }}"
+                                            data-student-email="{{ booking.student.user.email }}"
+                                            data-hostel-name="{{ booking.hostel.name }}"
                                             data-room-type="{{ booking.room_type }}"
                                             data-request-date="{{ booking.request_date|date:'Y-m-d H:i' }}">
                                         <i class="bi bi-info-circle-fill me-1"></i> View Details
@@ -115,9 +279,9 @@
                                     <button class="btn btn-sm btn-secondary" data-bs-toggle="modal" 
                                             data-bs-target="#viewModal" 
                                             data-booking-id="{{ booking.id }}"
-                                            data-student-name="{{ booking.user_id.get_full_name }}"
-                                            data-student-email="{{ booking.user_id.email }}"
-                                            data-hostel-name="{{ booking.hostel_id.name }}"
+                                            data-student-name="{{ booking.student.user.get_full_name }}"
+                                            data-student-email="{{ booking.student.user.email }}"
+                                            data-hostel-name="{{ booking.hostel.name }}"
                                             data-room-type="{{ booking.room_type }}"
                                             data-request-date="{{ booking.request_date|date:'Y-m-d H:i' }}">
                                         <i class="bi bi-clock-history me-1"></i> View History
@@ -177,7 +341,7 @@
             </div>
             <div class="modal-body">
                 <div id="rejectFormMessage" class="alert d-none slide-in" role="alert"></div>
-                <form id="rejectForm" method="POST">
+                <form id="rejectForm" method="POST" action="">
                     {% csrf_token %}
                     <div class="mb-3">
                         <label for="rejectionReason" class="form-label">Reason for Rejection</label>
@@ -192,6 +356,394 @@
         </div>
     </div>
 </div>
+
+{% block extra_js %}
+<script>
+// Parse the hostels JSON from the template
+// Hostels data will be loaded from a hidden div
+const hostelsData = []; // Initialize empty array by default
+
+// Load hostels data from the template
+const hostelsJson = document.getElementById('hostels-json');
+if (hostelsJson) {
+    try {
+        const data = JSON.parse(hostelsJson.textContent);
+        hostelsData.push(...data);
+    } catch (e) {
+        console.error('Error parsing hostels data:', e);
+    }
+}
+
+// Format number with commas
+function formatNumber(num) {
+    return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+// Document ready function
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // DOM Elements
+    const hostelSelect = document.getElementById('hostel');
+    const roomTypeSelect = document.getElementById('roomType');
+    const paymentMethodSelect = document.getElementById('paymentMethod');
+    const transactionIdContainer = document.getElementById('transactionIdContainer');
+    const staffNameContainer = document.getElementById('staffNameContainer');
+    const durationInput = document.getElementById('duration');
+    const monthlyRentInput = document.getElementById('monthlyRent');
+    const securityDepositInput = document.getElementById('securityDeposit');
+    const totalAmountInput = document.getElementById('totalAmountValue');
+    const searchStudentBtn = document.getElementById('searchStudentBtn');
+    const studentSearch = document.getElementById('studentSearch');
+    const searchResults = document.getElementById('searchResults');
+    const bookingFormContainer = document.getElementById('bookingFormContainer');
+    const studentNameInput = document.getElementById('studentName');
+    const studentCnicInput = document.getElementById('studentCnic');
+    const studentIdInput = document.getElementById('studentId');
+    const cancelBookingBtn = document.getElementById('cancelBooking');
+    const roomTypeLoading = document.getElementById('roomTypeLoading');
+    
+    // Room type rates (will be populated when hostel is selected)
+    let roomRates = {};
+    
+    // Set minimum date for request date field
+    const today = new Date().toISOString().split('T')[0];
+    document.getElementById('requestDate').min = today;
+    document.getElementById('requestDate').value = today;
+    
+    // Add event listener for hostel select
+    if (hostelSelect) {
+        console.log('Found hostel select element, adding event listener');
+        hostelSelect.addEventListener('change', handleHostelChange);
+    } else {
+        console.error('Could not find hostel select element');
+    }
+    
+    // Handle hostel selection change
+    function handleHostelChange(event) {
+        const selectElement = event ? event.target : this;
+        const selectedHostelId = selectElement.value;
+        console.log('Selected hostel ID:', selectedHostelId);
+        
+        // Reset room type select
+        roomTypeSelect.innerHTML = '<option value="" selected disabled>Loading room types...</option>';
+        roomTypeSelect.disabled = true;
+        
+        if (roomTypeLoading) {
+            roomTypeLoading.classList.remove('d-none');
+        }
+        
+        if (!selectedHostelId) {
+            console.log('No hostel selected, resetting room types');
+            roomTypeSelect.innerHTML = '<option value="" selected disabled>Select Hostel First</option>';
+            resetPricing();
+            if (roomTypeLoading) {
+                roomTypeLoading.classList.add('d-none');
+            }
+            return;
+        }
+        
+        // Fetch room types for the selected hostel
+        const url = `/admin/get_room_types/?hostel_id=${selectedHostelId}`;
+        console.log('Fetching room types from:', url);
+        
+        fetch(url, {
+            headers: {
+                'Accept': 'application/json',
+                'X-Requested-With': 'XMLHttpRequest'
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('Error response:', text);
+                    throw new Error(`HTTP error! status: ${response.status}, body: ${text}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received room types data:', data);
+                console.log('Room types response:', data);
+                roomTypeSelect.innerHTML = '<option value="" selected disabled>Select Room Type</option>';
+                roomRates = {};
+                
+                if (data.status === 'success' && data.room_types && data.room_types.length > 0) {
+                    // Sort room types alphabetically
+                    const sortedRoomTypes = [...data.room_types].sort((a, b) => 
+                        a.room_type.localeCompare(b.room_type)
+                    );
+                    
+                    sortedRoomTypes.forEach(room => {
+                        if (room && room.room_type) {
+                            const rent = parseFloat(room.per_head_rent) || 0;
+                            roomRates[room.room_type] = {
+                                rent: rent,
+                                deposit: 7000 // Fixed security deposit
+                            };
+                            
+                            // Add room type option
+                            const option = document.createElement('option');
+                            option.value = room.room_type;
+                            option.textContent = `${room.room_type} - PKR ${rent.toLocaleString()}/month`;
+                            option.setAttribute('data-rent', rent);
+                            roomTypeSelect.appendChild(option);
+                        }
+                    });
+                    
+                    roomTypeSelect.disabled = false;
+                } else {
+                    console.log('No room types available for hostel:', selectedHostelId);
+                    const option = document.createElement('option');
+                    option.value = "";
+                    option.textContent = "No room types available";
+                    option.disabled = true;
+                    roomTypeSelect.appendChild(option);
+                }
+                
+                resetPricing();
+            })
+            .catch(error => {
+                console.error('Error fetching room types:', error);
+                roomTypeSelect.innerHTML = '<option value="" selected disabled>Error loading room types</option>';
+            })
+            .finally(() => {
+                if (roomTypeLoading) {
+                    roomTypeLoading.classList.add('d-none');
+                }
+            });
+    }
+    
+    // Reset pricing displays and inputs
+    function resetPricing() {
+        if (monthlyRentInput) monthlyRentInput.value = '';
+        if (securityDepositInput) securityDepositInput.value = '';
+        if (totalAmountInput) totalAmountInput.textContent = '0.00';
+        
+        // Reset room type select
+        if (roomTypeSelect) {
+            roomTypeSelect.innerHTML = '<option value="" selected disabled>Select Hostel First</option>';
+            roomTypeSelect.disabled = true;
+        }
+        
+        document.getElementById('monthlyRentDisplay').textContent = 'PKR 0';
+        document.getElementById('securityDepositDisplay').textContent = 'PKR 0';
+        document.getElementById('subtotalDisplay').textContent = 'PKR 0';
+        document.getElementById('totalAmount').textContent = 'PKR 0';
+        document.getElementById('durationDisplay').textContent = '1 Month';
+    }
+    
+    // Handle room type and duration changes
+    function handleRoomTypeOrDurationChange() {
+        const roomType = roomTypeSelect.value;
+        if (roomRates[roomType]) {
+            const monthlyRent = roomRates[roomType].rent;
+            const securityDeposit = roomRates[roomType].deposit;
+            const duration = parseInt(durationInput.value) || 1;
+            const subtotal = monthlyRent * duration;
+            const total = subtotal + securityDeposit;
+
+            // Update hidden inputs
+            monthlyRentInput.value = monthlyRent.toFixed(2);
+            securityDepositInput.value = securityDeposit.toFixed(2);
+            totalAmountInput.value = total.toFixed(2);
+
+            // Update display
+            document.getElementById('monthlyRentDisplay').textContent = `PKR ${formatNumber(monthlyRent.toFixed(2))}`;
+            document.getElementById('securityDepositDisplay').textContent = `PKR ${formatNumber(securityDeposit.toFixed(2))}`;
+            document.getElementById('subtotalDisplay').textContent = `PKR ${formatNumber(subtotal.toFixed(2))}`;
+            document.getElementById('totalAmount').textContent = `PKR ${formatNumber(total.toFixed(2))}`;
+            document.getElementById('durationDisplay').textContent = `${duration} Month${duration > 1 ? 's' : ''}`;
+        }
+    }
+    
+    // Handle payment method change
+    function updatePaymentMethodFields() {
+        const paymentMethod = paymentMethodSelect.value;
+        const isCashPayment = paymentMethod === 'Cash';
+        const isOnlinePayment = ['Bank Transfer', 'EasyPaisa', 'JazzCash'].includes(paymentMethod);
+        
+        staffNameContainer.style.display = isCashPayment ? 'block' : 'none';
+        transactionIdContainer.style.display = isOnlinePayment ? 'block' : 'none';
+        
+        document.getElementById('staffName').required = isCashPayment;
+        document.getElementById('transactionId').required = isOnlinePayment;
+    }
+    
+    // Handle student search
+    function handleStudentSearch() {
+        const query = studentSearch.value.trim();
+        if (query.length < 3) {
+            searchResults.style.display = 'none';
+            searchResults.innerHTML = '';
+            return;
+        }
+
+        // Show loading state
+        searchResults.innerHTML = '<div class="text-center p-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+        searchResults.style.display = 'block';
+
+        fetch(`/admin/search_students/?q=${encodeURIComponent(query)}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Clear previous results
+            searchResults.innerHTML = '';
+            
+            // Create list group container
+            const listGroup = document.createElement('div');
+            listGroup.className = 'list-group';
+            searchResults.appendChild(listGroup);
+
+            if (data.error) {
+                const errorDiv = document.createElement('div');
+                errorDiv.className = 'alert alert-warning';
+                errorDiv.textContent = data.error;
+                searchResults.appendChild(errorDiv);
+                searchResults.style.display = 'block';
+                return;
+            }
+
+            if (!data.students || data.students.length === 0) {
+                const noResults = document.createElement('div');
+                noResults.className = 'alert alert-info';
+                noResults.textContent = 'No students found.';
+                searchResults.appendChild(noResults);
+                searchResults.style.display = 'block';
+                return;
+            }
+
+            data.students.forEach(student => {
+                const item = document.createElement('a');
+                item.href = '#';
+                item.className = 'list-group-item list-group-item-action';
+                item.innerHTML = `
+                    <strong>${student.full_name || 'N/A'}</strong><br>
+                    <small>CNIC: ${student.cnic || 'N/A'} | Email: ${student.email || 'N/A'}</small>
+                `;
+                item.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (studentIdInput) studentIdInput.value = student.id || '';
+                    if (studentNameInput) studentNameInput.value = student.full_name || '';
+                    if (studentCnicInput) studentCnicInput.value = student.cnic || 'N/A';
+                    if (bookingFormContainer) bookingFormContainer.style.display = 'block';
+                    searchResults.style.display = 'none';
+                });
+                listGroup.appendChild(item);
+            });
+            searchResults.style.display = 'block';
+        })
+        .catch(error => {
+            console.error('Error searching students:', error);
+            searchResults.innerHTML = '<div class="alert alert-danger">Error searching students. Please try again.</div>';
+            searchResults.style.display = 'block';
+        });
+    }
+    
+    // Handle form submission
+    document.getElementById('bookingForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = this;
+        const formData = new FormData(form);
+
+        fetch(form.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert(data.message);
+                window.location.href = '{% url "manage_booking" %}';
+            } else {
+                let errorMessage = data.message || 'An error occurred.';
+                if (data.errors) {
+                    errorMessage += '\n' + Object.entries(data.errors).map(([field, errors]) => `${field}: ${errors.join(', ')}`).join('\n');
+                }
+                alert(errorMessage);
+            }
+        })
+        .catch(error => {
+            console.error('Error submitting form:', error);
+            alert('An error occurred while submitting the booking.');
+        });
+    });
+
+    // Handle cancel booking
+    cancelBookingBtn.addEventListener('click', () => {
+        bookingFormContainer.style.display = 'none';
+        studentSearch.value = '';
+        searchResults.style.display = 'none';
+        studentIdInput.value = '';
+        studentNameInput.value = '';
+        studentCnicInput.value = '';
+        resetPricing();
+        roomTypeSelect.innerHTML = '<option value="" selected disabled>Select Hostel First</option>';
+        roomTypeSelect.disabled = true;
+        hostelSelect.value = '';
+        paymentMethodSelect.value = '';
+        updatePaymentMethodFields();
+    });
+
+    // Set up event listeners
+    if (hostelSelect) {
+        hostelSelect.addEventListener('change', handleHostelChange);
+    }
+    if (roomTypeSelect) {
+        roomTypeSelect.addEventListener('change', handleRoomTypeOrDurationChange);
+    }
+    if (durationInput) {
+        durationInput.addEventListener('input', handleRoomTypeOrDurationChange);
+    }
+    if (paymentMethodSelect) {
+        paymentMethodSelect.addEventListener('change', updatePaymentMethodFields);
+    }
+    if (searchStudentBtn) {
+        searchStudentBtn.addEventListener('click', handleStudentSearch);
+    }
+    if (studentSearch) {
+        studentSearch.addEventListener('input', handleStudentSearch);
+    }
+
+    // Initialize payment method fields
+    updatePaymentMethodFields();
+
+    // Handle reject modal
+    const rejectModal = document.getElementById('rejectModal');
+    rejectModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const bookingId = button.getAttribute('data-booking-id');
+        const form = document.getElementById('rejectForm');
+        form.action = `/reject_booking/${bookingId}/`;
+    });
+
+    // Handle view modal
+    const viewModal = document.getElementById('viewModal');
+    viewModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        document.getElementById('modal-student-name').textContent = button.getAttribute('data-student-name');
+        document.getElementById('modal-student-email').textContent = button.getAttribute('data-student-email');
+        document.getElementById('modal-hostel-name').textContent = button.getAttribute('data-hostel-name');
+        document.getElementById('modal-room-type').textContent = button.getAttribute('data-room-type');
+        document.getElementById('modal-request-date').textContent = button.getAttribute('data-request-date');
+    });
+});
+</script>
+{% endblock %}
 
 <style>
     :root {
@@ -271,18 +823,18 @@
 
     .form-control:focus, .form-select:focus {
         border-color: var(--primary-color);
-        box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.1);
+        box-shadow: 0 0 4px rgba(79, 70, 229, 0.1);
         background: white;
         transform: scale(1.02);
     }
 
-    .form-control::placeholder, .form-select::placeholder {
+    .form-control::placeholder {
         color: #9ca3af;
         font-size: 0.9rem;
     }
 
     .btn-primary {
-        background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+        background: linear-gradient(135deg, var(--primary-color));
         border: none;
         border-radius: 0.75rem;
         padding: 0.75rem;
@@ -298,23 +850,23 @@
     }
 
     .btn-primary::before {
-        content: '';
+        content: linear-gradient(90deg, rgba(255, 255,255, 0.3), transparent);
+        background: absolute;
         position: absolute;
         top: 0;
         left: -100%;
         width: 100%;
         height: 100%;
-        background: linear-gradient(90deg, rgba(255, 255, 255, 0.3), transparent);
         transition: left var(--transition-speed);
     }
 
     .btn-primary:hover::before {
-        left: 0;
+        opacity: 0.7;
+        cursor: not-allowed;
     }
 
     .btn-primary:disabled {
-        opacity: 0.7;
-        cursor: not-allowed;
+        left: 100%;
     }
 
     .btn-success {
@@ -366,23 +918,20 @@
     .btn-secondary:hover {
         background: #4b5563;
         transform: translateY(-2px);
-        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+        box-shadow: 0 4px 8px rgba(107, 114, 128, 0.3);
     }
 
     .bookings-table {
         background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(12px);
+        backdrop-filter: blur(8px);
         border-radius: 1rem;
         box-shadow: var(--card-shadow);
         border: 1px solid rgba(79, 70, 229, 0.2);
     }
 
-    .bookings-table thead {
+    .bookings-table thead th {
         background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
         color: white;
-    }
-
-    .bookings-table th {
         font-weight: 500;
         padding: 1rem;
     }
@@ -402,104 +951,36 @@
         font-size: 0.9rem;
     }
 
-    .badge {
-        border-radius: 0.5rem;
-        padding: 0.5rem 0.75rem;
-        font-weight: 500;
-    }
-
-    .badge.bg-warning {
-        background: var(--warning-color) !important;
-        color: white;
-    }
-
-    .badge.bg-success {
-        background: var(--success-color) !important;
-        color: white;
-    }
-
-    .badge.bg-danger {
-        background: var(--danger-color) !important;
-        color: white;
-    }
-
-    .badge.bg-primary {
-        background: var(--primary-color) !important;
-        color: white;
-    }
-
-    .action-buttons .btn {
-        margin-right: 0.5rem;
-        padding: 0.5rem 1rem;
-        font-size: 0.85rem;
-    }
-
     .modal-custom {
         background: rgba(255, 255, 255, 0.95);
         backdrop-filter: blur(12px);
         border-radius: 1rem;
-        box-shadow: var(--card-shadow);
         border: 1px solid rgba(79, 70, 229, 0.2);
-        position: relative;
-        overflow: hidden;
-    }
-
-    .modal-custom::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: 0;
-        right: 0;
-        bottom: 0;
-        background: linear-gradient(135deg, rgba(79, 70, 229, 0.1), transparent);
-        pointer-events: none;
+        box-shadow: var(--card-shadow);
     }
 
     .modal-header {
-        border-bottom: 1px solid rgba(79, 70, 229, 0.2);
+        background: linear-gradient(135deg, rgba(79, 70, 229, 0.2), transparent);
+        border-bottom: none;
     }
 
     .modal-title {
-        font-weight: 600;
         color: var(--primary-color);
-        font-size: 1.5rem;
+        font-weight: 600;
     }
 
     .modal-body {
-        padding: 1.5rem;
-    }
-
-    .alert {
-        border-radius: 0.75rem;
-        margin-bottom: 1rem;
-        padding: 0.75rem;
-        font-size: 0.9rem;
-    }
-
-    .alert-success {
-        background: rgba(34, 197, 94, 0.1);
-        color: var(--success-color);
-        border: 1px solid var(--success-color);
-    }
-
-    .alert-danger {
-        background: rgba(239, 68, 68, 0.1);
-        color: var(--danger-color);
-        border: 1px solid var(--danger-color);
-    }
-
-    .slide-in {
-        animation: slideIn 0.3s ease-out;
+        padding: 2rem;
     }
 
     .fade-in {
-        animation: fadeIn 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+        animation: fadeIn 0.5s ease-in-out;
     }
 
     @keyframes fadeIn {
         from {
             opacity: 0;
-            transform: translateY(12px);
+            transform: translateY(-10px);
         }
         to {
             opacity: 1;
@@ -507,10 +988,14 @@
         }
     }
 
+    .slide-in {
+        animation: slideIn 0.3s ease-in-out;
+    }
+
     @keyframes slideIn {
         from {
             opacity: 0;
-            transform: translateX(-10px);
+            transform: translateX(-20px);
         }
         to {
             opacity: 1;
@@ -518,211 +1003,18 @@
         }
     }
 
-    /* Custom Scrollbar for Table */
-    .table-responsive::-webkit-scrollbar {
-        height: 8px;
+    .action-buttons .btn {
+        margin-right: 0.5rem;
     }
 
-    .table-responsive::-webkit-scrollbar-track {
-        background: rgba(241, 245, 249, 0.8);
-        border-radius: 4px;
-    }
-
-    .table-responsive::-webkit-scrollbar-thumb {
-        background: var(--primary-color);
-        border-radius: 4px;
-        transition: all var(--transition-speed);
-    }
-
-    .table-responsive::-webkit-scrollbar-thumb:hover {
-        background: var(--secondary-color);
-    }
-
-    /* Loading Spinner for Buttons */
-    .btn-loading::after {
-        content: '';
-        display: inline-block;
-        width: 16px;
-        height: 16px;
-        border: 2px solid white;
-        border-top-color: transparent;
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-        margin-left: 0.5rem;
-        vertical-align: middle;
-    }
-
-    @keyframes spin {
-        to {
-            transform: rotate(360deg);
-        }
-    }
-
-    /* Responsive Design */
-    @media (max-width: 768px) {
-        .bookings-table {
-            font-size: 0.85rem;
-        }
-
-        .action-buttons .btn {
-            padding: 0.4rem 0.8rem;
-            font-size: 0.8rem;
-        }
-
-        .card-title {
-            font-size: 1.3rem;
-        }
-    }
-
-    @media (max-width: 576px) {
-        .container {
-            margin: 0 0.5rem;
-        }
-
-        .filter-card, .bookings-card {
-            border-radius: 1rem;
-            padding: 1rem;
-        }
-
-        .card-body {
-            padding: 1rem;
-        }
-
-        .form-control, .form-select {
-            padding: 0.6rem;
-            font-size: 0.9rem;
-        }
-
-        .btn-primary, .btn-secondary, .btn-success, .btn-danger, .btn-info {
-            padding: 0.6rem;
-            font-size: 0.9rem;
-        }
-
-        .modal-dialog {
-            margin: 0.5rem;
-        }
-
-        .modal-custom {
-            border-radius: 0.75rem;
-        }
-
-        .modal-title {
-            font-size: 1.3rem;
-        }
+    .badge {
+        font-size: 0.85rem;
+        padding: 0.5em 0.75em;
     }
 </style>
 
-{% block extra_js %}
-<script>
-    document.addEventListener('DOMContentLoaded', function() {
-        // Handle filter form submission
-        const filterForm = document.getElementById('filterForm');
-        const filterButton = document.getElementById('filterButton');
-        filterForm.addEventListener('submit', function(event) {
-            filterButton.disabled = true;
-            filterButton.classList.add('btn-loading');
-            filterButton.textContent = 'Applying...';
-        });
-
-        // Handle approve form submissions
-        document.querySelectorAll('.approve-btn').forEach(button => {
-            button.addEventListener('click', function(event) {
-                event.preventDefault();
-                const form = button.closest('form');
-                button.disabled = true;
-                button.classList.add('btn-loading');
-                button.textContent = 'Approving...';
-                form.submit();
-            });
-        });
-
-        // Handle view modal
-        const viewModal = document.getElementById('viewModal');
-        viewModal.addEventListener('show.bs.modal', function(event) {
-            const button = event.relatedTarget;
-            const studentName = button.getAttribute('data-student-name');
-            const studentEmail = button.getAttribute('data-student-email');
-            const hostelName = button.getAttribute('data-hostel-name');
-            const roomType = button.getAttribute('data-room-type');
-            const requestDate = button.getAttribute('data-request-date');
-
-            document.getElementById('modal-student-name').textContent = studentName;
-            document.getElementById('modal-student-email').textContent = studentEmail;
-            document.getElementById('modal-hostel-name').textContent = hostelName;
-            document.getElementById('modal-room-type').textContent = roomType;
-            document.getElementById('modal-request-date').textContent = requestDate;
-        });
-
-        // Handle reject modal and form submission
-        const rejectModal = document.getElementById('rejectModal');
-        rejectModal.addEventListener('show.bs.modal', function(event) {
-            const button = event.relatedTarget;
-            const bookingId = button.getAttribute('data-booking-id');
-            const form = document.getElementById('rejectForm');
-            form.action = `/admin/rejectBooking/${bookingId}/`;
-        });
-
-        const rejectForm = document.getElementById('rejectForm');
-        const rejectButton = document.getElementById('rejectButton');
-        rejectForm.addEventListener('submit', async function(event) {
-            event.preventDefault();
-            rejectButton.disabled = true;
-            rejectButton.classList.add('btn-loading');
-            rejectButton.textContent = 'Rejecting...';
-
-            const formData = new FormData(rejectForm);
-            const messageDiv = document.getElementById('rejectFormMessage');
-
-            try {
-                const response = await fetch(rejectForm.action, {
-                    method: 'POST',
-                    body: formData,
-                    headers: {
-                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    credentials: 'same-origin'
-                });
-
-                const result = await response.json();
-                messageDiv.textContent = result.message;
-                messageDiv.classList.remove('d-none', 'alert-success', 'alert-danger');
-                messageDiv.classList.add(result.status === 'success' ? 'alert-success' : 'alert-danger');
-
-                if (result.status === 'success') {
-                    setTimeout(() => {
-                        const modal = document.getElementById('rejectModal');
-                        bootstrap.Modal.getInstance(modal).hide();
-                        window.location.reload();
-                    }, 1000);
-                } else {
-                    rejectButton.disabled = false;
-                    rejectButton.classList.remove('btn-loading');
-                    rejectButton.textContent = 'Confirm Rejection';
-                }
-            } catch (error) {
-                console.error('Reject form submission error:', error);
-                messageDiv.textContent = `An error occurred: ${error.message}`;
-                messageDiv.classList.remove('d-none', 'alert-success');
-                messageDiv.classList.add('alert-danger');
-                rejectButton.disabled = false;
-                rejectButton.classList.remove('btn-loading');
-                rejectButton.textContent = 'Confirm Rejection';
-            }
-        });
-
-        // Smooth focus animation for inputs and selects
-        const inputs = document.querySelectorAll('.form-control, .form-select');
-        inputs.forEach(input => {
-            input.addEventListener('focus', function() {
-                this.style.transform = 'scale(1.02)';
-            });
-            input.addEventListener('blur', function() {
-                this.style.transform = 'scale(1)';
-            });
-        });
-    });
-</script>
-{% endblock %}
-
+<!-- Hidden element to store JSON data for JavaScript -->
+<div id="hostels-json" style="display: none;">
+    {{ hostels_json|safe|default:'[]' }}
+</div>
 {% endblock %}

@@ -106,65 +106,9 @@
                     {% endif %}
                 </div>
                 
-                <!-- Hostel booking will be handled via modal after successful registration -->
                 <div class="mt-4">
                     <button type="submit" class="btn btn-primary" id="submitBtn">Add Student</button>
                     <a href="{% url 'manageStudent' %}" class="btn btn-secondary">Cancel</a>
-                </div>
-                
-                <!-- Booking Modal -->
-                <div class="modal fade" id="bookingModal" tabindex="-1" aria-labelledby="bookingModalLabel" aria-hidden="true">
-                    <div class="modal-dialog modal-lg">
-                        <div class="modal-content">
-                            <div class="modal-header bg-primary text-white">
-                                <h5 class="modal-title" id="bookingModalLabel">Hostel Booking for <span id="studentName"></span></h5>
-                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                            </div>
-                            <div class="modal-body">
-                                <div id="bookingForm">
-                                    <div class="row mb-3">
-                                        <div class="col-md-6">
-                                            <label for="hostel" class="form-label">Select Hostel</label>
-                                            <select class="form-select" id="hostel" name="hostel">
-                                                <option value="" selected disabled>Select Hostel</option>
-                                                {% for hostel in hostels %}
-                                                    <option value="{{ hostel.id }}">{{ hostel.name }}</option>
-                                                {% endfor %}
-                                            </select>
-                                            <div class="invalid-feedback">Please select a hostel</div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label for="room_type" class="form-label">Room Type</label>
-                                            <select class="form-select" id="room_type" name="room_type" disabled>
-                                                <option value="" selected disabled>Select Room Type</option>
-                                            </select>
-                                            <div class="invalid-feedback">Please select a room type</div>
-                                        </div>
-                                    </div>
-                                    <div class="row mb-3">
-                                        <div class="col-md-6">
-                                            <label for="check_in_date" class="form-label">Check-in Date</label>
-                                            <input type="date" class="form-control" id="check_in_date" name="check_in_date">
-                                            <div class="invalid-feedback">Please select a check-in date</div>
-                                        </div>
-                                        <div class="col-md-6">
-                                            <label for="check_out_date" class="form-label">Check-out Date</label>
-                                            <input type="date" class="form-control" id="check_out_date" name="check_out_date">
-                                            <div class="invalid-feedback">Please select a check-out date</div>
-                                        </div>
-                                    </div>
-                                    <div class="mb-3">
-                                        <label for="message" class="form-label">Additional Message (Optional)</label>
-                                        <textarea class="form-control" id="message" name="message" rows="3" placeholder="Any special requests or notes"></textarea>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="modal-footer">
-                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                <button type="button" class="btn btn-primary" id="saveBookingBtn">Save Booking</button>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </form>
         </div>
@@ -297,19 +241,20 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize modal
-    const bookingModal = new bootstrap.Modal(document.getElementById('bookingModal'));
-    let currentStudentId = null;
-    
-    // Handle form submission
+    // Initialize form elements
     const studentForm = document.getElementById('studentForm');
-    const submitBtn = document.getElementById('submitBtn');
-    const applyForBooking = document.getElementById('applyForBooking');
-    const studentNameSpan = document.getElementById('studentName');
-    const saveBookingBtn = document.getElementById('saveBookingBtn');
     const passwordInput = document.getElementById('id_password');
     const confirmPasswordInput = document.getElementById('id_confirm_password');
+    const submitBtn = document.getElementById('submitBtn');
     
+    // Initialize edit student modal
+    const editStudentModal = new bootstrap.Modal(document.getElementById('editStudentModal'));
+    const editForm = document.getElementById('editStudentForm');
+    const editContactNumberInput = document.getElementById('edit_contact_number');
+    const editCnicInput = document.getElementById('edit_cnic');
+    const editContactError = document.getElementById('edit_contactError');
+    const editCnicError = document.getElementById('edit_cnicError');
+
     // Function to validate the form
     function validateStudentForm() {
         let isValid = true;
@@ -381,389 +326,298 @@ document.addEventListener('DOMContentLoaded', function() {
             },
             credentials: 'same-origin'
         })
+        // ... previous code ...
+
         .then(response => {
             console.log('Response status:', response.status);
             return response.json().then(data => {
+                console.log('Server response data:', data); // Log full response data
+                
                 if (!response.ok) {
                     console.error('Error response:', data);
+                    // Clear previous error messages
+                    document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                    document.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+                    
                     // Handle form validation errors
                     if (data.errors) {
-                        // Clear previous error messages
-                        document.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
-                        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                        console.log('Validation errors:', data.errors);
                         
-                        // Display field-specific errors
-                        for (const [field, errors] of Object.entries(data.errors)) {
-                            const input = document.getElementById(`id_${field}`);
-                            if (input) {
-                                input.classList.add('is-invalid');
-                                const errorDiv = document.createElement('div');
-                                errorDiv.className = 'invalid-feedback';
-                                errorDiv.textContent = Array.isArray(errors) ? errors[0] : errors;
-                                input.after(errorDiv);
+                        // Show server-side validation errors
+                        Object.entries(data.errors).forEach(([field, messages]) => {
+                            console.log(`Processing error for field ${field}:`, messages);
+                            
+                            // Try different input selectors to find the field
+                            let input = document.querySelector(`[name="${field}"]`);
+                            if (!input) {
+                                // Try with 'id_' prefix which Django sometimes uses
+                                input = document.querySelector(`[name="id_${field}"]`);
                             }
-                        }
-                        throw new Error('Form validation failed');
+                            
+                            const errorDiv = document.createElement('div');
+                            errorDiv.className = 'invalid-feedback d-block';
+                            
+                            // Handle both array and string error messages
+                            const errorMessage = Array.isArray(messages) ? messages[0] : messages;
+                            errorDiv.textContent = errorMessage;
+                            
+                            if (input) {
+                                console.log(`Found input for ${field}:`, input);
+                                input.classList.add('is-invalid');
+                                // Insert error message after the input
+                                const parent = input.parentNode;
+                                if (parent) {
+                                    parent.insertBefore(errorDiv, input.nextSibling);
+                                } else {
+                                    input.after(errorDiv);
+                                }
+                            } else {
+                                console.warn(`Could not find input for field: ${field}`);
+                                // If no specific input found, show error at the top
+                                showAlert(`${field}: ${errorMessage}`, 'danger');
+                            }
+                        });
+                    } else if (data.message) {
+                        // If no specific errors but there's a message, show it
+                        showAlert(data.message, 'danger');
                     }
-                    throw new Error(data.message || 'Network response was not ok');
+                    
+                    // Throw error to be caught by the catch block
+                    throw new Error(data.message || 'Form validation failed');
                 }
                 return data;
+            }).catch(error => {
+                console.error('Error parsing JSON:', error);
+                throw new Error('Error processing server response');
             });
         })
         .then(data => {
-            console.log('Response data:', data);
-            
-            if (data.status === 'success') {
-                // Store the student ID for the booking
-                currentStudentId = data.student_id;
-                
-                // Update the student name in the modal
-                studentNameSpan.textContent = data.student_name;
-                
-                // Reset the form
-                this.reset();
-                
-                // Set default dates for booking (today and next month)
-                const today = new Date();
-                const nextMonth = new Date();
-                nextMonth.setMonth(today.getMonth() + 1);
-                
-                // Format dates as YYYY-MM-DD
-                const formatDate = (date) => date.toISOString().split('T')[0];
-                document.getElementById('check_in_date').value = formatDate(today);
-                document.getElementById('check_out_date').value = formatDate(nextMonth);
-                
-                // Reset other booking fields
-                const hostelSelect = document.getElementById('hostel');
-                hostelSelect.selectedIndex = 0;
-                document.getElementById('room_type').innerHTML = '<option value="" selected disabled>Select Room Type</option>';
-                document.getElementById('message').value = '';
-                
-                // Show success message
-                showAlert('Student registered successfully! You can now add a booking if needed.', 'success');
-                
-                // Show the booking modal
-                const bookingModal = new bootstrap.Modal(document.getElementById('bookingModal'));
-                bookingModal.show();
-                
-                // Reload the page when modal is hidden
-                document.getElementById('bookingModal').addEventListener('hidden.bs.modal', function onModalHidden() {
-                    window.location.reload();
-                    this.removeEventListener('hidden.bs.modal', onModalHidden);
-                });
+            console.log('Success response:', data);
+            if (data.redirect_url) {
+                window.location.href = data.redirect_url;
             } else {
-                // Show error message
-                showAlert(data.message || 'An error occurred while registering the student', 'danger');
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = 'Register Student';
+                showAlert(data.message || 'Student added successfully!', 'success');
+                studentForm.reset();
+                // Clear all validation errors
+                document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                document.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            showAlert('An error occurred while processing your request: ' + error.message, 'danger');
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Register Student';
-        });
-    });
-    
-    // Handle save booking button
-    saveBookingBtn.addEventListener('click', function() {
-        // Reset validation
-        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-        
-        // Get form elements
-        const hostelSelect = document.getElementById('hostel');
-        const roomTypeSelect = document.getElementById('room_type');
-        const checkInDateInput = document.getElementById('check_in_date');
-        const checkOutDateInput = document.getElementById('check_out_date');
-        const messageInput = document.getElementById('message');
-        
-        // Validate form
-        let isValid = true;
-        
-        if (!hostelSelect.value) {
-            hostelSelect.classList.add('is-invalid');
-            isValid = false;
-        }
-        
-        if (!roomTypeSelect.value) {
-            roomTypeSelect.classList.add('is-invalid');
-            isValid = false;
-        }
-        
-        if (!checkInDateInput.value) {
-            checkInDateInput.classList.add('is-invalid');
-            isValid = false;
-        }
-        
-        if (!checkOutDateInput.value) {
-            checkOutDateInput.classList.add('is-invalid');
-            isValid = false;
-        }
-        
-        if (!isValid) {
-            showAlert('Please fill in all required fields', 'warning');
-            return;
-        }
-        
-        // Disable button and show loading state
-        const saveBtn = this;
-        const originalText = saveBtn.innerHTML;
-        saveBtn.disabled = true;
-        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
-        
-        // Create booking data
-        const bookingData = new FormData();
-        bookingData.append('student_id', currentStudentId);
-        bookingData.append('hostel', hostelSelect.value);
-        bookingData.append('room_type', roomTypeSelect.value);
-        bookingData.append('check_in_date', checkInDateInput.value);
-        bookingData.append('check_out_date', checkOutDateInput.value);
-        bookingData.append('message', messageInput.value);
-        bookingData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-        
-        console.log('Submitting booking data:', Object.fromEntries(bookingData.entries()));
-        
-        // Submit booking data
-        fetch('{% url "create_booking" %}', {
-            method: 'POST',
-            body: bookingData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            },
-            credentials: 'same-origin'
-        })
-        .then(response => {
-            console.log('Booking response status:', response.status);
-            if (!response.ok) {
-                return response.text().then(text => {
-                    console.error('Booking error response:', text);
-                    throw new Error('Network response was not ok');
-                });
+            // Only show alert if we haven't already shown validation errors
+            if (!document.querySelector('.invalid-feedback')) {
+                showAlert(error.message || 'An error occurred while adding the student', 'danger');
             }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Booking response data:', data);
-            if (data.status === 'success') {
-                showAlert('Booking request submitted successfully!', 'success');
-                // Hide modal and reload page after a short delay
-                setTimeout(() => {
-                    const modal = bootstrap.Modal.getInstance(document.getElementById('bookingModal'));
-                    if (modal) modal.hide();
-                    window.location.reload();
-                }, 1500);
-            } else {
-                throw new Error(data.message || 'Failed to save booking');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            showAlert('Error saving booking: ' + (error.message || 'Please try again'), 'danger');
         })
         .finally(() => {
-            saveBtn.disabled = false;
-            saveBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = 'Add Student';
         });
-    });
-    
-    // Handle modal hidden event
-    document.getElementById('bookingModal').addEventListener('hidden.bs.modal', function () {
-        if (currentStudentId) {
-            // If modal is closed without saving, just reload the page
-            window.location.reload();
-        }
-    });
-    
-    // Room type loading for modal
-    const modalHostelSelect = document.getElementById('hostel');
-    const modalRoomTypeSelect = document.getElementById('room_type');
-    
-    if (modalHostelSelect) {
-        modalHostelSelect.addEventListener('change', function() {
-            const hostelId = this.value;
-            modalRoomTypeSelect.disabled = !hostelId;
-            modalRoomTypeSelect.innerHTML = '<option value="">Loading...</option>';
-            
-            if (!hostelId) return;
-            
-            fetch(`/admin/get-room-types/?hostel_id=${hostelId}`)
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        modalRoomTypeSelect.innerHTML = '<option value="">Select Room Type</option>';
-                        data.room_types.forEach(roomType => {
-                            const option = document.createElement('option');
-                            option.value = roomType.room_type;
-                            option.textContent = `${roomType.room_type} - $${roomType.per_head_rent}/month`;
-                            modalRoomTypeSelect.appendChild(option);
-                        });
-                    } else {
-                        console.error('Error loading room types:', data.message);
-                        modalRoomTypeSelect.innerHTML = '<option value="">Error loading room types</option>';
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    modalRoomTypeSelect.innerHTML = '<option value="">Error loading room types</option>';
-                });
-        });
-    }
 
-    // Edit Student Modal Setup
-    const editButtons = document.querySelectorAll('.edit-student');
-    const editForm = document.getElementById('editStudentForm');
-    const editUserIdInput = document.getElementById('edit_user_id');
-    const editUsernameInput = document.getElementById('edit_username');
-    const editEmailInput = document.getElementById('edit_email');
-    const editFirstNameInput = document.getElementById('edit_first_name');
-    const editLastNameInput = document.getElementById('edit_last_name');
-    const editContactNumberInput = document.getElementById('edit_contact_number');
-    const editAddressInput = document.getElementById('edit_address');
-    const editGenderSelect = document.getElementById('edit_gender');
-    const editInstituteInput = document.getElementById('edit_institute');
-    const editCnicInput = document.getElementById('edit_cnic');
-    const editContactError = document.getElementById('edit_contactError');
-    const editCnicError = document.getElementById('edit_cnicError');
-
-    editButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const userId = this.getAttribute('data-id');
-            editUserIdInput.value = userId;
-            editUsernameInput.value = this.getAttribute('data-username');
-            editEmailInput.value = this.getAttribute('data-email');
-            editFirstNameInput.value = this.getAttribute('data-first-name');
-            editLastNameInput.value = this.getAttribute('data-last-name');
-            editContactNumberInput.value = this.getAttribute('data-contact-number');
-            editAddressInput.value = this.getAttribute('data-address');
-            editGenderSelect.value = this.getAttribute('data-gender');
-            editInstituteInput.value = this.getAttribute('data-institute');
-            editCnicInput.value = this.getAttribute('data-cnic');
-
-            // Update form action with user ID
-            editForm.action = `{% url 'edit_student' 0 %}`.replace('0', userId);
-        });
-    });
-
-    // Validate contact number for edit form
-    editContactNumberInput.addEventListener('input', function() {
-        const contactValue = editContactNumberInput.value;
-        if (!/^\d{11}$/.test(contactValue)) {
-            editContactError.textContent = 'Contact number must be 11 digits.';
-            editContactError.style.display = 'block';
-        } else {
-            editContactError.style.display = 'none';
-        }
-    });
-
-    // Validate CNIC for edit form
-    editCnicInput.addEventListener('input', function() {
-        const cnicValue = editCnicInput.value;
-        if (!/^\d{13}$/.test(cnicValue)) {
-            editCnicError.textContent = 'CNIC must be 13 digits without dashes.';
-            editCnicError.style.display = 'block';
-        } else {
-            editCnicError.style.display = 'none';
-        }
-    });
-
-    editForm.addEventListener('submit', function(e) {
-        let isValid = true;
-        
-        // Validate contact number
-        const contactValue = editContactNumberInput.value;
-        if (!/^\d{11}$/.test(contactValue)) {
-            editContactError.textContent = 'Contact number must be 11 digits.';
-            editContactError.style.display = 'block';
-            isValid = false;
-        }
-        
-        // Validate CNIC
-        const cnicValue = editCnicInput.value;
-        if (!/^\d{13}$/.test(cnicValue)) {
-            editCnicError.textContent = 'CNIC must be 13 digits without dashes.';
-            editCnicError.style.display = 'block';
-            isValid = false;
-        }
-        
-        if (!isValid) {
-            e.preventDefault();
-        }
-    });
-
-    // Delete Student
-    const deleteButtons = document.querySelectorAll('.delete-student');
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function() {
-            const userId = this.getAttribute('data-id');
-            const username = this.getAttribute('data-username');
-            if (confirm(`Are you sure you want to delete student ${username}?`)) {
-                fetch(`{% url 'delete_student' 0 %}`.replace('0', userId), {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': '{{ csrf_token }}',
-                        'Content-Type': 'application/json'
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        alert(data.message);
-                        location.reload();
-                    } else {
-                        alert(data.message);
-                    }
-                })
-                .catch(error => {
-                    alert('Error deleting student: ' + error);
-                });
+        // Validate contact number for edit form
+        editContactNumberInput.addEventListener('input', function() {
+            const contactValue = editContactNumberInput.value;
+            if (!/^\d{11}$/.test(contactValue)) {
+                editContactError.textContent = 'Contact number must be 11 digits.';
+                editContactError.style.display = 'block';
+            } else {
+                editContactError.style.display = 'none';
             }
         });
-    });
 
-    // Room availability check for the modal form
-    function checkRoomAvailability(hostelId, roomType, checkInDate, checkOutDate, callback) {
-        if (!hostelId || !roomType || !checkInDate || !checkOutDate) {
-            showAlert('Please fill in all fields to check availability', 'warning');
-            return;
-        }
-        
-        fetch(`/admin/check-room-availability/?hostel_id=${hostelId}&room_type=${roomType}&check_in=${checkInDate}&check_out=${checkOutDate}`)
-            .then(response => response.json())
-            .then(data => {
-                if (callback) callback(data);
-            })
-            .catch(error => {
-                console.error('Error checking availability:', error);
-                showAlert('Error checking room availability. Please try again.', 'danger');
-            });
-    }
-    
-    // Helper function to show alerts
-    function showAlert(message, type) {
-        const alertDiv = document.createElement('div');
-        alertDiv.className = `alert alert-${type} alert-dismissible fade show mt-3`;
-        alertDiv.role = 'alert';
-        alertDiv.innerHTML = `
-            ${message}
-            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-        `;
-        
-        const container = document.querySelector('.container');
-        if (container) {
-            container.insertBefore(alertDiv, container.firstChild);
+// ... rest of the code ...
+
+        // Validate CNIC for edit form
+        editCnicInput.addEventListener('input', function() {
+            const cnicValue = editCnicInput.value;
+            if (!/^\d{13}$/.test(cnicValue)) {
+                editCnicError.textContent = 'CNIC must be 13 digits without dashes.';
+                editCnicError.style.display = 'block';
+            } else {
+                editCnicError.style.display = 'none';
+            }
+        });
+
+        editForm.addEventListener('submit', function(e) {
+            let isValid = true;
             
-            // Auto-remove after 5 seconds
-            setTimeout(() => {
-                if (document.body.contains(alertDiv)) {
-                    alertDiv.remove();
+            // Validate contact number
+            const contactValue = editContactNumberInput.value;
+            if (!/^\d{11}$/.test(contactValue)) {
+                editContactError.textContent = 'Contact number must be 11 digits.';
+                editContactError.style.display = 'block';
+                isValid = false;
+            }
+            
+            // Validate CNIC
+            const cnicValue = editCnicInput.value;
+            if (!/^\d{13}$/.test(cnicValue)) {
+                editCnicError.textContent = 'CNIC must be 13 digits without dashes.';
+                editCnicError.style.display = 'block';
+                isValid = false;
+            }
+            
+            if (!isValid) {
+                e.preventDefault();
+            }
+        });
+
+        // Delete Student
+        const deleteButtons = document.querySelectorAll('.delete-student');
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', function() {
+                const userId = this.getAttribute('data-id');
+                const username = this.getAttribute('data-username');
+                if (confirm(`Are you sure you want to delete student ${username}?`)) {
+                    fetch(`{% url 'delete_student' 0 %}`.replace('0', userId), {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': '{{ csrf_token }}',
+                            'Content-Type': 'application/json'
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            alert(data.message);
+                            location.reload();
+                        } else {
+                            alert(data.message);
+                        }
+                    })
+                    .catch(error => {
+                        alert('Error deleting student: ' + error);
+                    });
                 }
-            }, 5000);
+            });
+        });
+
+        // Helper function to show alerts
+        function showAlert(message, type) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = `alert alert-${type} alert-dismissible fade show mt-3`;
+            alertDiv.role = 'alert';
+            alertDiv.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            `;
+            
+            const container = document.querySelector('.container');
+            if (container) {
+                container.insertBefore(alertDiv, container.firstChild);
+                
+                // Auto-remove after 5 seconds
+                setTimeout(() => {
+                    if (document.body.contains(alertDiv)) {
+                        alertDiv.remove();
+                    }
+                }, 5000);
+            }
         }
+    });
+    
+    // Student Manager class
+    class StudentManager {
+        constructor() {
+            this.fields = {
+                username: { required: true, minLength: 3, maxLength: 30 },
+                email: { required: true, type: 'email' },
+                password: { required: true, minLength: 8 },
+                confirm_password: { required: true, match: 'password' },
+                first_name: { required: true },
+                last_name: { required: true },
+                contact_number: { required: true, pattern: /^\d{11}$/ },
+                cnic: { required: true, pattern: /^\d{13}$/ },
+                address: { required: true },
+                gender: { required: true },
+                institute: { required: true }
+            };
+        }
+
+        validateField(fieldName, value) {
+            const field = this.fields[fieldName];
+            const errorElement = document.getElementById(`${fieldName}_error`);
+            
+            if (!errorElement) return true;
+            
+            // Clear previous error
+            errorElement.textContent = '';
+            
+            // Check required field
+            if (field.required && !value.trim()) {
+                errorElement.textContent = 'This field is required';
+                return false;
+            }
+            
+            // Check min length
+            if (field.minLength && value.length < field.minLength) {
+                errorElement.textContent = `Must be at least ${field.minLength} characters`;
+                return false;
+            }
+            
+            // Check max length
+            if (field.maxLength && value.length > field.maxLength) {
+                errorElement.textContent = `Must be less than ${field.maxLength} characters`;
+                return false;
+            }
+            
+            // Check pattern
+            if (field.pattern && !field.pattern.test(value)) {
+                errorElement.textContent = fieldName === 'contact_number' ? 'Must be 11 digits' : 'Must be 13 digits';
+                return false;
+            }
+            
+            // Check email format
+            if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
+                errorElement.textContent = 'Please enter a valid email address';
+                return false;
+            }
+            
+            // Check password match
+            if (fieldName === 'confirm_password') {
+                const password = document.getElementById('id_password').value;
+                if (value !== password) {
+                    errorElement.textContent = 'Passwords do not match';
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+        
+        validateForm() {
+            let isValid = true;
+            for (const fieldName in this.fields) {
+                const input = document.querySelector(`[name="${fieldName}"]`);
+                if (input && !this.validateField(fieldName, input.value)) {
+                    isValid = false;
+                }
+            }
+            return isValid;
+        }
+    }
+
+    // Initialize student manager
+    const studentManager = new StudentManager();
+
+    // Initialize form validation on input events
+    const form = document.getElementById('studentForm');
+    if (form) {
+        form.addEventListener('input', function(e) {
+            if (e.target.name && studentManager.fields[e.target.name]) {
+                studentManager.validateField(e.target.name, e.target.value);
+            }
+        });
+        
+        form.addEventListener('submit', function(e) {
+            if (!studentManager.validateForm()) {
+                e.preventDefault();
+                showAlert('Please correct the errors in the form', 'warning');
+            }
+        });
     }
 });
-
 </script>
 
 <style>
@@ -799,7 +653,7 @@ document.addEventListener('DOMContentLoaded', function() {
 .table-responsive {
     overflow-x: auto;
 }
-.table th, .table td {
+.vertical-align-middle {
     vertical-align: middle;
 }
 .table th {

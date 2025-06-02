@@ -89,32 +89,134 @@ class StudentRegistrationForm(forms.Form):
         return cleaned_data
 
 
+import logging
+logger = logging.getLogger(__name__)
+
 class BookingRequestForm(forms.ModelForm):
+    def __init__(self, *args, **kwargs):
+        # Pop custom parameters before calling parent's __init__
+        self.user = kwargs.pop('user', None)
+        
+        # Call parent's __init__ without our custom parameters
+        super().__init__(*args, **kwargs)
+        
+        # Set initial dates
+        today = timezone.now().date()
+        self.fields['check_in_date'].initial = today
+        self.fields['check_out_date'].initial = today + timedelta(days=30)
+        
+        # Set querysets
+        self.fields['hostel'].queryset = Hostels.objects.all()
+        
+        # Check if user is staff
+        is_staff = self.user and (self.user.is_staff or hasattr(self.user, 'warden'))
+        
+        # Add student field
+        if is_staff:
+            # For staff, show student dropdown
+            self.fields['student'] = forms.ModelChoiceField(
+                queryset=Student.objects.all(),
+                required=True,
+                label='Student',
+                widget=forms.Select(attrs={'class': 'form-control'}),
+                empty_label='Select a student'
+            )
+            
+            # Set initial student from POST data if available
+            if self.data and 'student' in self.data:
+                try:
+                    student_id = int(self.data.get('student'))
+                    self.initial['student'] = Student.objects.get(id=student_id)
+                except (ValueError, TypeError, Student.DoesNotExist):
+                    pass
+        elif hasattr(self.user, 'student'):
+            # For students, set their student instance
+            self.fields['student'] = forms.ModelChoiceField(
+                queryset=Student.objects.filter(id=self.user.student.id),
+                required=True,
+                widget=forms.HiddenInput()
+            )
+            # Always set the student to the current user's student profile
+            self.initial['student'] = self.user.student
+            
+            # Also set it in data if this is a POST request
+            if self.data and hasattr(self.data, '_mutable'):
+                self.data = self.data.copy()
+                self.data['student'] = self.user.student
+        
+        # Add required attribute to required fields
+        for field_name, field in self.fields.items():
+            if field.required:
+                field.widget.attrs['required'] = 'required'
+
     class Meta:
         model = BookingRequest
-        fields = ['hostel', 'room_type', 'check_in_date', 'check_out_date', 'message']
+        fields = ['student', 'hostel', 'room_type', 'check_in_date', 'check_out_date', 'message']
         widgets = {
-            'check_in_date': forms.DateInput(attrs={'type': 'date'}),
-            'check_out_date': forms.DateInput(attrs={'type': 'date'}),
-            'message': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Any special requests or additional information...'}),
+            'check_in_date': forms.DateInput(
+                attrs={
+                    'type': 'date',
+                    'class': 'form-control'
+                }
+            ),
+            'check_out_date': forms.DateInput(
+                attrs={
+                    'type': 'date',
+                    'class': 'form-control'
+                }
+            ),
+            'hostel': forms.Select(attrs={'class': 'form-control'}),
+            'room_type': forms.Select(attrs={'class': 'form-control'}),
+            'message': forms.Textarea(attrs={
+                'rows': 3, 
+                'class': 'form-control',
+                'placeholder': 'Any special requests or additional information...',
+                'required': False
+            }),
         }
 
     def __init__(self, *args, **kwargs):
-        user = kwargs.pop('user', None)
+        self.user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+        
+        # Set initial dates
+        today = timezone.now().date()
+        self.fields['check_in_date'].initial = today
+        self.fields['check_out_date'].initial = today + timedelta(days=30)
+        
+        # Set querysets
         self.fields['hostel'].queryset = Hostels.objects.all()
-        self.fields['check_in_date'].initial = timezone.now().date()
-        self.fields['check_out_date'].initial = (timezone.now() + timedelta(days=30)).date()
+        
+        # Add required attribute to required fields
+        for field_name, field in self.fields.items():
+            if field.required:
+                field.widget.attrs['required'] = 'required'
 
     def clean(self):
         cleaned_data = super().clean()
         check_in_date = cleaned_data.get('check_in_date')
         check_out_date = cleaned_data.get('check_out_date')
         
+        logger.debug(f"Form cleaned data: {cleaned_data}")
+        
         if check_in_date and check_out_date:
-            if check_in_date < timezone.now().date():
+            today = timezone.now().date()
+            if check_in_date < today:
                 self.add_error('check_in_date', 'Check-in date cannot be in the past.')
             if check_out_date <= check_in_date:
                 self.add_error('check_out_date', 'Check-out date must be after check-in date.')
         
         return cleaned_data
+    
+    def save(self, commit=True):
+        try:
+            booking = super().save(commit=False)
+            if self.user and hasattr(self.user, 'student'):
+                booking.student = self.user.student
+            booking.status = 'Pending'
+            if commit:
+                booking.save()
+            return booking
+        except Exception as e:
+            logger.exception("Error saving booking:")
+            raise

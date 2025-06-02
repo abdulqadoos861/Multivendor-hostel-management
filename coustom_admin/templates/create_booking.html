@@ -3,70 +3,14 @@
 
 {% block content %}
 <div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
             <div class="card">
-                <div class="card-header">
-                    <h4 class="card-title">New Booking Request</h4>
+                <div class="card-header bg-primary text-white">
+                    <h4 class="card-title mb-0">Booking Application Removed</h4>
                 </div>
-                <div class="card-body">
-                    <form method="post" id="bookingForm">
-                        {% csrf_token %}
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="id_hostel">Hostel</label>
-                                    {{ form.hostel }}
-                                    <small class="text-danger">{{ form.hostel.errors }}</small>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="id_room_type">Room Type</label>
-                                    {{ form.room_type }}
-                                    <small class="text-danger">{{ form.room_type.errors }}</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="id_check_in_date">Check-in Date</label>
-                                    {{ form.check_in_date }}
-                                    <small class="text-danger">{{ form.check_in_date.errors }}</small>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
-                                <div class="form-group">
-                                    <label for="id_check_out_date">Check-out Date</label>
-                                    {{ form.check_out_date }}
-                                    <small class="text-danger">{{ form.check_out_date.errors }}</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <label for="id_message">Special Requests</label>
-                                    {{ form.message }}
-                                    <small class="text-muted">Any special requirements or additional information</small>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row mt-3">
-                            <div class="col-md-12">
-                                <div class="form-group">
-                                    <div id="availabilityResults" class="alert" style="display: none;"></div>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="row mt-3">
-                            <div class="col-md-12">
-                                <button type="submit" class="btn btn-primary">Submit Booking Request</button>
-                                <a href="{% url 'manage_booking' %}" class="btn btn-secondary">Cancel</a>
-                            </div>
-                        </div>
-                    </form>
+                <dv class="card-body">
+                    <p>This page has been removed. Please use the main booking system instead.</p>
                 </div>
             </div>
         </div>
@@ -74,79 +18,172 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}
-<script>
-$(document).ready(function() {
-    // Initialize datepickers
-    $('#id_check_in_date, #id_check_out_date').attr('type', 'date');
-    
-    // Check availability when dates or hostel changes
-    $('#id_check_in_date, #id_check_out_date, #id_hostel').change(function() {
+{% block extra_js %}{% endblock %}
+    if ($('#id_hostel').val() && $('#id_check_in_date').val() && $('#id_check_out_date').val()) {
         checkAvailability();
-    });
-    
-    function checkAvailability() {
-        const hostelId = $('#id_hostel').val();
-        const checkIn = $('#id_check_in_date').val();
-        const checkOut = $('#id_check_out_date').val();
-        
-        if (hostelId && checkIn && checkOut) {
-            $.get('/check-availability/', {
-                'hostel_id': hostelId,
-                'check_in': checkIn,
-                'check_out': checkOut
-            }, function(data) {
-                if (data.status === 'success') {
-                    let html = '<h5>Available Room Types:</h5>';
-                    if (data.availability && data.availability.length > 0) {
-                        html += '<ul class="list-group">';
-                        data.availability.forEach(function(room) {
-                            html += `<li class="list-group-item d-flex justify-content-between align-items-center">
-                                ${room.room_type}
-                                <span class="badge bg-primary rounded-pill">${room.available} / ${room.total_rooms} available</span>
-                                <span class="ms-2">PKR ${room.rate}/month</span>
-                            </li>`;
-                        });
-                        html += '</ul>';
-                        $('#availabilityResults').removeClass('alert-danger').addClass('alert-success').html(html).show();
-                    } else {
-                        $('#availabilityResults').removeClass('alert-success').addClass('alert-danger')
-                            .html('No rooms available for the selected dates.').show();
-                    }
-                } else {
-                    $('#availabilityResults').removeClass('alert-success').addClass('alert-danger')
-                        .html('Error checking availability. Please try again.').show();
-                }
-            }).fail(function() {
-                $('#availabilityResults').removeClass('alert-success').addClass('alert-danger')
-                    .html('Error connecting to server. Please try again.').show();
-            });
-        } else {
-            $('#availabilityResults').hide();
-        }
     }
     
-    // Form validation
-    $('#bookingForm').on('submit', function(e) {
-        const checkIn = new Date($('#id_check_in_date').val());
-        const checkOut = new Date($('#id_check_out_date').val());
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+    // Form submission
+    bookingForm.addEventListener('submit', function(e) {
+        e.preventDefault();
         
-        if (checkIn < today) {
-            e.preventDefault();
-            alert('Check-in date cannot be in the past.');
-            return false;
+        const formData = new FormData(bookingForm);
+        
+        // Show loading state
+        submitButton.disabled = true;
+        submitSpinner.classList.remove('d-none');
+        submitText.textContent = 'Submitting...';
+        
+        // Clear previous messages
+        const messagesDiv = document.getElementById('formMessages');
+        if (messagesDiv) {
+            messagesDiv.innerHTML = '';
         }
         
-        if (checkOut <= checkIn) {
-            e.preventDefault();
-            alert('Check-out date must be after check-in date.');
-            return false;
-        }
-        
-        return true;
+        fetch(bookingForm.action, {
+            method: 'POST',
+            body: formData,
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            }
+        })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().then(err => {
+                    throw new Error(err.message || 'Network response was not ok');
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                // Show success message and redirect
+                if (messagesDiv) {
+                    messagesDiv.innerHTML = `
+                        <div class="alert alert-success alert-dismissible fade show" role="alert">
+                            ${data.message || 'Booking created successfully!'}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    `;
+                }
+                
+                // Redirect after a short delay
+                setTimeout(() => {
+                    window.location.href = '{% url "manage_booking" %}';
+                }, 1500);
+            } else {
+                // Handle form errors
+                let errorHtml = '';
+                if (data.errors) {
+                    for (const [field, errors] of Object.entries(data.errors)) {
+                        const fieldLabel = document.querySelector(`label[for="id_${field}"]`);
+                        const fieldName = fieldLabel ? fieldLabel.textContent.replace('*', '').trim() : field;
+                        errorHtml += `
+                            <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                                <strong>${fieldName}:</strong> ${Array.isArray(errors) ? errors.join(', ') : errors}
+                                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                            </div>
+                        `;
+                    }
+                } else {
+                    errorHtml = `
+                        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                            ${data.message || 'An error occurred. Please try again.'}
+                            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                        </div>
+                    `;
+                }
+                
+                if (messagesDiv) {
+                    messagesDiv.innerHTML = errorHtml;
+                } else {
+                    // If messages div doesn't exist, create it before the form
+                    const formMessages = document.createElement('div');
+                    formMessages.id = 'formMessages';
+                    formMessages.innerHTML = errorHtml;
+                    bookingForm.prepend(formMessages);
+                }
+                
+                // Scroll to top to show errors
+                window.scrollTo({ top: 0, behavior: 'smooth' });
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            const errorMessage = `
+                <div class="alert alert-danger alert-dismissible fade show" role="alert">
+                    ${error.message || 'An error occurred while processing your request. Please try again.'}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                </div>
+            `;
+            
+            if (messagesDiv) {
+                messagesDiv.innerHTML = errorMessage;
+            } else {
+                const formMessages = document.createElement('div');
+                formMessages.id = 'formMessages';
+                formMessages.innerHTML = errorMessage;
+                bookingForm.prepend(formMessages);
+            }
+            
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        })
+        .finally(() => {
+            // Hide loading state
+            submitButton.disabled = false;
+            submitSpinner.classList.add('d-none');
+            submitText.textContent = 'Submit Booking Request';
+        });
     });
 });
 </script>
+
+<style>
+/* Add custom styles here */
+.form-control:focus {
+    border-color: #86b7fe;
+    box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, 0.25);
+}
+
+.card {
+    box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+    border: none;
+}
+
+.card-header {
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.btn {
+    padding: 0.5rem 1.25rem;
+    font-weight: 500;
+}
+
+.alert {
+    border: none;
+    border-radius: 0.5rem;
+}
+
+.invalid-feedback {
+    font-size: 0.85em;
+}
+
+/* Responsive adjustments */
+@media (max-width: 767.98px) {
+    .btn {
+        width: 100%;
+        margin-bottom: 0.5rem;
+    }
+    
+    .d-flex {
+        flex-direction: column;
+    }
+    
+    .me-2 {
+        margin-right: 0 !important;
+        margin-bottom: 0.5rem;
+    }
+}
+</style>
 {% endblock %}
