@@ -19,6 +19,7 @@ urlpatterns = [
     path('delete_hostel/<int:id>/', views.deleteHostel, name='deleteHostel'),
 
     # Room Management
+    path('room_assignments/', views.room_assignments, name='room_assignments'),
     path('add_room/', views.add_room, name='add_room'),
     path('update_room/<int:room_id>/', views.update_room, name='update_room'),
     path('delete_room/<int:room_id>/', views.delete_room, name='delete_room'),
@@ -52,8 +53,10 @@ urlpatterns = [
     # Booking Management
     path('manage_booking/', views.manage_booking, name='manage_booking'),
     path('create_booking/', views.create_booking, name='create_booking'),
+    path('approve_booking/<int:booking_id>/', views.approve_booking, name='approve_booking'),
     path('get_room_types/', views.get_room_types, name='get_room_types'),
     path('get_room_types_by_hostel/', views.get_room_types, name='get_room_types_by_hostel'),
+    path('get_available_rooms/<int:booking_id>/', views.get_available_rooms, name='get_available_rooms'),
     path('approve_booking/<int:booking_id>/', views.approve_booking, name='approve_booking'),
     path('reject_booking/<int:booking_id>/', views.reject_booking, name='reject_booking'),
     path('cancel_booking/<int:booking_id>/', views.cancel_booking, name='cancel_booking'),

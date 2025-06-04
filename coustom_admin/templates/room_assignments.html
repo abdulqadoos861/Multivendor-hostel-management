@@ -1,0 +1,268 @@
+{% extends 'base.html' %}
+{% block header_title %}
+<i class="bi bi-door-closed"></i> Room Assignments
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Filters Section -->
+    <div class="card filter-card mb-4 fade-in">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Filter Assignments</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3" id="filterForm">
+                <div class="col-md-4">
+                    <label for="hostel" class="form-label">Hostel</label>
+                    <select class="form-select" id="hostel" name="hostel">
+                        <option value="">All Hostels</option>
+                        {% for hostel in hostels %}
+                        <option value="{{ hostel.id }}" {% if selected_hostel == hostel.id %}selected{% endif %}>
+                            {{ hostel.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="room_type" class="form-label">Room Type</label>
+                    <select class="form-select" id="room_type" name="room_type">
+                        <option value="">All Types</option>
+                        {% for type_id, type_name in room_types %}
+                        <option value="{{ type_id }}" {% if selected_room_type == type_id %}selected{% endif %}>
+                            {{ type_name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select" id="status" name="status">
+                        <option value="active" {% if selected_status == 'active' %}selected{% endif %}>Active</option>
+                        <option value="inactive" {% if selected_status == 'inactive' %}selected{% endif %}>Inactive</option>
+                        <option value="all" {% if selected_status == 'all' %}selected{% endif %}>All</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-funnel-fill me-1"></i> Filter
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Assignments Table -->
+    <div class="card fade-in">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Room Assignments</h5>
+            <span class="badge bg-primary">Total: {{ assignments|length }}</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Student</th>
+                            <th>Hostel</th>
+                            <th>Room</th>
+                            <th>Type</th>
+                            <th>Assigned On</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in assignments %}
+                        <tr>
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar-sm bg-light rounded-circle me-2 d-flex align-items-center justify-content-center">
+                                        <i class="bi bi-person-fill text-primary"></i>
+                                    </div>
+                                    <div>
+                                        <h6 class="mb-0">
+                                            {{ assignment.booking.student.user.get_full_name|default:assignment.booking.student.user.username }}
+                                        </h6>
+                                        <small class="text-muted">{{ assignment.booking.student.user.email }}</small>
+                                    </div>
+                                </div>
+                            </td>
+                            <td>{{ assignment.room.hostel.name }}</td>
+                            <td>{{ assignment.room.room_number }}</td>
+                            <td>
+                                <span class="badge bg-{{ assignment.room.get_room_type_display|lower }}">
+                                    {{ assignment.room.get_room_type_display }}
+                                </span>
+                            </td>
+                            <td>{{ assignment.assigned_date|date:"M d, Y" }}</td>
+                            <td>
+                                {% if assignment.is_active %}
+                                <span class="badge bg-success">Active</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Inactive</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <div class="btn-group" role="group">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" 
+                                            data-bs-toggle="tooltip" title="View Details"
+                                            onclick="viewAssignmentDetails({{ assignment.id }})">
+                                        <i class="bi bi-eye"></i>
+                                    </button>
+                                    {% if assignment.is_active %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger"
+                                            data-bs-toggle="tooltip" title="Check Out"
+                                            onclick="checkOutAssignment({{ assignment.id }})">
+                                        <i class="bi "
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center py-4">
+                                <div class="text-muted">
+                                    <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                                    No room assignments found
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Assignment Details Modal -->
+<div class="modal fade" id="assignmentModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Assignment Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" id="assignmentDetails">
+                <!-- Details will be loaded here via AJAX -->
+                <div class="text-center my-5">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// View assignment details
+function viewAssignmentDetails(assignmentId) {
+    const modal = new bootstrap.Modal(document.getElementById('assignmentModal'));
+    const modalBody = document.getElementById('assignmentDetails');
+    
+    // Show loading state
+    modalBody.innerHTML = `
+        <div class="text-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>`;
+    
+    // Show modal
+    modal.show();
+    
+    // Load assignment details via AJAX
+    fetch(`/api/assignments/${assignmentId}/`)
+        .then(response => response.json())
+        .then(data => {
+            // Format the assignment details
+            modalBody.innerHTML = `
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Student Information</h6>
+                        <p class="mb-1"><strong>Name:</strong> ${data.student_name}</p>
+                        <p class="mb-1"><strong>Email:</strong> ${data.student_email}</p>
+                        <p class="mb-1"><strong>Contact:</strong> ${data.student_contact || 'N/A'}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Room Information</h6>
+                        <p class="mb-1"><strong>Hostel:</strong> ${data.hostel_name}</p>
+                        <p class="mb-1"><strong>Room:</strong> ${data.room_number} (${data.room_type})</p>
+                        <p class="mb-1"><strong>Floor:</strong> ${data.floor_number}</p>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Assignment Details</h6>
+                        <p class="mb-1"><strong>Assigned On:</strong> ${new Date(data.assigned_date).toLocaleDateString()}</p>
+                        <p class="mb-1"><strong>Assigned By:</strong> ${data.assigned_by}</p>
+                        <p class="mb-1"><strong>Status:</strong> 
+                            <span class="badge bg-${data.is_active ? 'success' : 'secondary'}">
+                                ${data.is_active ? 'Active' : 'Inactive'}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="text-muted">Booking Information</h6>
+                        <p class="mb-1"><strong>Check-in:</strong> ${new Date(data.check_in_date).toLocaleDateString()}</p>
+                        <p class="mb-1"><strong>Check-out:</strong> ${data.check_out_date ? new Date(data.check_out_date).toLocaleDateString() : 'Not set'}</p>
+                        <p class="mb-1"><strong>Duration:</strong> ${data.duration || 'N/A'}</p>
+                    </div>
+                </div>`;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            modalBody.innerHTML = `
+                <div class="alert alert-danger">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    Failed to load assignment details. Please try again.
+                </div>`;
+        });
+}
+
+// Check out assignment
+function checkOutAssignment(assignmentId) {
+    if (confirm('Are you sure you want to check out this student?')) {
+        fetch(`/api/assignments/${assignmentId}/checkout/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFTTOKEN': '{{ csrf_token }}',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // Show success message and reload the page
+                alert('Student checked out successfully!');
+                location.reload();
+            } else {
+                throw new Error(data.message || 'Failed to check out student');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert(`Error: ${error.message}`);
+        });
+    }
+}
+
+// Initialize tooltips
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize Bootstrap tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+});
+</script>
+{% endblock %}

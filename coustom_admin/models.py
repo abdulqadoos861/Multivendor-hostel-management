@@ -1,6 +1,10 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.utils import timezone
+import uuid
+from django.core.validators import MinValueValidator, MaxValueValidator
+from django.core.exceptions import ValidationError
+from django.db.models import F, Q, Sum
 
 class Hostels(models.Model):
     name = models.CharField(max_length=100)
@@ -40,19 +44,47 @@ class RoomTypeRate(models.Model):
         return f"{self.hostel.name} - {self.room_type}: {self.per_head_rent}"
 
 class Rooms(models.Model):
-    hostel_id = models.ForeignKey(Hostels, on_delete=models.CASCADE)
-    room_number = models.CharField(max_length=50, unique=True)
-    floor_number = models.IntegerField(default=0)
-    room_type = models.CharField(max_length=20, choices=[('Single', 'Single'), ('Double', 'Double'), ('Shared', 'Shared')])
-    capacity = models.IntegerField()
-    current_occupants = models.IntegerField(default=0)
-    rent = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    ROOM_TYPES = [
+        ('Single', 'Single'),
+        ('Double', 'Double'),
+        ('Triple', 'Triple'),
+        ('Quad', 'Quad'),
+    ]
+    
+    ROOM_STATUS = [
+        ('Available', 'Available'),
+        ('Occupied', 'Occupied'),
+        ('Maintenance', 'Maintenance'),
+    ]
+    
+    # Temporarily making this nullable for migration, will be fixed in the next migration
+    hostel = models.ForeignKey(Hostels, on_delete=models.CASCADE, related_name='rooms', null=True, blank=True)
+    room_number = models.CharField(max_length=10)
+    room_type = models.CharField(max_length=20, choices=ROOM_TYPES)
+    capacity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(4)])
+    current_occupants = models.PositiveIntegerField(default=0, editable=False)
+    status = models.CharField(max_length=20, choices=ROOM_STATUS, default='Available')
+    rent = models.DecimalField(max_digits=10, decimal_places=2, default=0.00)
     description = models.TextField(blank=True, null=True)
-    status = models.CharField(max_length=20, choices=[('Available', 'Available'), ('Occupied', 'Occupied')], default='Available')
+    floor_number = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.room_number} ({self.hostel_id.name})"
+        return f"{self.room_number} - {self.get_room_type_display()}"
+        
+    @property
+    def is_available(self):
+        return self.current_occupants < self.capacity
+    
+    @property
+    def available_beds(self):
+        return self.capacity - self.current_occupants
+
+    class Meta:
+        verbose_name_plural = "Rooms"
+        ordering = ['floor_number', 'room_number']
+        unique_together = ['hostel', 'room_number']
 
 class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
@@ -65,48 +97,144 @@ class Student(models.Model):
     def __str__(self):
         return f"{self.user.username} - {self.user.first_name} {self.user.last_name}"
 
-
 class BookingRequest(models.Model):
     STATUS_CHOICES = [
         ('Pending', 'Pending'),
         ('Approved', 'Approved'),
         ('Rejected', 'Rejected'),
-        ('Cancelled', 'Cancelled')
+        ('Cancelled', 'Cancelled'),
+        ('Completed', 'Completed')
     ]
     
-    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='booking_requests')
-    hostel = models.ForeignKey(Hostels, on_delete=models.CASCADE)
+    student = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookings')
+    hostel = models.ForeignKey('Hostels', on_delete=models.CASCADE, related_name='bookings')
     room_type = models.CharField(max_length=20, choices=[
         ('Single', 'Single'),
         ('Double', 'Double'),
         ('Shared', 'Shared')
     ])
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='Pending')
-    request_date = models.DateTimeField(auto_now_add=True)
     check_in_date = models.DateField()
     check_out_date = models.DateField(null=True, blank=True)
-    total_amount = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    security_deposit = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    monthly_rent = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
-    duration_months = models.PositiveIntegerField(default=1)
-    message = models.TextField(blank=True, null=True)
+    request_date = models.DateTimeField(auto_now_add=True, help_text='When the booking was requested')
+    updated_at = models.DateTimeField(auto_now=True)
     admin_notes = models.TextField(blank=True, null=True)
     
+    def __str__(self):
+        return f"{self.student.username} - {self.hostel.name} ({self.status})"
+    
+    @property
+    def current_room(self):
+        try:
+            return self.room_assignment.room
+        except RoomAssignment.DoesNotExist:
+            return None
+    
+    @property
+    def current_assignment(self):
+        try:
+            return self.room_assignment
+        except RoomAssignment.DoesNotExist:
+            return None
+            
     @property
     def total_paid(self):
-        return self.payments.aggregate(total=models.Sum('amount'))['total'] or 0
+        return self.payments.aggregate(total=Sum('amount'))['total'] or 0
     
     @property
     def balance(self):
-        if self.total_amount is None:
-            return 0
-        return self.total_amount - self.total_paid
-
-    def __str__(self):
-        return f"{self.student.user.username} - {self.hostel.name} ({self.get_status_display()})"
-    
+        return (self.total_amount or 0) - self.total_paid
+        
     class Meta:
         ordering = ['-request_date']
+
+
+class RoomAssignment(models.Model):
+    booking = models.OneToOneField(
+        BookingRequest,
+        on_delete=models.CASCADE,
+        related_name='room_assignment'
+    )
+    room = models.ForeignKey(
+        Rooms,
+        on_delete=models.CASCADE,
+        related_name='assignments'
+    )
+    assigned_date = models.DateTimeField(auto_now_add=True)
+    check_in_date = models.DateField(null=True, blank=True)
+    check_out_date = models.DateField(null=True, blank=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    notes = models.TextField(blank=True)
+    assigned_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='assigned_rooms'
+    )
+
+    class Meta:
+        ordering = ['-assigned_date']
+        verbose_name = 'Room Assignment'
+        verbose_name_plural = 'Room Assignments'
+        
+    def clean(self):
+        # Only check for new active assignments or when reactivating an assignment
+        if self.is_active:
+            query = RoomAssignment.objects.filter(
+                booking__student=self.booking.student,
+                is_active=True
+            )
+            
+            # If updating, exclude the current instance from the check
+            if self.pk:
+                query = query.exclude(pk=self.pk)
+                
+            if query.exists():
+                raise ValidationError('This student already has an active room assignment.')
+    
+    def save(self, *args, **kwargs):
+        self.full_clean()
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f"{self.booking.student} - {self.room} ({self.assigned_date.date()})"
+
+    def save(self, *args, **kwargs):
+        # Set check_in_date to assigned_date if not set
+        if not self.check_in_date:
+            self.check_in_date = timezone.now().date()
+        super().save(*args, **kwargs)
+        
+        # Update room occupancy
+        self.update_room_occupancy()
+    
+    def delete(self, *args, **kwargs):
+        # Mark as inactive instead of deleting
+        self.is_active = False
+        self.save()
+        
+    def update_room_occupancy(self):
+        """Update the room's current_occupants count based on active assignments"""
+        room = self.room
+        active_assignments = room.assignments.filter(is_active=True).count()
+        room.current_occupants = active_assignments
+        
+        # Update room status
+        if room.current_occupants >= room.capacity:
+            room.status = 'Occupied'
+        else:
+            room.status = 'Available'
+            
+        room.save(update_fields=['current_occupants', 'status'])
+        
+    def check_out(self, check_out_date=None):
+        """Mark the assignment as checked out"""
+        self.is_active = False
+        self.check_out_date = check_out_date or timezone.now().date()
+        self.save()
+        # Update the booking status if needed
+        self.booking.status = 'Completed'
+        self.booking.save(update_fields=['status'])
 
 
 class Payment(models.Model):

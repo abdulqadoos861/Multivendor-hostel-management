@@ -560,6 +560,12 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="{% url 'room_assignments' %}" class="nav-link {% if request.resolver_match.url_name == 'room_assignments' %}active{% endif %}">
+                        <i class="bi bi-door-closed-fill"></i>
+                        Room Assignments
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="{% url 'expenses' %}" class="nav-link {% if request.resolver_match.url_name == 'expenses' %}active{% endif %}">
                         <i class="bi bi-cash-stack"></i>
                         Expenses

@@ -1,11 +1,14 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.views.decorators.http import require_http_methods
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login
+from django.db.models import Q, F, Count, Case, When, Value, IntegerField
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.http import JsonResponse
 from django.db import transaction
-from .models import Hostels, Wardens, HostelWardens, Rooms, RoomTypeRate, Student, BookingRequest
+from django.db.models import F, Q
+from .models import Hostels, Wardens, HostelWardens, Rooms, RoomTypeRate, Student, BookingRequest, RoomAssignment
 from django.http import HttpResponse, JsonResponse, HttpResponseRedirect
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
@@ -148,7 +151,7 @@ def add_room(request):
                 return redirect('add_room')
 
             room = Rooms(
-                hostel_id=hostel,
+                hostel=hostel,
                 room_number=room_number,
                 floor_number=floor_value,
                 room_type=room_type,
@@ -505,6 +508,58 @@ def deleteHostel(request, id):
 def hostellist(request):
     hostels = Hostels.objects.all()
     return render(request, 'hostel_form.html', {'hostels': hostels})
+
+@login_required
+def get_hostels(request):
+    hostels = Hostels.objects.all().values('id', 'name')
+    return JsonResponse(list(hostels), safe=False)
+
+@login_required
+def room_assignments(request):
+    """
+    View to display all room assignments with filtering options
+    """
+    # Get filter parameters
+    hostel_id = request.GET.get('hostel')
+    room_type = request.GET.get('room_type')
+    status = request.GET.get('status', 'active')  # Default to active assignments
+    
+    # Start with base queryset - optimized with select_related for all foreign keys
+    assignments = RoomAssignment.objects.select_related(
+        'booking',
+        'booking__student',
+        'room',
+        'room__hostel',
+        'assigned_by'
+    ).order_by('-assigned_date')
+    
+    # Apply filters
+    if hostel_id:
+        assignments = assignments.filter(room__hostel_id=hostel_id)
+    
+    if room_type:
+        assignments = assignments.filter(room__room_type=room_type)
+    
+    if status == 'active':
+        assignments = assignments.filter(is_active=True)
+    elif status == 'inactive':
+        assignments = assignments.filter(is_active=False)
+    
+    # Get filter options for the template
+    hostels = Hostels.objects.all()
+    room_types = Rooms.ROOM_TYPES
+    
+    context = {
+        'assignments': assignments,
+        'hostels': hostels,
+        'room_types': room_types,
+        'selected_hostel': int(hostel_id) if hostel_id else '',
+        'selected_room_type': room_type if room_type else '',
+        'selected_status': status,
+        'title': 'Room Assignments',
+    }
+    
+    return render(request, 'room_assignments.html', context)
 
 @login_required
 def hostels(request):
@@ -1064,88 +1119,115 @@ def create_booking(request):
     
     is_staff = request.user.is_staff or hasattr(request.user, 'warden')
     
-    if request.method == 'POST':
-        logger.debug(f"POST data: {request.POST}")
+    if request.method != 'POST':
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Invalid request method'
+        }, status=405)
+    
+    logger.debug(f"POST data: {request.POST}")
+    
+    try:
+        # Create a mutable copy of the POST data
+        form_data = request.POST.copy()
         
         # For staff users, get the student from the form data
+        student = None
         if is_staff:
-            student_id = request.POST.get('student_id')
+            student_id = form_data.get('student_id')
+            logger.debug(f"Processing student_id: {student_id}, type: {type(student_id) if student_id else 'None'}")
+            
             if not student_id:
                 return JsonResponse({
                     'status': 'error',
                     'message': 'Student selection is required'
                 }, status=400)
+                
             try:
-                student = Student.objects.get(id=student_id)
-            except Student.DoesNotExist:
+                # Convert student_id to int in case it's a string
+                student_id = int(student_id)
+                # Look up student by user_id since we're receiving the user ID from the frontend
+                student = Student.objects.select_related('user').get(user_id=student_id)
+                logger.debug(f"Found student: {student.id} - {student.user.get_full_name()}")
+                
+                # Check if student already has an approved booking
+                from .models import BookingRequest
+                existing_approved_booking = BookingRequest.objects.filter(
+                    student=student.user,
+                    status='Approved'
+                ).exists()
+                
+                if existing_approved_booking:
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': 'This student already has an approved booking.'
+                    }, status=400)
+                
+                # Double-check if student already has an active room assignment
+                from .models import RoomAssignment
+                active_assignment = RoomAssignment.objects.filter(
+                    booking__student=student.user,
+                    is_active=True
+                ).select_related('room').first()
+                
+                if active_assignment:
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': f'Student already has an active room assignment in room {active_assignment.room.room_number}.'
+                    }, status=400)
+                
+                # Set the student's user ID in the form data
+                form_data['student'] = str(student.user.id)
+                
+            except (ValueError, TypeError) as e:
+                logger.error(f"Invalid student ID format: {e}")
                 return JsonResponse({
                     'status': 'error',
-                    'message': 'Invalid student selected'
+                    'message': 'Invalid student ID format'
                 }, status=400)
-        
+            except Student.DoesNotExist:
+                logger.error(f"Student not found with ID: {student_id}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Selected student not found'
+                }, status=400)
         # For students, use their own student profile
         elif hasattr(request.user, 'student'):
             student = request.user.student
+            form_data['student'] = str(student.user.id)
             
-        # Create form data with student set
-        form_data = request.POST.copy()
-        form_data['student'] = str(student.id)
+            # Check if student already has an approved booking
+            from .models import BookingRequest
+            existing_approved_booking = BookingRequest.objects.filter(
+                student=student.user,
+                status='Approved'
+            ).exists()
+            
+            if existing_approved_booking:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'You already have an approved booking.'
+                }, status=400)
+            
+            # Check for existing active room assignments for this student
+            from .models import RoomAssignment
+            active_assignment = RoomAssignment.objects.filter(
+                booking__student=student.user,
+                is_active=True
+            ).select_related('room').first()
+            
+            if active_assignment:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': f'You already have an active room assignment in room {active_assignment.room.room_number}.'
+                }, status=400)
         
         logger.debug(f"Form data with student: {form_data}")
         
+        # Initialize the form with the updated data
         form = BookingRequestForm(data=form_data, user=request.user)
         
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    booking = form.save(commit=False)
-                    
-                    # Log the booking data before saving
-                    logger.debug(f"Saving booking with student_id: {booking.student_id}")
-                    
-                    # Ensure student is set
-                    if not booking.student_id:
-                        if not is_staff and hasattr(request.user, 'student'):
-                            booking.student = request.user.student
-                            logger.debug(f"Set student from request.user: {booking.student.id}")
-                        else:
-                            error_msg = f"Student is required for booking. Current student_id: {booking.student_id}"
-                            logger.error(error_msg)
-                            raise ValueError(error_msg)
-                    
-                    # Set default check_out_date if not provided
-                    if not booking.check_out_date:
-                        duration = int(request.POST.get('duration', 1))
-                        booking.check_out_date = booking.check_in_date + timedelta(days=30 * duration)
-                        logger.debug(f"Set default check_out_date: {booking.check_out_date} based on duration: {duration} months")
-                    
-                    booking.status = 'Pending'
-                    booking.save()
-                    
-                    logger.info(f"Booking {booking.id} created successfully by user {request.user.username}")
-                    
-                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                        return JsonResponse({
-                            'status': 'success',
-                            'message': 'Booking created successfully!',
-                            'booking_id': booking.id
-                        })
-                    
-                    messages.success(request, 'Booking request has been submitted successfully!')
-                    return redirect('manage_booking')
-                    
-            except Exception as e:
-                logger.exception("Error saving booking:")
-                error_message = 'An error occurred while saving the booking. Please try again or contact support.'
-                
-                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-                    return JsonResponse({
-                        'status': 'error',
-                        'message': str(e) or error_message
-                    }, status=400)
-                
-                messages.error(request, error_message)
-        else:
+        if not form.is_valid():
             logger.warning(f"Form validation failed. Errors: {form.errors}")
             
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
@@ -1160,16 +1242,92 @@ def create_booking(request):
                     'errors': errors
                 }, status=400)
             
+            # Handle non-AJAX form submission
             for field, field_errors in form.errors.items():
-                field_label = form.fields[field].label if field in form.fields and hasattr(form.fields[field], 'label') else field
                 for error in field_errors:
-                    messages.error(request, f"{field_label}: {error}")
-    else:
-        initial_data = {}
-        if hasattr(request.user, 'student') and not is_staff:
-            initial_data['student'] = request.user.student
+                    messages.error(request, f"{field}: {error}")
+            return redirect('manage_booking')
+        
+        # If we get here, form is valid
+        try:
+            with transaction.atomic():
+                booking = form.save(commit=False)
+                
+                # Set the student
+                if is_staff and student:
+                    booking.student = student.user
+                elif hasattr(request.user, 'student'):
+                    booking.student = request.user.student.user
+                else:
+                    error_msg = 'Student profile not found. Please complete your student profile before making a booking.'
+                    logger.error(error_msg)
+                    raise ValueError(error_msg)
+                
+                # Triple-check for existing active bookings for this student (in case of race condition)
+                from .models import RoomAssignment
+                active_assignment = RoomAssignment.objects.filter(
+                    booking__student=booking.student,
+                    is_active=True
+                ).exists()
+                
+                if active_assignment:
+                    error_msg = 'This student already has an active room assignment.'
+                    logger.warning(error_msg)
+                    raise ValueError(error_msg)
+                
+                # Set default check_out_date if not provided
+                if not booking.check_out_date:
+                    duration = int(request.POST.get('duration', 1))
+                    booking.check_out_date = booking.check_in_date + timedelta(days=30 * duration)
+                    logger.debug(f"Set default check_out_date: {booking.check_out_date} based on duration: {duration} months")
+                
+                booking.status = 'Pending'
+                booking.save()
+                
+                logger.info(f"Booking {booking.id} created successfully for student {booking.student.username}")
+                
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'status': 'success',
+                        'message': 'Booking created successfully!',
+                        'booking_id': booking.id
+                    })
+                
+                messages.success(request, 'Booking request has been submitted successfully!')
+                return redirect('manage_booking')
+                
+        except Exception as e:
+            logger.exception("Error saving booking:")
+            error_message = str(e) or 'An error occurred while saving the booking. Please try again or contact support.'
             
-        form = BookingRequestForm(user=request.user, initial=initial_data)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'error',
+                    'message': error_message
+                }, status=400)
+            
+            messages.error(request, error_message)
+            return redirect('manage_booking')
+            
+    except Exception as e:
+        logger.exception("Unexpected error in create_booking:")
+        error_message = 'An unexpected error occurred. Please try again or contact support.'
+        
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return JsonResponse({
+                'status': 'error',
+                'message': error_message
+            }, status=500)
+        
+        messages.error(request, error_message)
+        return redirect('manage_booking')
+    
+    # If we get here, it's a GET request or form was invalid
+    initial_data = {}
+    if hasattr(request.user, 'student') and not is_staff:
+        initial_data['student'] = request.user.student
+        
+    form = BookingRequestForm(user=request.user, initial=initial_data)
     
     # Get available hostels for the form
     hostels = Hostels.objects.prefetch_related(
@@ -1204,14 +1362,240 @@ def create_booking(request):
 
 @login_required
 @user_passes_test(lambda u: u.is_staff, login_url='login')
+@require_http_methods(["GET"])
+def get_available_rooms(request, booking_id):
+    """
+    Get available rooms for a booking request
+    """
+    response_data = {
+        'status': 'error',
+        'message': 'An unexpected error occurred',
+        'debug': {}
+    }
+    
+    try:
+        # Debug logging
+        logger.info(f"Fetching available rooms for booking ID: {booking_id}")
+        
+        # Get the booking
+        try:
+            booking = BookingRequest.objects.select_related('hostel').get(id=booking_id)
+            response_data['debug']['booking_found'] = True
+            response_data['debug']['booking_id'] = booking.id
+            response_data['debug']['hostel_id'] = booking.hostel.id if booking.hostel else None
+            response_data['debug']['room_type'] = booking.room_type
+            
+        except BookingRequest.DoesNotExist:
+            error_msg = f"Booking with ID {booking_id} not found"
+            logger.error(error_msg)
+            response_data.update({
+                'message': 'Booking not found.',
+                'debug': {'error': error_msg}
+            })
+            return JsonResponse(response_data, status=404)
+        except Exception as e:
+            error_msg = f"Error getting booking: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            response_data.update({
+                'message': 'Error retrieving booking details.',
+                'debug': {'error': error_msg}
+            })
+            return JsonResponse(response_data, status=500)
+            
+        logger.info(f"Found booking: {booking.id} for hostel: {booking.hostel.name}")
+        
+        try:
+            # Get all available rooms of the requested type in the selected hostel
+            # First, get rooms with capacity > current_occupants
+            available_rooms = Rooms.objects.filter(
+                hostel_id=booking.hostel.id,
+                room_type=booking.room_type,
+                status='Available'
+            ).annotate(
+                available_beds_annotated=F('capacity') - F('current_occupants')
+            ).filter(
+                available_beds_annotated__gt=0
+            ).order_by('floor_number', 'room_number')
+            
+            room_count = available_rooms.count()
+            logger.info(f"Found {room_count} available rooms")
+            response_data['debug']['rooms_found'] = room_count
+            
+            # Prepare room data for JSON response
+            rooms_data = [
+                {
+                    'id': room.id,
+                    'room_number': room.room_number,
+                    'floor_number': room.floor_number,
+                    'capacity': room.capacity,
+                    'current_occupants': room.current_occupants,
+                    'available_beds': room.available_beds_annotated,
+                    'rent': str(room.rent) if room.rent else '0.00'
+                }
+                for room in available_rooms
+            ]
+            
+            response_data.update({
+                'status': 'success',
+                'message': f'Found {room_count} available rooms',
+                'hostel_name': booking.hostel.name,
+                'requested_room_type': booking.room_type,
+                'available_rooms': rooms_data
+            })
+            
+            return JsonResponse(response_data)
+            
+        except Exception as e:
+            error_msg = f"Error processing room data: {str(e)}"
+            logger.error(error_msg, exc_info=True)
+            response_data.update({
+                'message': 'Error processing room data',
+                'debug': {'error': error_msg}
+            })
+            return JsonResponse(response_data, status=500)
+            
+    except Exception as e:
+        error_msg = f"Unexpected error in get_available_rooms: {str(e)}"
+        logger.error(error_msg, exc_info=True)
+        response_data.update({
+            'message': 'An unexpected error occurred',
+            'debug': {'error': error_msg}
+        })
+        return JsonResponse(response_data, status=500)
+
+@login_required
+@user_passes_test(lambda u: u.is_staff, login_url='login')
 def approve_booking(request, booking_id):
+    logger.info(f"approve_booking called with booking_id={booking_id}, method={request.method}")
+    
     if request.method == 'POST':
-        booking = get_object_or_404(BookingRequest, id=booking_id)
-        booking.status = 'Approved'
-        booking.admin_notes = request.POST.get('admin_notes', '')
-        booking.save()
-        messages.success(request, f'Booking #{booking.id} has been approved.')
-    return redirect('manage_booking')
+        try:
+            logger.info(f"Request POST data: {request.POST}")
+            
+            # Get the booking
+            try:
+                booking = BookingRequest.objects.select_related('hostel').get(id=booking_id)
+                logger.info(f"Found booking: {booking.id}, status={booking.status}, hostel={booking.hostel}")
+            except BookingRequest.DoesNotExist:
+                logger.error(f"Booking not found: {booking_id}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Booking not found.'
+                }, status=404)
+            
+            room_id = request.POST.get('room_id')
+            admin_notes = request.POST.get('admin_notes', '')
+            
+            logger.info(f"Room ID from form: {room_id}, Admin notes: {admin_notes}")
+            
+            if not room_id:
+                logger.warning("No room_id provided in request")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Please select a room to assign.'
+                }, status=400)
+            
+            # Get the room
+            try:
+                room = Rooms.objects.get(id=room_id, hostel_id=booking.hostel.id, room_type=booking.room_type)
+                logger.info(f"Found room: {room.id}, type={room.room_type}, capacity={room.capacity}, current_occupants={room.current_occupants}")
+            except Rooms.DoesNotExist:
+                logger.error(f"Room not found: id={room_id}, hostel_id={booking.hostel.id}, room_type={booking.room_type}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Selected room not found or does not match booking criteria.'
+                }, status=404)
+            
+            # Check if room has available beds
+            if room.current_occupants >= room.capacity:
+                logger.warning(f"Room {room.id} is full: {room.current_occupants}/{room.capacity}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Selected room is already full. Please choose another room.'
+                }, status=400)
+            
+            logger.info("Starting transaction to update booking and room")
+            
+            try:
+                # Update booking status and assign room
+                with transaction.atomic():
+                    try:
+                        # First, update the booking
+                        booking.status = 'Approved'
+                        booking.assigned_room = room
+                        booking.admin_notes = admin_notes
+                        booking.save()
+                        logger.info(f"Updated booking {booking.id} to Approved with room {room.id}")
+                        
+                        # Then update room occupancy using F() expression to avoid race conditions
+                        updated = Rooms.objects.filter(
+                            id=room.id,
+                            current_occupants__lt=F('capacity')  # Only update if not full
+                        ).update(
+                            current_occupants=F('current_occupants') + 1
+                        )
+                        
+                        if updated == 0:
+                            logger.warning(f"Room {room.id} became full before we could update it")
+                            raise Exception('Room is now full. Please select another room.')
+                            
+                        # Update room status if needed
+                        if room.current_occupants + 1 >= room.capacity:
+                            room.status = 'Occupied'
+                            room.save(update_fields=['status'])
+                            
+                        logger.info(f"Updated room {room.id} occupancy")
+                        
+                    except Exception as e:
+                        logger.exception(f"Error in transaction: {str(e)}")
+                        raise  # Re-raise to be caught by outer try-except
+                
+                # Refresh data to get updated values
+                room.refresh_from_db()
+                logger.info(f"Room {room.id} after update - occupants: {room.current_occupants}, status: {room.status}")
+                
+                messages.success(request, f'Booking #{booking.id} has been approved and room {room.room_number} has been assigned.')
+                logger.info(f"Successfully approved booking {booking.id}")
+                
+                return JsonResponse({
+                    'status': 'success',
+                    'message': 'Booking approved successfully.'
+                })
+                
+            except Exception as e:
+                error_msg = str(e)
+                logger.exception(f"Database error during booking approval: {error_msg}")
+                
+                # Provide more specific error messages based on the exception
+                if 'room' in error_msg.lower() and 'full' in error_msg.lower():
+                    user_msg = 'The selected room is now full. Please choose another room.'
+                else:
+                    user_msg = f'A database error occurred: {error_msg}'
+                
+                return JsonResponse({
+                    'status': 'error',
+                    'message': user_msg
+                }, status=500)
+            
+        except Exception as e:
+            logger.exception(f"Unexpected error in approve_booking: {str(e)}")
+            return JsonResponse({
+                'status': 'error',
+                'message': f'An unexpected error occurred: {str(e)}'
+            }, status=500)
+    
+    # For GET requests, return the available rooms
+    try:
+        booking = BookingRequest.objects.get(id=booking_id)
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Invalid request method. Use POST to approve a booking.'
+        }, status=405)
+    except BookingRequest.DoesNotExist:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Booking not found.'
+        }, status=404)
 
 
 
@@ -1487,7 +1871,8 @@ def search_students(request):
             try:
                 user = student.user
                 results.append({
-                    'id': student.id,  # Use student.id instead of user.id
+                    'id': student.id,
+                    'user_id': user.id,  # Include user ID for the form
                     'full_name': f"{user.first_name or ''} {user.last_name or ''}".strip(),
                     'email': user.email or '',
                     'cnic': student.cnic or '',
@@ -1509,6 +1894,7 @@ def search_students(request):
                 try:
                     results.append({
                         'id': user.id,
+                        'user_id': user.id,  # Same as id for direct user matches
                         'full_name': f"{user.first_name or ''} {user.last_name or ''}".strip(),
                         'email': user.email or '',
                         'cnic': '',
