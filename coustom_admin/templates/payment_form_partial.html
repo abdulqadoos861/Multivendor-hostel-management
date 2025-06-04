@@ -1,0 +1,305 @@
+{% load static %}
+<div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+        <div class="modal-header bg-primary text-white">
+            <h5 class="modal-title" id="paymentModalLabel">
+                <i class="fas fa-money-bill-wave me-2"></i>
+                Record Payment - {{ booking.student.user.get_full_name }}
+            </h5>
+            <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body">
+            <!-- Payment Form -->
+            <form id="paymentForm" method="post" action="{% url 'record_payment' booking.id %}">
+                {% csrf_token %}
+                
+                <div class="row mb-4">
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0">Payment Details</h6>
+                            </div>
+                            <div class="card-body">
+                                {% for field in form.visible_fields %}
+                                    {% if field.name != 'is_verified' or request.user.is_staff %}
+                                    <div class="mb-3">
+                                        <label for="{{ field.id_for_label }}" class="form-label">
+                                            {{ field.label }}
+                                            {% if field.field.required %}<span class="text-danger">*</span>{% endif %}
+                                        </label>
+                                        {{ field }}
+                                        {% if field.help_text %}
+                                            <small class="form-text text-muted">{{ field.help_text }}</small>
+                                        {% endif %}
+                                        {% if field.errors %}
+                                            <div class="invalid-feedback d-block">
+                                                {{ field.errors.0 }}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <div class="card h-100">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0">Payment Summary</h6>
+                                <span class="badge bg-{{ booking.status|lower }}">
+                                    {{ booking.get_status_display }}
+                                </span>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <tbody>
+                                            <tr>
+                                                <th>Total Amount:</th>
+                                                <td class="text-end">${{ booking.total_amount|floatformat:2 }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Security Deposit:</th>
+                                                <td class="text-end">${{ booking.security_deposit|floatformat:2 }}</td>
+                                            </tr>
+                                            <tr>
+                                                <th>Monthly Rent:</th>
+                                                <td class="text-end">${{ booking.monthly_rent|floatformat:2 }}/month</td>
+                                            </tr>
+                                            <tr class="table-light">
+                                                <th>Total Paid:</th>
+                                                <th class="text-end">${{ total_paid|floatformat:2 }}</th>
+                                            </tr>
+                                            <tr class="table-light">
+                                                <th>Balance:</th>
+                                                <th class="text-end">${{ balance|floatformat:2 }}</th>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment History -->
+                <div class="card mb-4">
+                    <div class="card-header bg-light d-flex justify-content-between align-items-center">
+                        <h6 class="mb-0">Payment History</h6>
+                        <button type="button" class="btn btn-sm btn-outline-primary" id="refreshHistory">
+                            <i class="fas fa-sync-alt"></i> Refresh
+                        </button>
+                    </div>
+                    <div class="card-body p-0">
+                        <div id="paymentHistoryContainer">
+                            <div class="text-center p-4">
+                                <div class="spinner-border text-primary" role="status">
+                                    <span class="visually-hidden">Loading...</span>
+                                </div>
+                                <p class="mt-2 mb-0">Loading payment history...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="fas fa-times me-1"></i> Close
+                    </button>
+                    <button type="submit" class="btn btn-primary" id="submitPayment">
+                        <i class="fas fa-save me-1"></i> Record Payment
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+$(document).ready(function() {
+    // Load payment history when modal is shown
+    $('#paymentModal').on('shown.bs.modal', function() {
+        loadPaymentHistory();
+    });
+
+    // Handle refresh history button
+    $('#refreshHistory').on('click', function(e) {
+        e.preventDefault();
+        loadPaymentHistory();
+    });
+
+    // Function to load payment history via AJAX
+    function loadPaymentHistory() {
+        const $container = $('#paymentHistoryContainer');
+        $container.html(`
+            <div class="text-center p-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 mb-0">Loading payment history...</p>
+            </div>
+        `);
+
+        $.ajax({
+            url: '{% url 'get_payment_history' booking.id %}',
+            type: 'GET',
+            dataType: 'json',
+            success: function(response) {
+                if (response.status === 'success') {
+                    if (response.payments.length > 0) {
+                        let html = `
+                            <div class="table-responsive">
+                                <table class="table table-hover table-striped mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Date</th>
+                                            <th>Amount</th>
+                                            <th>Type</th>
+                                            <th>Method</th>
+                                            <th>Transaction ID</th>
+                                            <th>Status</th>
+                                            <th>Received By</th>
+                                            <th>Notes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>`;
+
+                        response.payments.forEach(function(payment) {
+                            html += `
+                                <tr>
+                                    <td>${payment.payment_date}</td>
+                                    <td>$${parseFloat(payment.amount).toFixed(2)}</td>
+                                    <td>${payment.payment_type}</td>
+                                    <td>${payment.payment_method}</td>
+                                    <td>${payment.transaction_id || '-'}</td>
+                                    <td>
+                                        <span class="badge bg-${payment.is_verified ? 'success' : 'warning'}">
+                                            ${payment.is_verified ? 'Verified' : 'Pending'}
+                                        </span>
+                                    </td>
+                                    <td>${payment.received_by}</td>
+                                    <td>${payment.notes || '-'}</td>
+                                </tr>`;
+                        });
+
+                        html += `
+                                    </tbody>
+                                    <tfoot class="table-light">
+                                        <tr>
+                                            <th colspan="1">Total Paid:</th>
+                                            <th>$${parseFloat(response.total_paid).toFixed(2)}</th>
+                                            <th colspan="2">Remaining Balance:</th>
+                                            <th colspan="4">$${parseFloat(response.balance).toFixed(2)}</th>
+                                        </tr>
+                                    </tfoot>
+                                </table>
+                            </div>`;
+                        $container.html(html);
+                    } else {
+                        $container.html(`
+                            <div class="text-center p-4">
+                                <i class="fas fa-history fa-2x text-muted mb-3"></i>
+                                <p class="mb-0">No payment history found.</p>
+                            </div>
+                        `);
+                    }
+                } else {
+                    showAlert('danger', 'Failed to load payment history. Please try again.');
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error loading payment history:', error);
+                $container.html(`
+                    <div class="alert alert-danger m-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Failed to load payment history. Please try again.
+                    </div>
+                `);
+            }
+        });
+    }
+
+    // Handle form submission
+    $('#paymentForm').on('submit', function(e) {
+        e.preventDefault();
+        const $form = $(this);
+        const $submitBtn = $form.find('button[type="submit"]');
+        
+        // Disable submit button and show loading state
+        $submitBtn.prop('disabled', true).html(
+            '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Processing...'
+        );
+        
+        // Clear previous errors
+        $('.is-invalid').removeClass('is-invalid');
+        $('.invalid-feedback').remove();
+        
+        // Submit form via AJAX
+        $.ajax({
+            url: $form.attr('action'),
+            type: 'POST',
+            data: $form.serialize(),
+            dataType: 'json',
+            success: function(response) {
+                if (response.success) {
+                    showAlert('success', response.message);
+                    // Reset form and reload payment history
+                    $form.trigger('reset');
+                    loadPaymentHistory();
+                    // Close modal after 2 seconds
+                    setTimeout(function() {
+                        $('#paymentModal').modal('hide');
+                        // Reload the page to update the booking status
+                        location.reload();
+                    }, 2000);
+                } else {
+                    // Handle form validation errors
+                    if (response.errors) {
+                        $.each(response.errors, function(field, errors) {
+                            const $field = $('#' + field);
+                            $field.addClass('is-invalid');
+                            const $errorDiv = $('<div class="invalid-feedback"></div>').text(errors[0]);
+                            $field.after($errorDiv);
+                        });
+                        showAlert('danger', 'Please correct the errors in the form.');
+                    } else {
+                        showAlert('danger', response.message || 'An error occurred. Please try again.');
+                    }
+                }
+            },
+            error: function(xhr, status, error) {
+                console.error('Error submitting payment:', error);
+                showAlert('danger', 'An error occurred while processing your request. Please try again.');
+            },
+            complete: function() {
+                // Re-enable submit button
+                $submitBtn.prop('disabled', false).html(
+                    '<i class="fas fa-save me-1"></i> Record Payment'
+                );
+            }
+        });
+    });
+
+    // Helper function to show alerts
+    function showAlert(type, message) {
+        const $alert = $(`
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `);
+        
+        // Remove any existing alerts
+        $('.alert').remove();
+        
+        // Prepend alert to the form
+        $('#paymentForm').prepend($alert);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(function() {
+            $alert.alert('close');
+        }, 5000);
+    }
+});
+</script>

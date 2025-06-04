@@ -1,0 +1,273 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">
+                        <i class="fas fa-credit-card me-2"></i>Record Payment
+                    </h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Recording payment for Booking #{{ booking.id }} - {{ booking.student.user.get_full_name }}
+                    </div>
+                    
+                    <form id="paymentForm" method="POST" action="{% url 'record_payment' booking.id %}">
+                        {% csrf_token %}
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="id_amount" class="form-label">Amount (PKR)</label>
+                                <div class="input-group">
+                                    <span class="input-group-text">PKR</span>
+                                    {{ form.amount }}
+                                </div>
+                                <div class="invalid-feedback">{{ form.amount.errors|join:", " }}</div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="id_payment_method" class="form-label">Payment Method</label>
+                                {{ form.payment_method }}
+                                <div class="invalid-feedback">{{ form.payment_method.errors|join:", " }}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="id_payment_type" class="form-label">Payment Type</label>
+                                {{ form.payment_type }}
+                                <div class="invalid-feedback">{{ form.payment_type.errors|join:", " }}</div>
+                            </div>
+                            
+                            <div class="col-md-6">
+                                <label for="id_transaction_id" class="form-label">Transaction ID</label>
+                                {{ form.transaction_id }}
+                                <small class="form-text text-muted">Leave blank for cash payments</small>
+                                <div class="invalid-feedback">{{ form.transaction_id.errors|join:", " }}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="mb-3">
+                            <label for="id_notes" class="form-label">Notes</label>
+                            {{ form.notes }}
+                            <div class="invalid-feedback">{{ form.notes.errors|join:", " }}</div>
+                        </div>
+                        
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                            <button type="button" class="btn btn-secondary me-md-2" data-bs-dismiss="modal">
+                                <i class="fas fa-times me-1"></i> Cancel
+                            </button>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-save me-1"></i> Record Payment
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Payment History -->
+            <div class="card mt-4">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">
+                        <i class="fas fa-history me-2"></i>Payment History
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="paymentHistory">
+                        <div class="text-center py-4">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                            <p class="mt-2 mb-0">Loading payment history...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Load payment history
+    function loadPaymentHistory() {
+        $.ajax({
+            url: '{% url "get_payment_history" booking.id %}',
+            method: 'GET',
+            success: function(response) {
+                if (response.status === 'success') {
+                    updatePaymentHistoryUI(response);
+                }
+            },
+            error: function(xhr, status, error) {
+                $('#paymentHistory').html(`
+                    <div class="alert alert-danger">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Error loading payment history. Please try again.
+                    </div>
+                `);
+            }
+        });
+    }
+    
+    function updatePaymentHistoryUI(data) {
+        if (data.payments.length === 0) {
+            $('#paymentHistory').html('<p class="text-muted text-center py-4">No payment history found.</p>');
+            return;
+        }
+        
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Type</th>
+                            <th>Method</th>
+                            <th class="text-end">Amount</th>
+                            <th>Received By</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>`;
+        
+        data.payments.forEach(function(payment) {
+            html += `
+                <tr>
+                    <td>${payment.payment_date}</td>
+                    <td>${payment.payment_type}</td>
+                    <td>${payment.payment_method}</td>
+                    <td class="text-end fw-bold">PKR ${parseFloat(payment.amount).toLocaleString('en-PK', {minimumFractionDigits: 2})}</td>
+                    <td>${payment.received_by}</td>
+                    <td>
+                        <span class="badge bg-${payment.is_verified ? 'success' : 'warning'}">
+                            ${payment.is_verified ? 'Verified' : 'Pending Verification'}
+                        </span>
+                    </td>
+                </tr>`;
+            
+            if (payment.notes) {
+                html += `
+                <tr>
+                    <td colspan="6" class="small text-muted">
+                        <strong>Notes:</strong> ${payment.notes}
+                        ${payment.transaction_id && payment.transaction_id !== 'N/A' ? 
+                          `<br><strong>Transaction ID:</strong> ${payment.transaction_id}` : ''}
+                    </td>
+                </tr>`;
+            }
+        });
+        
+        html += `
+                    </tbody>
+                    <tfoot class="table-light">
+                        <tr>
+                            <th colspan="3" class="text-end">Total Paid:</th>
+                            <th class="text-end">PKR ${parseFloat(data.total_paid).toLocaleString('en-PK', {minimumFractionDigits: 2})}</th>
+                            <th colspan="2"></th>
+                        </tr>`;
+                        
+        if (data.balance > 0) {
+            html += `
+                        <tr>
+                            <th colspan="3" class="text-end">Remaining Balance:</th>
+                            <th class="text-end text-danger">PKR ${parseFloat(data.balance).toLocaleString('en-PK', {minimumFractionDigits: 2})}</th>
+                            <th colspan="2"></th>
+                        </tr>`;
+        }
+        
+        html += `
+                    </tfoot>
+                </table>
+            </div>`;
+            
+        $('#paymentHistory').html(html);
+    }
+    
+    // Handle form submission
+    $('#paymentForm').on('submit', function(e) {
+        e.preventDefault();
+        const $form = $(this);
+        const $submitBtn = $form.find('button[type="submit"]');
+        const $originalBtnText = $submitBtn.html();
+        
+        // Show loading state
+        $submitBtn.prop('disabled', true).html('<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span> Processing...');
+        
+        $.ajax({
+            url: $form.attr('action'),
+            method: 'POST',
+            data: $form.serialize(),
+            success: function(response) {
+                if (response.status === 'success') {
+                    // Show success message
+                    showAlert('Payment recorded successfully!', 'success');
+                    
+                    // Reset form
+                    $form.trigger('reset');
+                    $form.find('.is-invalid').removeClass('is-invalid');
+                    
+                    // Reload payment history
+                    loadPaymentHistory();
+                } else {
+                    showAlert(response.message || 'An error occurred', 'danger');
+                }
+            },
+            error: function(xhr) {
+                try {
+                    const response = xhr.responseJSON;
+                    if (response && response.errors) {
+                        // Handle form validation errors
+                        $form.find('.is-invalid').removeClass('is-invalid');
+                        
+                        for (const field in response.errors) {
+                            const $field = $(`#id_${field}`);
+                            $field.addClass('is-invalid');
+                            const $feedback = $field.closest('.mb-3').find('.invalid-feedback');
+                            if ($feedback.length) {
+                                $feedback.text(response.errors[field].join(' '));
+                            }
+                        }
+                        
+                        showAlert('Please correct the errors below', 'danger');
+                    } else {
+                        throw new Error('Invalid response format');
+                    }
+                } catch (e) {
+                    showAlert('An error occurred while processing your request', 'danger');
+                }
+            },
+            complete: function() {
+                $submitBtn.prop('disabled', false).html($originalBtnText);
+            }
+        });
+    });
+    
+    function showAlert(message, type) {
+        const $alert = $(`
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        `);
+        
+        $('.container').prepend($alert);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            $alert.alert('close');
+        }, 5000);
+    }
+    
+    // Initial load of payment history
+    loadPaymentHistory();
+});
+</script>
+{% endblock %}

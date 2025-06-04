@@ -105,6 +105,9 @@ class BookingRequestForm(forms.ModelForm):
         self.fields['check_in_date'].initial = today
         self.fields['check_out_date'].initial = today + timedelta(days=30)
         
+        # Make check_out_date not required
+        self.fields['check_out_date'].required = False
+        
         # Set querysets
         self.fields['hostel'].queryset = Hostels.objects.all()
         
@@ -146,7 +149,7 @@ class BookingRequestForm(forms.ModelForm):
         
         # Add required attribute to required fields
         for field_name, field in self.fields.items():
-            if field.required:
+            if field.required and field_name != 'check_out_date':  # Skip check_out_date
                 field.widget.attrs['required'] = 'required'
 
     class Meta:
@@ -162,7 +165,8 @@ class BookingRequestForm(forms.ModelForm):
             'check_out_date': forms.DateInput(
                 attrs={
                     'type': 'date',
-                    'class': 'form-control'
+                    'class': 'form-control',
+                    'required': False
                 }
             ),
             'hostel': forms.Select(attrs={'class': 'form-control'}),
@@ -174,23 +178,8 @@ class BookingRequestForm(forms.ModelForm):
                 'required': False
             }),
         }
+        
 
-    def __init__(self, *args, **kwargs):
-        self.user = kwargs.pop('user', None)
-        super().__init__(*args, **kwargs)
-        
-        # Set initial dates
-        today = timezone.now().date()
-        self.fields['check_in_date'].initial = today
-        self.fields['check_out_date'].initial = today + timedelta(days=30)
-        
-        # Set querysets
-        self.fields['hostel'].queryset = Hostels.objects.all()
-        
-        # Add required attribute to required fields
-        for field_name, field in self.fields.items():
-            if field.required:
-                field.widget.attrs['required'] = 'required'
 
     def clean(self):
         cleaned_data = super().clean()
@@ -198,6 +187,10 @@ class BookingRequestForm(forms.ModelForm):
         check_out_date = cleaned_data.get('check_out_date')
         
         logger.debug(f"Form cleaned data: {cleaned_data}")
+        
+        # Only validate check_out_date if it's provided
+        if check_out_date and check_in_date and check_out_date <= check_in_date:
+            self.add_error('check_out_date', 'Check-out date must be after check-in date.')
         
         if check_in_date and check_out_date:
             today = timezone.now().date()

@@ -29,9 +29,9 @@
                         <option value="Rejected" {% if status_filter == 'Rejected' %}selected{% endif %}>Rejected</option>
                     </select>
                 </div>
-                <div class="col-md-3 col-sm-6">
-                    <label for="hostel" class="form-label">Hostel</label>
-                    <select class="form-select" id="hostel" name="hostel">
+                <div class="col-md-3">
+                    <label for="filterHostel" class="form-label">Hostel</label>
+                    <select class="form-select" id="filterHostel" name="hostel">
                         <option value="">All Hostels</option>
                         {% for hostel in hostels %}
                         <option value="{{ hostel.id }}" {% if hostel_filter == hostel.id|stringformat:"i" %}selected{% endif %}>
@@ -123,12 +123,12 @@
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="roomType" class="form-label">Room Type</label>
-                                    <select class="form-select" id="roomType" name="room_type" required disabled>
-                                        <option value="" selected disabled>Select Hostel First</option>
+                                    <select class="form-select" id="roomType" name="room_type" required>
+                                        <option value="" selected disabled>Select Room Type</option>
+                                        <option value="Single">Single</option>
+                                        <option value="Double">Double</option>
+                                        <option value="Shared">Shared</option>
                                     </select>
-                                    <div id="roomTypeLoading" class="spinner-border spinner-border-sm d-none" role="status">
-                                        <span class="visually-hidden">Loading...</span>
-                                    </div>
                                 </div>
                                 <div class="col-md-6 mb-3">
                                     <label for="requestDate" class="form-label">Check-in Date</label>
@@ -138,69 +138,11 @@
                                     <label for="duration" class="form-label">Duration (Months)</label>
                                     <input type="number" class="form-control" id="duration" name="duration" min="1" value="1" required>
                                 </div>
+
                             </div>
                         </div>
                     </div>
-                    
-                    <!-- Payment Information -->
-                    <div class="card mb-4">
-                        <div class="card-header">
-                            <h6 class="mb-0">Payment Information</h6>
-                        </div>
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-6 mb-3">
-                                    <label for="paymentMethod" class="form-label">Payment Method</label>
-                                    <select class="form-select" id="paymentMethod" name="payment_method" required>
-                                        <option value="" selected disabled>Select Payment Method</option>
-                                        <option value="Cash">Cash</option>
-                                        <option value="Bank Transfer">Bank Transfer</option>
-                                        <option value="EasyPaisa">EasyPaisa</option>
-                                        <option value="JazzCash">JazzCash</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6 mb-3" id="staffNameContainer" style="display: none;">
-                                    <label for="staffName" class="form-label">Received By (Staff Name)</label>
-                                    <input type="text" class="form-control" id="staffName" name="staff_name">
-                                </div>
-                                <div class="col-md-6 mb-3" id="transactionIdContainer" style="display: none;">
-                                    <label for="transactionId" class="form-label">Transaction ID</label>
-                                    <input type="text" class="form-control" id="transactionId" name="transaction_id">
-                                </div>
-                            </div>
-                            
-                            <!-- Pricing Summary -->
-                            <div class="border-top pt-3 mt-3">
-                                <div class="row">
-                                    <div class="col-md-6 mb-2">
-                                        <span class="text-muted">Monthly Rent:</span>
-                                        <span id="monthlyRentDisplay" class="float-end fw-bold">PKR 0</span>
-                                        <input type="hidden" id="monthlyRent" name="monthly_rent" value="0">
-                                    </div>
-                                    <div class="col-md-6 mb-2">
-                                        <span class="text-muted">Duration:</span>
-                                        <span id="durationDisplay" class="float-end">1 Month</span>
-                                    </div>
-                                    <div class="col-md-6 mb-2">
-                                        <span class="text-muted">Security Deposit:</span>
-                                        <span id="securityDepositDisplay" class="float-end fw-bold">PKR 0</span>
-                                        <input type="hidden" id="securityDeposit" name="security_deposit" value="0">
-                                    </div>
-                                    <div class="col-md-6 mb-2">
-                                        <span class="text-muted">Subtotal:</span>
-                                        <span id="subtotalDisplay" class="float-end fw-bold">PKR 0</span>
-                                    </div>
-                                    <div class="col-12 mt-2 pt-2 border-top">
-                                        <div class="d-flex justify-content-between align-items-center">
-                                            <h5 class="mb-0">Total Amount:</h5>
-                                            <h4 class="mb-0 text-primary" id="totalAmount">PKR 0</h4>
-                                            <input type="hidden" id="totalAmountValue" name="total_amount" value="0">
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
+
                     
                     <div class="d-flex justify-content-end gap-2">
                         <button type="button" class="btn btn-secondary" id="cancelBooking">
@@ -256,7 +198,7 @@
                                 {% if booking.status == 'Pending' %}
                                     <form method="POST" action="{% url 'approve_booking' booking.id %}" class="d-inline" id="approveForm-{{ booking.id }}">
                                         {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-success approve-btn">
+                                        <button type="submit" class="btn btn-sm btn-success approve-btn me-1">
                                             <i class="bi bi-check-circle-fill me-1"></i> Approve
                                         </button>
                                     </form>
@@ -265,16 +207,7 @@
                                         <i class="bi bi-x-circle-fill me-1"></i> Reject
                                     </button>
                                 {% elif booking.status == 'Approved' %}
-                                    <button class="btn btn-sm btn-info" data-bs-toggle="modal" 
-                                            data-bs-target="#viewModal" 
-                                            data-booking-id="{{ booking.id }}"
-                                            data-student-name="{{ booking.student.user.get_full_name }}"
-                                            data-student-email="{{ booking.student.user.email }}"
-                                            data-hostel-name="{{ booking.hostel.name }}"
-                                            data-room-type="{{ booking.room_type }}"
-                                            data-request-date="{{ booking.request_date|date:'Y-m-d H:i' }}">
-                                        <i class="bi bi-info-circle-fill me-1"></i> View Details
-                                    </button>
+                                    <!-- Payment functionality removed -->
                                 {% else %}
                                     <button class="btn btn-sm btn-secondary" data-bs-toggle="modal" 
                                             data-bs-target="#viewModal" 
@@ -283,7 +216,17 @@
                                             data-student-email="{{ booking.student.user.email }}"
                                             data-hostel-name="{{ booking.hostel.name }}"
                                             data-room-type="{{ booking.room_type }}"
-                                            data-request-date="{{ booking.request_date|date:'Y-m-d H:i' }}">
+                                            data-request-date="{{ booking.request_date|date:'Y-m-d H:i:s' }}"
+                                            data-checkin-date="{{ booking.check_in_date|date:'Y-m-d' }}"
+                                            data-checkout-date="{{ booking.check_out_date|date:'Y-m-d'|default:'' }}"
+                                            data-monthly-rent="{{ booking.monthly_rent|default:'0' }}"
+                                            data-security-deposit="{{ booking.security_deposit|default:'0' }}"
+                                            data-duration="{{ booking.duration_months|default:'1' }}"
+                                            data-payment-status="{{ booking.status }}"
+                                            data-special-requests="{{ booking.message|default:'' }}"
+                                            data-admin-notes="{{ booking.admin_notes|default:'' }}"
+                                            data-student-phone="{{ booking.student.contact_number|default:'' }}"
+                                            data-student-cnic="{{ booking.student.cnic|default:'' }}">
                                         <i class="bi bi-clock-history me-1"></i> View History
                                     </button>
                                 {% endif %}
@@ -303,30 +246,139 @@
 
 <!-- View Booking Modal -->
 <div class="modal fade" id="viewModal" tabindex="-1" aria-labelledby="viewModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content modal-custom fade-in">
-            <div class="modal-header">
-                <h5 class="modal-title" id="viewModalLabel">Booking Details</h5>
+            <div class="modal-header bg-light">
+                <h5 class="modal-title fw-bold" id="viewModalLabel">
+                    <i class="bi bi-file-earmark-text me-2"></i>Booking Details
+                </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="row">
+                <!-- Status Badge -->
+                <div class="text-end mb-4">
+                    <span class="badge bg-success fs-6 p-2" id="modal-booking-status">Approved</span>
+                </div>
+
+                <div class="row g-4">
+                    <!-- Student Information -->
                     <div class="col-md-6">
-                        <h6>Student Information</h6>
-                        <p><strong>Name:</strong> <span id="modal-student-name"></span></p>
-                        <p><strong>Email:</strong> <span id="modal-student-email"></span></p>
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="bi bi-person-badge me-2"></i>Student Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <p class="mb-1 text-muted small">Full Name</p>
+                                    <p class="mb-3 fw-medium" id="modal-student-name">-</p>
+                                    
+                                    <p class="mb-1 text-muted small">Email Address</p>
+                                    <p class="mb-3" id="modal-student-email">-</p>
+                                    
+                                    <p class="mb-1 text-muted small">Contact Number</p>
+                                    <p class="mb-3" id="modal-student-phone">-</p>
+                                    
+                                    <p class="mb-1 text-muted small">CNIC</p>
+                                    <p class="mb-0" id="modal-student-cnic">-</p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
+
+                    <!-- Booking Information -->
                     <div class="col-md-6">
-                        <h6>Booking Information</h6>
-                        <p><strong>Hostel:</strong> <span id="modal-hostel-name"></span></p>
-                        <p><strong>Room Type:</strong> <span id="modal-room-type"></span></p>
-                        <p><strong>Request Date:</strong> <span id="modal-request-date"></span></p>
+                        <div class="card h-100 border-0 shadow-sm">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="bi bi-calendar-check me-2"></i>Booking Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <p class="mb-1 text-muted small">Booking ID</p>
+                                    <p class="mb-3 fw-medium" id="modal-booking-id">-</p>
+                                    
+                                    <p class="mb-1 text-muted small">Hostel</p>
+                                    <p class="mb-3" id="modal-hostel-name">-</p>
+                                    
+                                    <p class="mb-1 text-muted small">Room Type</p>
+                                    <p class="mb-3" id="modal-room-type">-</p>
+                                    
+                                    <p class="mb-1 text-muted small">Check-in Date</p>
+                                    <p class="mb-3" id="modal-checkin-date">-</p>
+                                    
+                                    <p class="mb-1 text-muted small">Check-out Date</p>
+                                    <p class="mb-0" id="modal-checkout-date">-</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Payment Information -->
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="bi bi-credit-card me-2"></i>Payment Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-sm">
+                                        <thead>
+                                            <tr>
+                                                <th>Description</th>
+                                                <th class="text-end">Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr>
+                                                <td>Monthly Rent (<span id="modal-room-type-rent">-</span>)</td>
+                                                <td class="text-end" id="modal-monthly-rent">-</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Security Deposit (Refundable)</td>
+                                                <td class="text-end" id="modal-security-deposit">-</td>
+                                            </tr>
+                                            <tr>
+                                                <td>Duration</td>
+                                                <td class="text-end" id="modal-duration">-</td>
+                                            </tr>
+                                            <tr class="table-active">
+                                                <td><strong>Total Amount</strong></td>
+                                                <td class="text-end fw-bold" id="modal-total-amount">-</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="mt-3">
+                                    <p class="mb-1 text-muted small">Payment Status</p>
+                                    <p class="mb-0"><span class="badge bg-success" id="modal-payment-status">Paid</span></p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Additional Notes -->
+                    <div class="col-12">
+                        <div class="card border-0 shadow-sm">
+                            <div class="card-header bg-light">
+                                <h6 class="mb-0"><i class="bi bi-chat-square-text me-2"></i>Additional Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <p class="mb-1 text-muted small">Special Requests</p>
+                                <p class="mb-3" id="modal-special-requests">No special requests</p>
+                                
+                                <p class="mb-1 text-muted small">Admin Notes</p>
+                                <p class="mb-0" id="modal-admin-notes">-</p>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    <i class="bi bi-x-lg me-1"></i> Close
+                </button>
+                <button type="button" class="btn btn-primary" id="printBookingBtn">
+                    <i class="bi bi-printer me-1"></i> Print Details
+                </button>
         </div>
     </div>
 </div>
@@ -379,10 +431,148 @@ function formatNumber(num) {
     return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
 
+// Format date to readable string
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    const options = { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+    };
+    return new Date(dateString).toLocaleDateString('en-US', options);
+}
+
+// Format currency
+function formatCurrency(amount) {
+    if (amount === null || amount === undefined) return '-';
+    return 'PKR ' + parseFloat(amount).toLocaleString('en-PK', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    });
+}
+
+// Function to show alerts
+function showAlert(type, message) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
+    alertDiv.role = 'alert';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    
+    // Add the alert to the page
+    const container = document.querySelector('.container.mt-4');
+    if (container) {
+        container.prepend(alertDiv);
+        
+        // Auto-dismiss after 5 seconds
+        setTimeout(() => {
+            const bsAlert = new bootstrap.Alert(alertDiv);
+            bsAlert.close();
+        }, 5000);
+    }
+}
+
 // Document ready function
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    
+    // Handle view modal show event
+    const bookingViewModal = document.getElementById('viewModal');
+    if (bookingViewModal) {
+        bookingViewModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            
+            // Get all data attributes from the button
+            const bookingId = button.getAttribute('data-booking-id');
+            const status = button.closest('tr').querySelector('.badge').textContent.trim();
+            
+            // Student Information
+            const studentName = button.getAttribute('data-student-name');
+            const studentEmail = button.getAttribute('data-student-email');
+            const studentPhone = button.getAttribute('data-student-phone');
+            const studentCnic = button.getAttribute('data-student-cnic');
+            
+            // Booking Information
+            const hostelName = button.getAttribute('data-hostel-name');
+            const roomType = button.getAttribute('data-room-type');
+            const requestDate = button.getAttribute('data-request-date');
+            const checkInDate = button.getAttribute('data-checkin-date');
+            const checkOutDate = button.getAttribute('data-checkout-date');
+            
+            // Payment Information
+            const monthlyRent = parseFloat(button.getAttribute('data-monthly-rent')) || 0;
+            const securityDeposit = parseFloat(button.getAttribute('data-security-deposit')) || 0;
+            const duration = parseInt(button.getAttribute('data-duration')) || 1;
+            const paymentStatus = button.getAttribute('data-payment-status');
+            
+            // Additional Information
+            const specialRequests = button.getAttribute('data-special-requests');
+            const adminNotes = button.getAttribute('data-admin-notes');
+            
+            // Set basic information
+            document.getElementById('modal-booking-status').textContent = status;
+            document.getElementById('modal-booking-status').className = `badge bg-${status === 'Approved' ? 'success' : status === 'Pending' ? 'warning' : 'danger'} fs-6 p-2`;
+            
+            // Set booking information
+            document.getElementById('modal-booking-id').textContent = `#${bookingId}`;
+            document.getElementById('modal-hostel-name').textContent = hostelName || '-';
+            document.getElementById('modal-room-type').textContent = roomType || '-';
+            document.getElementById('modal-request-date').textContent = formatDate(requestDate);
+            document.getElementById('modal-checkin-date').textContent = checkInDate || '-';
+            document.getElementById('modal-checkout-date').textContent = checkOutDate || '-';
+            
+            // Set student information
+            document.getElementById('modal-student-name').textContent = studentName || '-';
+            document.getElementById('modal-student-email').textContent = studentEmail || '-';
+            document.getElementById('modal-student-phone').textContent = studentPhone || '-';
+            document.getElementById('modal-student-cnic').textContent = studentCnic || '-';
+            
+            // Set payment information
+            document.getElementById('modal-room-type-rent').textContent = roomType || 'Standard';
+            document.getElementById('modal-monthly-rent').textContent = formatCurrency(monthlyRent);
+            document.getElementById('modal-security-deposit').textContent = formatCurrency(securityDeposit);
+            document.getElementById('modal-duration').textContent = `${duration} month${duration !== 1 ? 's' : ''}`;
+            document.getElementById('modal-total-amount').textContent = formatCurrency(monthlyRent * duration + securityDeposit);
+            
+            // Set payment status
+            const paymentStatusBadge = document.getElementById('modal-payment-status');
+            paymentStatusBadge.textContent = paymentStatus || 'Pending';
+            paymentStatusBadge.className = `badge bg-${paymentStatus === 'Paid' ? 'success' : 'warning'}`;
+            
+            // Set additional information
+            document.getElementById('modal-special-requests').textContent = specialRequests || 'No special requests';
+            document.getElementById('modal-admin-notes').textContent = adminNotes || 'No admin notes';
+        });
+    }
+    
+    // Handle print button
+    const printButton = document.getElementById('printBookingBtn');
+    if (printButton) {
+        printButton.addEventListener('click', function() {
+            // Open print dialog for the modal content
+            const printContents = document.querySelector('.modal-content').innerHTML;
+            const originalContents = document.body.innerHTML;
+            
+            document.body.innerHTML = `
+                <div class="container mt-4">
+                    <div class="text-center mb-4">
+                        <h4>Booking Details</h4>
+                        <p class="text-muted">Generated on ${new Date().toLocaleString()}</p>
+                    </div>
+                    ${printContents}
+                </div>
+            `;
+            
+            window.print();
+            document.body.innerHTML = originalContents;
+            window.location.reload();
+        });
+    }
     var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
         return new bootstrap.Tooltip(tooltipTriggerEl);
     });
@@ -425,99 +615,25 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Handle hostel selection change
     function handleHostelChange(event) {
-        const selectElement = event ? event.target : this;
-        const selectedHostelId = selectElement.value;
-        console.log('Selected hostel ID:', selectedHostelId);
+        const selectedHostelId = event.target.value;
+        const roomTypeSelect = document.getElementById('roomType');
         
-        // Reset room type select
-        roomTypeSelect.innerHTML = '<option value="" selected disabled>Loading room types...</option>';
-        roomTypeSelect.disabled = true;
+        // Always keep room type enabled and show static options
+        roomTypeSelect.innerHTML = `
+            <option value="" selected disabled>Select Room Type</option>
+            <option value="Single">Single</option>
+            <option value="Double">Double</option>
+            <option value="Shared">Shared</option>
+        `;
+        roomTypeSelect.disabled = false;
+        roomRates = {
+            'Single': { rent: 0, deposit: 10000 },
+            'Double': { rent: 0, deposit: 10000 },
+            'Shared': { rent: 0, deposit: 10000 }
+        };
         
-        if (roomTypeLoading) {
-            roomTypeLoading.classList.remove('d-none');
-        }
-        
-        if (!selectedHostelId) {
-            console.log('No hostel selected, resetting room types');
-            roomTypeSelect.innerHTML = '<option value="" selected disabled>Select Hostel First</option>';
-            resetPricing();
-            if (roomTypeLoading) {
-                roomTypeLoading.classList.add('d-none');
-            }
-            return;
-        }
-        
-        // Fetch room types for the selected hostel
-        const url = `/admin/get_room_types/?hostel_id=${selectedHostelId}`;
-        console.log('Fetching room types from:', url);
-        
-        fetch(url, {
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            credentials: 'same-origin'
-        })
-        .then(response => {
-            console.log('Response status:', response.status);
-            if (!response.ok) {
-                return response.text().then(text => {
-                    console.error('Error response:', text);
-                    throw new Error(`HTTP error! status: ${response.status}, body: ${text}`);
-                });
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Received room types data:', data);
-                console.log('Room types response:', data);
-                roomTypeSelect.innerHTML = '<option value="" selected disabled>Select Room Type</option>';
-                roomRates = {};
-                
-                if (data.status === 'success' && data.room_types && data.room_types.length > 0) {
-                    // Sort room types alphabetically
-                    const sortedRoomTypes = [...data.room_types].sort((a, b) => 
-                        a.room_type.localeCompare(b.room_type)
-                    );
-                    
-                    sortedRoomTypes.forEach(room => {
-                        if (room && room.room_type) {
-                            const rent = parseFloat(room.per_head_rent) || 0;
-                            roomRates[room.room_type] = {
-                                rent: rent,
-                                deposit: 7000 // Fixed security deposit
-                            };
-                            
-                            // Add room type option
-                            const option = document.createElement('option');
-                            option.value = room.room_type;
-                            option.textContent = `${room.room_type} - PKR ${rent.toLocaleString()}/month`;
-                            option.setAttribute('data-rent', rent);
-                            roomTypeSelect.appendChild(option);
-                        }
-                    });
-                    
-                    roomTypeSelect.disabled = false;
-                } else {
-                    console.log('No room types available for hostel:', selectedHostelId);
-                    const option = document.createElement('option');
-                    option.value = "";
-                    option.textContent = "No room types available";
-                    option.disabled = true;
-                    roomTypeSelect.appendChild(option);
-                }
-                
-                resetPricing();
-            })
-            .catch(error => {
-                console.error('Error fetching room types:', error);
-                roomTypeSelect.innerHTML = '<option value="" selected disabled>Error loading room types</option>';
-            })
-            .finally(() => {
-                if (roomTypeLoading) {
-                    roomTypeLoading.classList.add('d-none');
-                }
-            });
+        // Reset pricing when hostel changes
+        resetPricing();
     }
     
     // Reset pricing displays and inputs
@@ -526,10 +642,9 @@ document.addEventListener('DOMContentLoaded', function() {
         if (securityDepositInput) securityDepositInput.value = '';
         if (totalAmountInput) totalAmountInput.textContent = '0.00';
         
-        // Reset room type select
+        // Reset room type select but keep it enabled
         if (roomTypeSelect) {
-            roomTypeSelect.innerHTML = '<option value="" selected disabled>Select Hostel First</option>';
-            roomTypeSelect.disabled = true;
+            roomTypeSelect.value = '';
         }
         
         document.getElementById('monthlyRentDisplay').textContent = 'PKR 0';
@@ -545,9 +660,8 @@ document.addEventListener('DOMContentLoaded', function() {
         if (roomRates[roomType]) {
             const monthlyRent = roomRates[roomType].rent;
             const securityDeposit = roomRates[roomType].deposit;
-            const duration = parseInt(durationInput.value) || 1;
-            const subtotal = monthlyRent * duration;
-            const total = subtotal + securityDeposit;
+            // Total is now just security deposit + one month's rent
+            const total = Number(monthlyRent) + Number(securityDeposit);
 
             // Update hidden inputs
             monthlyRentInput.value = monthlyRent.toFixed(2);
@@ -557,23 +671,40 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update display
             document.getElementById('monthlyRentDisplay').textContent = `PKR ${formatNumber(monthlyRent.toFixed(2))}`;
             document.getElementById('securityDepositDisplay').textContent = `PKR ${formatNumber(securityDeposit.toFixed(2))}`;
-            document.getElementById('subtotalDisplay').textContent = `PKR ${formatNumber(subtotal.toFixed(2))}`;
+            document.getElementById('subtotalDisplay').textContent = `PKR ${formatNumber(monthlyRent.toFixed(2))}`; // Show one month's rent as subtotal
             document.getElementById('totalAmount').textContent = `PKR ${formatNumber(total.toFixed(2))}`;
-            document.getElementById('durationDisplay').textContent = `${duration} Month${duration > 1 ? 's' : ''}`;
         }
     }
     
     // Handle payment method change
     function updatePaymentMethodFields() {
+        const paymentMethodSelect = document.getElementById('paymentMethod');
+        const staffNameContainer = document.getElementById('staffNameContainer');
+        const transactionIdContainer = document.getElementById('transactionIdContainer');
+        const staffNameInput = document.getElementById('staffName');
+        const transactionIdInput = document.getElementById('transactionId');
+        
+        if (!paymentMethodSelect) return;
+        
         const paymentMethod = paymentMethodSelect.value;
         const isCashPayment = paymentMethod === 'Cash';
         const isOnlinePayment = ['Bank Transfer', 'EasyPaisa', 'JazzCash'].includes(paymentMethod);
         
-        staffNameContainer.style.display = isCashPayment ? 'block' : 'none';
-        transactionIdContainer.style.display = isOnlinePayment ? 'block' : 'none';
+        if (staffNameContainer) {
+            staffNameContainer.style.display = isCashPayment ? 'block' : 'none';
+        }
         
-        document.getElementById('staffName').required = isCashPayment;
-        document.getElementById('transactionId').required = isOnlinePayment;
+        if (transactionIdContainer) {
+            transactionIdContainer.style.display = isOnlinePayment ? 'block' : 'none';
+        }
+        
+        if (staffNameInput) {
+            staffNameInput.required = isCashPayment;
+        }
+        
+        if (transactionIdInput) {
+            transactionIdInput.required = isOnlinePayment;
+        }
     }
     
     // Handle student search
@@ -654,35 +785,55 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('bookingForm').addEventListener('submit', function(e) {
         e.preventDefault();
         const form = this;
+        const submitButton = form.querySelector('button[type="submit"]');
+        const originalButtonText = submitButton.innerHTML;
+        
+        // Disable submit button and show loading state
+        submitButton.disabled = true;
+        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+        
+        // Get form data
         const formData = new FormData(form);
-
+        
+        // Send AJAX request
         fetch(form.action, {
             method: 'POST',
             body: formData,
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
             }
         })
         .then(response => response.json())
         .then(data => {
-            if (data.status === 'success') {
-                alert(data.message);
-                window.location.href = '{% url "manage_booking" %}';
+            if (data.success) {
+                // Show success message
+                showAlert('success', 'Booking created successfully!');
+                // Reset form
+                form.reset();
+                // Hide form and show search again
+                document.getElementById('bookingFormContainer').style.display = 'none';
+                document.getElementById('studentSearch').value = '';
+                document.getElementById('searchResults').style.display = 'none';
+                // Reload the page after a delay to show the new booking
+                setTimeout(() => window.location.reload(), 1500);
             } else {
-                let errorMessage = data.message || 'An error occurred.';
-                if (data.errors) {
-                    errorMessage += '\n' + Object.entries(data.errors).map(([field, errors]) => `${field}: ${errors.join(', ')}`).join('\n');
-                }
-                alert(errorMessage);
+                // Show error message
+                showAlert('danger', data.message || 'An error occurred. Please try again.');
+                // Re-enable submit button
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
             }
         })
         .catch(error => {
-            console.error('Error submitting form:', error);
-            alert('An error occurred while submitting the booking.');
+            console.error('Error:', error);
+            showAlert('danger', 'An error occurred. Please try again.');
+            // Re-enable submit button
+            submitButton.disabled = false;
+            submitButton.innerHTML = originalButtonText;
         });
     });
-
+    
     // Handle cancel booking
     cancelBookingBtn.addEventListener('click', () => {
         bookingFormContainer.style.display = 'none';
@@ -731,21 +882,114 @@ document.addEventListener('DOMContentLoaded', function() {
         form.action = `/reject_booking/${bookingId}/`;
     });
 
-    // Handle view modal
-    const viewModal = document.getElementById('viewModal');
-    viewModal.addEventListener('show.bs.modal', function(event) {
-        const button = event.relatedTarget;
-        document.getElementById('modal-student-name').textContent = button.getAttribute('data-student-name');
-        document.getElementById('modal-student-email').textContent = button.getAttribute('data-student-email');
-        document.getElementById('modal-hostel-name').textContent = button.getAttribute('data-hostel-name');
-        document.getElementById('modal-room-type').textContent = button.getAttribute('data-room-type');
-        document.getElementById('modal-request-date').textContent = button.getAttribute('data-request-date');
-    });
+    // View modal is already handled above with enhanced functionality
 });
+
+// Format currency
+function formatCurrency(amount) {
+    return new Intl.NumberFormat('en-PK', {
+        style: 'currency',
+        currency: 'PKR',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+    }).format(amount || 0).replace('PKR', 'Rs.');
+}
+            // Payment functionality has been removed
 </script>
 {% endblock %}
 
 <style>
+    /* Invoice Print Styles */
+    @media print {
+        body * {
+            visibility: hidden;
+        }
+        #invoice-container, #invoice-container * {
+            visibility: visible;
+        }
+        #invoice-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 20px;
+            box-shadow: none;
+        }
+        .btn, .alert {
+            display: none !important;
+        }
+        .table {
+            border-color: #dee2e6;
+        }
+        .table-bordered th,
+        .table-bordered td {
+            border-color: #dee2e6;
+        }
+    }
+
+    /* Invoice Styling */
+    #invoice-container {
+        background: white;
+        padding: 2rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.05);
+    }
+
+    #invoice-header {
+        border-bottom: 2px solid #e9ecef;
+        padding-bottom: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    #invoice-header h4 {
+        color: #4e73df;
+        font-weight: 700;
+        letter-spacing: 1px;
+    }
+
+    .table-invoice th {
+        border-top: none;
+        font-weight: 600;
+        text-transform: uppercase;
+        font-size: 0.75rem;
+        letter-spacing: 0.5px;
+    }
+
+    .table-invoice td {
+        vertical-align: middle;
+        padding: 1rem 0.75rem;
+    }
+
+    .total-row {
+        font-weight: 700;
+        background-color: #f8f9fa;
+    }
+
+    .total-amount {
+        font-size: 1.25rem;
+        color: #2e59d9;
+    }
+
+    .payment-method-btn {
+        white-space: nowrap;
+    }
+
+    .payment-method-btn input[type="radio"] {
+        position: absolute;
+        clip: rect(0, 0, 0, 0);
+        pointer-events: none;
+    }
+
+    .payment-method-btn:not(.active) {
+        background-color: #f8f9fa;
+        color: #495057;
+    }
+
+    .payment-method-btn.active {
+        background-color: #4e73df;
+        color: white;
+    }
+
     :root {
         --primary-color: #4f46e5;
         --secondary-color: #7c3aed;

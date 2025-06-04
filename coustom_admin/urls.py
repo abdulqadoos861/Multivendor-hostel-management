@@ -1,13 +1,16 @@
 from django.urls import path
+from django.contrib.auth import views as auth_views
 from . import views
 
 urlpatterns = [
     # Authentication
     path('login/', views.admin_login, name='admin_login'),
+    path('logout/', auth_views.LogoutView.as_view(next_page='admin_login'), name='admin_logout'),
 
     # Dashboard
     path('dashboard/', views.dashboard, name='dashboard'),
-
+    path('warden_dashboard/', views.warden_dashboard, name='warden_dashboard'),
+    
     # Hostel Management
     path('hostels/', views.hostels, name='hostels'),
     path('hostel_form/', views.hostellist, name='hostellist'),
@@ -57,6 +60,8 @@ urlpatterns = [
     path('check_availability/', views.check_availability, name='check_availability'),
     path('get_room_types/', views.get_room_types, name='get_room_types'),
     path('get_hostels/', views.get_hostels, name='get_hostels'),
+    
+    # Payment Management - Removed payment functionality
 
     # Other
     path('complaints/', views.complaints, name='complaints'),

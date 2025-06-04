@@ -7,11 +7,14 @@ from django.http import JsonResponse
 from django.db import transaction
 from .models import Hostels, Wardens, HostelWardens, Rooms, RoomTypeRate, Student, BookingRequest
 from django.http import HttpResponse, JsonResponse, HttpResponseRedirect
+from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from datetime import datetime, timedelta
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.db.models import Q, Count, F
 from .forms import StudentRegistrationForm, BookingRequestForm
+from .payment_forms import PaymentForm
+from .models import Payment
 from django.urls import reverse
 import json
 import re
@@ -19,11 +22,51 @@ import logging
 from django.utils.safestring import mark_safe
 from django.db.models import Prefetch
 from .models import Hostels, RoomTypeRate
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
 
 logger = logging.getLogger(__name__)
 
 def is_student(user):
     return hasattr(user, 'student')
+
+@login_required
+def get_room_rate(request, hostel_id, room_type):
+    """
+    Get the per head rent for a specific hostel and room type
+    """
+    logger.info(f'get_room_rate called with hostel_id={hostel_id}, room_type={room_type}')
+    try:
+        # Convert room_type to title case to match database
+        room_type = room_type.title()
+        logger.info(f'Looking up rate for hostel_id={hostel_id}, room_type={room_type}')
+        
+        try:
+            rate = RoomTypeRate.objects.get(hostel_id=hostel_id, room_type__iexact=room_type)
+            logger.info(f'Found rate: {rate}')
+            return JsonResponse({
+                'status': 'success',
+                'per_head_rent': float(rate.per_head_rent)
+            })
+        except RoomTypeRate.MultipleObjectsReturned:
+            # In case of multiple matches (shouldn't happen due to unique_together constraint)
+            logger.warning(f'Multiple rates found for hostel_id={hostel_id}, room_type={room_type}')
+            rate = RoomTypeRate.objects.filter(hostel_id=hostel_id, room_type__iexact=room_type).first()
+            return JsonResponse({
+                'status': 'success',
+                'per_head_rent': float(rate.per_head_rent)
+            })
+    except RoomTypeRate.DoesNotExist:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Room rate not found for the selected hostel and room type'
+        }, status=404)
+    except Exception as e:
+        logger.error(f'Error getting room rate: {str(e)}')
+        return JsonResponse({
+            'status': 'error',
+            'message': 'An error occurred while fetching room rate'
+        }, status=500)
 
 def is_admin(user):
     return user.is_staff
@@ -42,6 +85,9 @@ def admin_login(request):
             if user is not None and user.is_superuser:
                 login(request, user)
                 return redirect("dashboard")
+            elif user is not None and user.is_staff:
+                login(request, user)
+                return redirect("warden_dashboard")
             else:
                 messages.error(request, "Invalid credentials")
                 return render(request, "admin_login.html")
@@ -56,6 +102,10 @@ def admin_login(request):
 @login_required
 def dashboard(request):
     return render(request, "dashboard.html")
+
+@login_required
+def warden_dashboard(request):
+    return render(request, "warden/warden_dashboard.html")
 
 @login_required
 def add_room(request):
@@ -198,14 +248,6 @@ def get_hostel_flats(request, hostel_id):
         return JsonResponse({'total_floors': hostel.total_floors})
     except Hostels.DoesNotExist:
         return JsonResponse({'error': 'Hostel not found'}, status=404)
-
-@login_required
-def get_room_rate(request, hostel_id, room_type):
-    try:
-        rate = RoomTypeRate.objects.get(hostel_id=hostel_id, room_type=room_type)
-        return JsonResponse({'per_head_rent': float(rate.per_head_rent)})
-    except RoomTypeRate.DoesNotExist:
-        return JsonResponse({'per_head_rent': None})
 
 @login_required
 def fixed_rates(request):
@@ -1071,6 +1113,12 @@ def create_booking(request):
                             logger.error(error_msg)
                             raise ValueError(error_msg)
                     
+                    # Set default check_out_date if not provided
+                    if not booking.check_out_date:
+                        duration = int(request.POST.get('duration', 1))
+                        booking.check_out_date = booking.check_in_date + timedelta(days=30 * duration)
+                        logger.debug(f"Set default check_out_date: {booking.check_out_date} based on duration: {duration} months")
+                    
                     booking.status = 'Pending'
                     booking.save()
                     
@@ -1165,6 +1213,137 @@ def approve_booking(request, booking_id):
         messages.success(request, f'Booking #{booking.id} has been approved.')
     return redirect('manage_booking')
 
+
+
+@login_required
+def record_payment(request, booking_id):
+    """
+    Handle recording of payments for a booking.
+    Supports both GET (show form) and POST (process payment) requests.
+    Returns JSON for AJAX requests or renders template for regular requests.
+    """
+    booking = get_object_or_404(BookingRequest, id=booking_id)
+    
+    # For AJAX requests, return JSON response
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    
+    if request.method == 'POST':
+        form = PaymentForm(request.POST)
+        if form.is_valid():
+            try:
+                with transaction.atomic():
+                    # Create payment record
+                    payment = form.save(commit=False)
+                    payment.booking = booking
+                    payment.received_by = request.user
+                    payment.save()
+                    
+                    # Update booking status if needed
+                    if booking.status == 'Pending' and payment.amount >= booking.security_deposit:
+                        booking.status = 'Approved'
+                        booking.save()
+                
+                response_data = {
+                    'success': True,
+                    'message': 'Payment recorded successfully!',
+                    'payment_id': payment.id,
+                    'receipt_number': payment.receipt_number,
+                    'payment_date': payment.payment_date.strftime('%Y-%m-%d %H:%M')
+                }
+                
+                if is_ajax:
+                    return JsonResponse(response_data)
+                
+                messages.success(request, response_data['message'])
+                return redirect('manage_booking')
+                
+            except Exception as e:
+                error_msg = f'Error recording payment: {str(e)}'
+                logger.error(error_msg)
+                
+                if is_ajax:
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'An error occurred while recording the payment. Please try again.'
+                    }, status=500)
+                
+                messages.error(request, error_msg)
+                return redirect('manage_booking')
+        else:
+            # Form is invalid
+            error_msg = 'Please correct the errors below.'
+            if is_ajax:
+                return JsonResponse({
+                    'success': False,
+                    'message': error_msg,
+                    'errors': form.errors
+                }, status=400)
+            
+            messages.error(request, error_msg)
+    else:
+        # GET request - initialize form with default values
+        initial_data = {
+            'amount': booking.security_deposit if booking.status == 'Pending' else 0,
+            'payment_type': 'security' if booking.status == 'Pending' else 'rent',
+            'payment_method': 'cash',
+            'is_verified': True
+        }
+        form = PaymentForm(initial=initial_data)
+    
+    # Calculate payment summary
+    total_paid = booking.total_paid
+    balance = booking.balance
+    
+    # Get payment history
+    payments = Payment.objects.filter(booking=booking).order_by('-payment_date')
+    
+    context = {
+        'form': form,
+        'booking': booking,
+        'payments': payments,
+        'total_paid': total_paid,
+        'balance': balance,
+    }
+    
+    if is_ajax and request.method == 'GET':
+        # For AJAX GET requests, render just the form HTML
+        form_html = render_to_string('payment_form_partial.html', context, request=request)
+        return JsonResponse({
+            'success': True,
+            'form_html': form_html,
+            'title': f'Record Payment - {booking.student.user.get_full_name()}'
+        })
+    
+    # For regular GET requests, render the full page
+    return render(request, 'payment_form.html', context)
+
+@login_required
+def get_payment_history(request, booking_id):
+    """Get payment history for a booking"""
+    booking = get_object_or_404(BookingRequest, id=booking_id)
+    payments = Payment.objects.filter(booking=booking).order_by('-payment_date')
+    
+    payments_data = [{
+        'id': p.id,
+        'amount': float(p.amount),
+        'payment_date': p.payment_date.strftime('%Y-%m-%d %H:%M:%S'),
+        'payment_method': p.get_payment_method_display(),
+        'payment_type': p.get_payment_type_display(),
+        'transaction_id': p.transaction_id or 'N/A',
+        'received_by': p.received_by.get_full_name() if p.received_by else 'System',
+        'notes': p.notes or '',
+        'is_verified': p.is_verified,
+        'verification_date': p.verification_date.strftime('%Y-%m-%d %H:%M:%S') if p.verification_date else None,
+        'verified_by': p.verified_by.get_full_name() if p.verified_by else None
+    } for p in payments]
+    
+    return JsonResponse({
+        'status': 'success',
+        'payments': payments_data,
+        'total_paid': float(sum(p.amount for p in payments)),
+        'balance': float(booking.total_amount - sum(p.amount for p in payments)) if hasattr(booking, 'total_amount') else 0
+    })
+
 @login_required
 @user_passes_test(lambda u: u.is_staff, login_url='login')
 def reject_booking(request, booking_id):
@@ -1178,17 +1357,52 @@ def reject_booking(request, booking_id):
 
 @login_required
 def cancel_booking(request, booking_id):
+    """
+    Cancel a booking. Only the student who made the booking or an admin can cancel.
+    """
     if request.method == 'POST':
         booking = get_object_or_404(BookingRequest, id=booking_id)
         # Only allow the student who made the booking or an admin to cancel
         if request.user.student == booking.student or request.user.is_staff:
-            booking.status = 'Cancelled'
-            if request.user.is_staff:
-                booking.admin_notes = request.POST.get('admin_notes', 'Cancelled by admin')
-            booking.save()
-            messages.info(request, f'Booking #{booking.id} has been cancelled.')
+            try:
+                with transaction.atomic():
+                    booking.status = 'Cancelled'
+                    booking.admin_notes = (
+                        f"Booking cancelled by {request.user.username} "
+                        f"on {timezone.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                        f"\n{request.POST.get('admin_notes', '')}"
+                    )
+                    booking.save()
+                    
+                    messages.success(request, f'Booking #{booking.id} has been cancelled successfully.')
+                    
+                    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                        return JsonResponse({
+                            'success': True,
+                            'message': 'Booking has been cancelled successfully.'
+                        })
+                        
+            except Exception as e:
+                error_msg = f'Error cancelling booking: {str(e)}'
+                logger.error(error_msg)
+                
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({
+                        'success': False,
+                        'message': 'An error occurred while cancelling the booking.'
+                    }, status=500)
+                    
+                messages.error(request, 'An error occurred while cancelling the booking.')
         else:
-            messages.error(request, 'You are not authorized to cancel this booking.')
+            error_msg = 'You are not authorized to cancel this booking.'
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'success': False,
+                    'message': error_msg
+                }, status=403)
+                
+            messages.error(request, error_msg)
+    
     return redirect('manage_booking')
 
 def check_availability(request):
@@ -1339,6 +1553,77 @@ def get_room_types(request):
                 'message': str(e)
             }, status=400)
     return JsonResponse({'status': 'error', 'message': 'Invalid request'}, status=400)
+
+@login_required
+@require_http_methods(["GET"])
+def test_url(request, booking_id):
+    """Test URL endpoint to verify routing is working"""
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Test endpoint is working!',
+        'booking_id': booking_id,
+        'request_path': request.path,
+        'request_method': request.method
+    })
+
+def get_booking_details(request, booking_id):
+    """
+    Get booking details by ID
+    Returns JSON with booking details including student and hostel information
+    """
+    print(f"\n=== DEBUG: get_booking_details called with booking_id: {booking_id} ===")
+    print(f"Request path: {request.path}")
+    print(f"Request method: {request.method}")
+    print(f"Request headers: {request.headers}")
+    
+    try:
+        booking = get_object_or_404(BookingRequest, id=booking_id)
+        
+        # Prepare booking data
+        booking_data = {
+            'id': booking.id,
+            'student': {
+                'id': booking.student.id,
+                'user': {
+                    'id': booking.student.user.id,
+                    'username': booking.student.user.username,
+                    'email': booking.student.user.email,
+                    'first_name': booking.student.user.first_name,
+                    'last_name': booking.student.user.last_name,
+                    'get_full_name': booking.student.user.get_full_name(),
+                    'phone': booking.student.user.phone if hasattr(booking.student.user, 'phone') else ''
+                },
+                'cnic': booking.student.cnic,
+                'phone': booking.student.phone_number
+            },
+            'hostel': {
+                'id': booking.hostel.id,
+                'name': booking.hostel.name,
+                'address': booking.hostel.address
+            },
+            'room_type': booking.room_type,
+            'checkin_date': booking.checkin_date.isoformat() if booking.checkin_date else None,
+            'checkout_date': booking.checkout_date.isoformat() if booking.checkout_date else None,
+            'status': booking.status,
+            'total_amount': float(booking.total_amount) if booking.total_amount else 0.0,
+            'security_deposit': float(booking.security_deposit) if booking.security_deposit else 0.0,
+            'monthly_rent': float(booking.monthly_rent) if booking.monthly_rent else 0.0,
+            'duration_months': booking.duration_months,
+            'created_at': booking.request_date.isoformat(),
+        }
+        
+        return JsonResponse({
+            'status': 'success',
+            'booking': booking_data
+        })
+        
+    except Exception as e:
+        logger.error(f'Error getting booking details: {str(e)}')
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Failed to load booking details'
+        }, status=500)
+
 
 def get_hostels(request):
     try:
