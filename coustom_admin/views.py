@@ -1,5 +1,10 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt, csrf_protect
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.core.exceptions import ObjectDoesNotExist
+import json
 from django.contrib import messages
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate, login
@@ -12,6 +17,7 @@ from .models import Hostels, Wardens, HostelWardens, Rooms, RoomTypeRate, Studen
 from django.http import HttpResponse, JsonResponse, HttpResponseRedirect
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
+from django.db import transaction
 from datetime import datetime, timedelta
 from django.views.decorators.csrf import csrf_exempt, csrf_protect
 from django.db.models import Q, Count, F
@@ -113,7 +119,8 @@ def warden_dashboard(request):
 @login_required
 def add_room(request):
     hostels = Hostels.objects.all()
-    rooms = Rooms.objects.all()
+    # Use select_related to fetch the related hostel data in a single query
+    rooms = Rooms.objects.select_related('hostel').all()
 
     if request.method == 'POST':
         hostel_id = request.POST.get('hostel')
@@ -386,6 +393,8 @@ def updateHostel(request, id):
             gender = request.POST.get("gender")
             contact_number = request.POST.get("contact_number")
             total_floors = request.POST.get("total_floors")
+            description = request.POST.get("description", "")
+            
             if not all([name, address, gender, contact_number, total_floors]):
                 missing_fields = [field for field, value in {
                     'name': name, 'address': address, 'gender': gender,
@@ -409,10 +418,12 @@ def updateHostel(request, id):
                     "message": "Total floors must be a valid number"
                 }, status=400)
 
+            # Convert gender to title case for consistency
+            gender = gender.title()
             if gender not in ['Male', 'Female']:
                 return JsonResponse({
                     "status": "error",
-                    "message": f"Invalid gender value: {gender}"
+                    "message": f"Invalid gender value: {gender}. Must be either 'Male' or 'Female'."
                 }, status=400)
 
             hostel.name = name
@@ -420,7 +431,7 @@ def updateHostel(request, id):
             hostel.gender = gender
             hostel.contact_number = contact_number
             hostel.total_floors = total_floors
-            hostel.description = description or ""
+            hostel.description = description
             
             hostel.save()
             
@@ -576,10 +587,42 @@ def expenses(request):
 
 @login_required
 def manageStudent(request):
-    print("DEBUG: manageStudent view called")  # Debug log
-    students = Student.objects.all()
+    """
+    View for managing students with pagination and search functionality.
+    """
+    # Get all active students with related user data in a single query
+    students = Student.objects.select_related('user').all()
+    
+    # Apply search filter if provided
+    search_query = request.GET.get('search', '')
+    if search_query:
+        students = students.filter(
+            Q(user__username__icontains=search_query) |
+            Q(user__first_name__icontains=search_query) |
+            Q(user__last_name__icontains=search_query) |
+            Q(user__email__icontains=search_query) |
+            Q(contact_number__icontains=search_query) |
+            Q(cnic__icontains=search_query) |
+            Q(institute__icontains=search_query)
+        )
+    
+    # Apply status filter if provided
+    status_filter = request.GET.get('status')
+    if status_filter in ['active', 'inactive']:
+        is_active = status_filter == 'active'
+        students = students.filter(user__is_active=is_active)
+    
+    # Order by most recently created
+    students = students.order_by('-user__date_joined')
+    
+    # Initialize the form
     form = StudentRegistrationForm()
+    
+    # Get all hostels for the form
     hostels = Hostels.objects.all()
+    
+    # Log the number of students being displayed
+    logger.info(f'Displaying {students.count()} students in manageStudent view')
     
     if request.method == 'POST':
         print("DEBUG: POST request received")  # Debug log
@@ -683,11 +726,35 @@ def manageStudent(request):
 
 @login_required
 def edit_student(request, user_id):
-    user = get_object_or_404(User, id=user_id)
-    student = get_object_or_404(Student, user=user)
-    
-    if request.method == 'POST':
+    if request.method == 'GET':
         try:
+            user = get_object_or_404(User, id=user_id)
+            student = get_object_or_404(Student, user=user)
+            
+            # Prepare student data for the form
+            student_data = {
+                'status': 'success',
+                'student': {
+                    'username': user.username,
+                    'email': user.email,
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'contact_number': student.contact_number,
+                    'cnic': student.cnic,
+                    'address': student.address,
+                    'gender': student.gender,
+                    'institute': student.institute,
+                    'is_active': user.is_active
+                }
+            }
+            return JsonResponse(student_data)
+            
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=400)
+    
+    elif request.method == 'POST':
+        try:
+            # Get form data from request.POST for form submission
             username = request.POST.get('username')
             email = request.POST.get('email')
             first_name = request.POST.get('first_name')
@@ -697,12 +764,53 @@ def edit_student(request, user_id):
             address = request.POST.get('address')
             gender = request.POST.get('gender')
             institute = request.POST.get('institute')
+            is_active = request.POST.get('is_active', 'true').lower() == 'true'
+            
+            # Validate required fields
+            required_fields = [
+                'username', 'email', 'first_name', 'last_name',
+                'contact_number', 'cnic', 'gender', 'institute'
+            ]
+            
+            missing_fields = [field for field in required_fields if not request.POST.get(field)]
+            if missing_fields:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': f'Missing required fields: {", ".join(missing_fields)}'
+                }, status=400)
+            
+            user = get_object_or_404(User, id=user_id)
+            student = get_object_or_404(Student, user=user)
+            
+            # Check if username or email already exists for other users
+            if User.objects.filter(username=username).exclude(id=user.id).exists():
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Username already exists',
+                    'field': 'username'
+                }, status=400)
+                
+            if User.objects.filter(email=email).exclude(id=user.id).exists():
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Email already exists',
+                    'field': 'email'
+                }, status=400)
+            
+            # Validate CNIC format (if provided)
+            if cnic and not cnic.isdigit():
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'CNIC must contain only numbers',
+                    'field': 'cnic'
+                }, status=400)
             
             # Update user
             user.username = username
             user.email = email
             user.first_name = first_name
             user.last_name = last_name
+            user.is_active = is_active
             user.save()
             
             # Update student profile
@@ -713,39 +821,99 @@ def edit_student(request, user_id):
             student.institute = institute
             student.save()
             
-            messages.success(request, 'Student updated successfully!')
-            return JsonResponse({'success': True})
+            # Prepare response
+            response_data = {
+                'status': 'success', 
+                'message': 'Student updated successfully!',
+                'redirect_url': reverse('manageStudent')
+            }
+            
+            # If it's an AJAX request, return JSON
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse(response_data)
+            
+            # For regular form submission
+            messages.success(request, response_data['message'])
+            return redirect('manageStudent')
             
         except Exception as e:
-            return JsonResponse({'success': False, 'error': str(e)})
+            error_msg = f'Error updating student: {str(e)}'
+            logger.error(error_msg, exc_info=True)
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'error', 'message': error_msg}, status=500)
+            
+            messages.error(request, error_msg)
+            return redirect('manageStudent')
     
-    # Prepare student data for the form
-    student_data = {
-        'username': user.username,
-        'email': user.email,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'contact_number': student.contact_number,
-        'cnic': student.cnic,
-        'address': student.address,
-        'gender': student.gender,
-        'institute': student.institute
-    }
-    
-    return JsonResponse(student_data)
+    return JsonResponse({'status': 'error', 'message': 'Method not allowed'}, status=405)
 
 @login_required
 def delete_student(request, user_id):
     if request.method == 'POST':
         try:
+            # Prevent deleting own account
+            if request.user.id == user_id:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'You cannot delete your own account while logged in.'
+                }, status=400)
+            
+            # Get the user and student objects
             user = get_object_or_404(User, id=user_id)
             student = get_object_or_404(Student, user=user)
             username = user.username
-            user.delete()
-            return JsonResponse({'status': 'success', 'message': f'Student {username} deleted successfully'})
+            
+            # Check for any active bookings or important relations before deletion
+            active_bookings = BookingRequest.objects.filter(
+                student=student,
+                status__in=['Pending', 'Approved']
+            ).exists()
+            
+            if active_bookings:
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Cannot delete student with active or pending bookings.'
+                }, status=400)
+            
+            # Log the deletion
+            logger.info(f'Deleting student: {username} (ID: {user_id})')
+            
+            # Perform the deletion in a transaction
+            with transaction.atomic():
+                # Delete related records first
+                student.delete()
+                user.delete()
+            
+            # Prepare success response
+            response_data = {
+                'status': 'success',
+                'message': f'Student {username} has been deleted successfully.'
+            }
+            
+            # If it's an AJAX request, return JSON
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse(response_data)
+            
+            # For regular form submission
+            messages.success(request, response_data['message'])
+            return redirect('manageStudent')
+            
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': f'Error deleting student: {str(e)}'}, status=400)
-    return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=400)
+            error_msg = f'Error deleting student: {str(e)}'
+            logger.error(error_msg, exc_info=True)
+            
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'error', 'message': error_msg}, status=500)
+            
+            messages.error(request, error_msg)
+            return redirect('manageStudent')
+    
+    # If not a POST request
+    return JsonResponse({
+        'status': 'error',
+        'message': 'Invalid request method. Only POST is allowed.'
+    }, status=405)
 
 def manageWardens(request):
     wardens = Wardens.objects.select_related('user_id').prefetch_related('hostelwardens_set__hostel').all().order_by('-created_at')
@@ -978,42 +1146,146 @@ def deleteUser(request, user_id):
 
 @login_required
 @csrf_exempt
+def getWarden(request, warden_id):
+    """
+    Get warden details by ID
+    Returns JSON with warden details
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"getWarden called with warden_id: {warden_id}")
+    
+    try:
+        logger.info("Trying to get warden from database...")
+        warden = Wardens.objects.get(id=warden_id)
+        logger.info(f"Found warden: {warden.name} (ID: {warden.id})")
+        
+        # Get assigned hostels
+        logger.info("Fetching assigned hostels...")
+        assigned_hostels = list(Hostels.objects.filter(
+            hostelwardens__warden=warden
+        ).values_list('id', flat=True))
+        logger.info(f"Assigned hostels: {assigned_hostels}")
+        
+        # Get the user email
+        user_email = warden.user_id.email if hasattr(warden, 'user_id') and warden.user_id else ''
+        
+        data = {
+            'status': 'success',
+            'warden': {
+                'id': warden.id,
+                'name': warden.name,
+                'email': user_email,  # Use email from User model
+                'contact_number': warden.contact_number,
+                'gender': warden.gender,
+                'is_active': warden.user_id.is_active if hasattr(warden, 'user_id') and warden.user_id else False,
+                'assigned_hostels': assigned_hostels
+            }
+        }
+        logger.info("Returning warden data")
+        return JsonResponse(data)
+        
+    except Wardens.DoesNotExist as e:
+        logger.error(f"Warden not found: {e}")
+        return JsonResponse({'status': 'error', 'message': 'Warden not found'}, status=404)
+    except Exception as e:
+        logger.error(f"Error in getWarden: {str(e)}", exc_info=True)
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@csrf_exempt
 def updateWarden(request, warden_id):
+    logger = logging.getLogger(__name__)
+    logger.info(f"updateWarden called with warden_id: {warden_id}")
+    logger.info(f"Request method: {request.method}")
+    
     if request.method == 'POST':
         try:
-            warden = get_object_or_404(Wardens, id=warden_id)
-            user = warden.user_id
+            logger.info("Trying to get warden from database...")
+            warden = Wardens.objects.get(id=warden_id)
+            logger.info(f"Found warden: {warden.name} (ID: {warden.id})")
             
+            # Log all POST data for debugging
+            logger.info(f"POST data: {request.POST}")
+            
+            # Get form data
             name = request.POST.get('name')
             email = request.POST.get('email')
             phone = request.POST.get('phone')
             gender = request.POST.get('gender')
             is_active = request.POST.get('is_active') == 'on'
             
-            user.first_name = name.split()[0]
-            user.last_name = ' '.join(name.split()[1:]) if len(name.split()) > 1 else ''
-            user.email = email
-            user.is_active = is_active
-            user.save()
+            logger.info(f"Updating warden with - Name: {name}, Email: {email}, Phone: {phone}, Gender: {gender}, Active: {is_active}")
             
+            # Update warden fields
             warden.name = name
             warden.contact_number = phone
             warden.gender = gender
-            warden.save()
             
+            # Update user fields if user exists
+            if hasattr(warden, 'user_id') and warden.user_id:
+                user = warden.user_id
+                user.email = email
+                user.is_active = is_active
+                
+                # Handle password update if provided
+                password = request.POST.get('password')
+                if password and password.strip() != '':
+                    logger.info("Updating password")
+                    user.set_password(password)
+                
+                user.save()
+                logger.info("User updated successfully")
+            
+            warden.save()
+            logger.info("Warden updated successfully")
+            
+            # Update assigned hostels
+            if 'hostels' in request.POST:
+                # Get selected hostels
+                hostel_ids = request.POST.getlist('hostels')
+                logger.info(f"Updating assigned hostels: {hostel_ids}")
+                
+                # Remove existing assignments
+                deleted_count, _ = HostelWardens.objects.filter(warden=warden).delete()
+                logger.info(f"Deleted {deleted_count} existing hostel assignments")
+                
+                # Add new assignments
+                for hostel_id in hostel_ids:
+                    try:
+                        hostel = Hostels.objects.get(id=hostel_id)
+                        HostelWardens.objects.create(warden=warden, hostel=hostel)
+                        logger.info(f"Assigned hostel ID {hostel_id} to warden")
+                    except Hostels.DoesNotExist:
+                        logger.warning(f"Hostel with ID {hostel_id} not found")
+                        continue
+            
+            logger.info("Warden update completed successfully")
             return JsonResponse({
-                'status': 'success',
-                'message': 'Warden updated successfully'
+                'status': 'success', 
+                'message': 'Warden updated successfully',
+                'redirect_url': reverse('manageWardens')
             })
-        except Exception as e:
+            
+        except Wardens.DoesNotExist as e:
+            logger.error(f"Warden not found: {e}")
             return JsonResponse({
-                'status': 'error',
-                'message': str(e)
-            }, status=400)
-    return JsonResponse({
-        'status': 'error',
-        'message': 'Invalid request method'
-    }, status=400)
+                'status': 'error', 
+                'message': 'Warden not found'
+            }, status=404)
+            
+        except Exception as e:
+            logger.error(f"Error updating warden: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'status': 'error', 
+                'message': f'Failed to update warden: {str(e)}'
+            }, status=500)
+            
+    else:
+        logger.warning("Invalid request method")
+        return JsonResponse({
+            'status': 'error', 
+            'message': 'Invalid request method'
+        }, status=405)
 
 @login_required
 @csrf_exempt
@@ -1059,9 +1331,157 @@ def update_user(request, user_id):
         'message': 'Invalid request method'
     }, status=400)
 
+@csrf_exempt
+def toggle_user_status(request, user_id):
+    """
+    Toggle the active status of a user.
+    Expects a POST request with JSON body: {'is_active': true/false}
+    """
+    if request.method == 'POST':
+        try:
+            # Parse JSON data from request body
+            data = json.loads(request.body)
+            is_active = data.get('is_active')
+            
+            if is_active is None:
+                return JsonResponse(
+                    {'status': 'error', 'message': 'Missing is_active parameter'},
+                    status=400
+                )
+            
+            # Get the user
+            user = User.objects.get(id=user_id)
+            
+            # Prevent modifying superusers
+            if user.is_superuser:
+                return JsonResponse(
+                    {'status': 'error', 'message': 'Cannot modify superuser status'},
+                    status=403
+                )
+            
+            # Update the user's status
+            user.is_active = is_active
+            user.save()
+            
+            status_text = 'activated' if is_active else 'deactivated'
+            return JsonResponse({
+                'status': 'success',
+                'message': f'User {status_text} successfully',
+                'is_active': user.is_active
+            })
+            
+        except User.DoesNotExist:
+            return JsonResponse(
+                {'status': 'error', 'message': 'User not found'},
+                status=404
+            )
+        except json.JSONDecodeError:
+            return JsonResponse(
+                {'status': 'error', 'message': 'Invalid JSON data'},
+                status=400
+            )
+        except Exception as e:
+            return JsonResponse(
+                {'status': 'error', 'message': str(e)},
+                status=400
+            )
+    
+    return JsonResponse(
+        {'status': 'error', 'message': 'Only POST method is allowed'},
+        status=405
+    )
+
 @login_required
 def profile(request):
-    return render(request, 'profile.html')
+    user = request.user
+    
+    if request.method == 'POST':
+        try:
+            # Handle form data (can be JSON or form-data)
+            if request.content_type == 'application/json':
+                data = json.loads(request.body)
+            else:
+                data = request.POST.dict()
+            
+            # Debug: Log received data
+            print("Received data:", data)
+                
+            # Update basic user info
+            if 'name' in data and data['name']:
+                name_parts = data['name'].strip().split(' ', 1)
+                user.first_name = name_parts[0]
+                user.last_name = name_parts[1] if len(name_parts) > 1 else ''
+            
+            if 'email' in data and data['email']:
+                user.email = data['email'].strip()
+            
+            # Save user changes
+            user.save()
+            
+            # Handle Student profile if it exists
+            student_profile = None
+            if hasattr(user, 'student'):
+                student_profile = user.student
+                if 'phone' in data:
+                    student_profile.contact_number = data.get('phone', '').strip()
+                if 'address' in data:
+                    student_profile.address = data.get('address', '').strip()
+                student_profile.save()
+            
+            # Prepare response data
+            response_data = {
+                'status': 'success',
+                'message': 'Profile updated successfully',
+                'user': {
+                    'name': user.get_full_name(),
+                    'email': user.email,
+                    'username': user.username,
+                    'last_login': user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else None,
+                    'date_joined': user.date_joined.strftime('%Y-%m-%d %H:%M:%S'),
+                    'is_staff': user.is_staff,
+                    'is_active': user.is_active,
+                    'phone': student_profile.contact_number if student_profile else '',
+                    'address': student_profile.address if student_profile else '',
+                    'profile_picture': None  # No profile picture in the current model
+                }
+            }
+            
+            # Return JSON response for AJAX requests
+            return JsonResponse(response_data)
+            
+        except Exception as e:
+            error_msg = str(e)
+            print(f"Error updating profile: {error_msg}")
+            return JsonResponse(
+                {'status': 'error', 'message': f'Failed to update profile: {error_msg}'}, 
+                status=400
+            )
+    
+    # GET request - show profile
+    student_profile = None
+    if hasattr(user, 'student'):
+        student_profile = user.student
+    
+    user_data = {
+        'name': user.get_full_name(),
+        'email': user.email,
+        'username': user.username,
+        'last_login': user.last_login.strftime('%Y-%m-%d %H:%M:%S') if user.last_login else 'Never',
+        'date_joined': user.date_joined.strftime('%Y-%m-%d %H:%M:%S'),
+        'is_staff': user.is_staff,
+        'is_active': user.is_active,
+        'is_superuser': user.is_superuser,
+        'phone': student_profile.contact_number if student_profile else '',
+        'address': student_profile.address if student_profile else '',
+        'profile_picture': None  # No profile picture in the current model
+    }
+    
+    # If it's an AJAX request, return JSON
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return JsonResponse({'user_data': user_data})
+        
+    # Otherwise, render the template
+    return render(request, 'profile.html', {'user_data': user_data})
 
 @login_required
 def manage_booking(request):
@@ -1526,6 +1946,17 @@ def approve_booking(request, booking_id):
                         booking.admin_notes = admin_notes
                         booking.save()
                         logger.info(f"Updated booking {booking.id} to Approved with room {room.id}")
+                        
+                        # Create room assignment record
+                        RoomAssignment.objects.create(
+                            booking=booking,
+                            room=room,
+                            check_in_date=timezone.now().date(),
+                            is_active=True,
+                            assigned_by=request.user,
+                            notes=f"Booking approved by {request.user.get_full_name() or request.user.username}"
+                        )
+                        logger.info(f"Created RoomAssignment for booking {booking.id} in room {room.id}")
                         
                         # Then update room occupancy using F() expression to avoid race conditions
                         updated = Rooms.objects.filter(

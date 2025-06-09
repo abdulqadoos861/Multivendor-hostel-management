@@ -81,9 +81,9 @@
                                     </div>
                                     <div>
                                         <h6 class="mb-0">
-                                            {{ assignment.booking.student.user.get_full_name|default:assignment.booking.student.user.username }}
+                                            {{ assignment.booking.student.get_full_name|default:assignment.booking.student.username }}
                                         </h6>
-                                        <small class="text-muted">{{ assignment.booking.student.user.email }}</small>
+                                        <small class="text-muted">{{ assignment.booking.student.email }}</small>
                                     </div>
                                 </div>
                             </td>
@@ -106,14 +106,14 @@
                                 <div class="btn-group" role="group">
                                     <button type="button" class="btn btn-sm btn-outline-primary" 
                                             data-bs-toggle="tooltip" title="View Details"
-                                            onclick="viewAssignmentDetails({{ assignment.id }})">
+                                            onclick="viewAssignmentDetails('{{ assignment.id }}')">
                                         <i class="bi bi-eye"></i>
                                     </button>
                                     {% if assignment.is_active %}
                                     <button type="button" class="btn btn-sm btn-outline-danger"
                                             data-bs-toggle="tooltip" title="Check Out"
-                                            onclick="checkOutAssignment({{ assignment.id }})">
-                                        <i class="bi "
+                                            onclick="checkOutAssignment('{{ assignment.id }}')">
+                                        <i class="bi bi-door-open"></i>
                                     </button>
                                     {% endif %}
                                 </div>
@@ -165,6 +165,8 @@
 <script>
 // View assignment details
 function viewAssignmentDetails(assignmentId) {
+    // Ensure assignmentId is properly parsed as an integer
+    assignmentId = parseInt(assignmentId, 10);
     const modal = new bootstrap.Modal(document.getElementById('assignmentModal'));
     const modalBody = document.getElementById('assignmentDetails');
     
@@ -230,11 +232,14 @@ function viewAssignmentDetails(assignmentId) {
 
 // Check out assignment
 function checkOutAssignment(assignmentId) {
+    // Ensure assignmentId is properly parsed as an integer
+    assignmentId = parseInt(assignmentId, 10);
+    
     if (confirm('Are you sure you want to check out this student?')) {
         fetch(`/api/assignments/${assignmentId}/checkout/`, {
             method: 'POST',
             headers: {
-                'X-CSRFTTOKEN': '{{ csrf_token }}',
+                'X-CSRF-TOKEN': '{{ csrf_token }}',
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({})

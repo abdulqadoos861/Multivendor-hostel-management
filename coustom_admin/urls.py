@@ -1,8 +1,12 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
+from django.views.generic import RedirectView
 from . import views
 
 urlpatterns = [
+    # Redirect root admin URL to login
+    path('', RedirectView.as_view(url='login/', permanent=True)),
+
     # Authentication
     path('login/', views.admin_login, name='admin_login'),
     path('logout/', auth_views.LogoutView.as_view(next_page='admin_login'), name='admin_logout'),
@@ -44,11 +48,13 @@ urlpatterns = [
     path('assign_hostel/', views.assignHostel, name='assignHostel'),
     path('delete_warden/<int:warden_id>/', views.deleteWarden, name='deleteWarden'),
     path('update_warden/<int:warden_id>/', views.updateWarden, name='updateWarden'),
+    path('get_warden/<int:warden_id>/', views.getWarden, name='getWarden'),
 
     # User Management
     path('users/', views.users, name='users'),
     path('delete_user/<int:user_id>/', views.deleteUser, name='deleteUser'),
     path('update_user/<int:user_id>/', views.update_user, name='update_user'),
+    path('users/<int:user_id>/toggle-status/', views.toggle_user_status, name='toggle_user_status'),
 
     # Booking Management
     path('manage_booking/', views.manage_booking, name='manage_booking'),

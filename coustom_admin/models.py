@@ -57,8 +57,7 @@ class Rooms(models.Model):
         ('Maintenance', 'Maintenance'),
     ]
     
-    # Temporarily making this nullable for migration, will be fixed in the next migration
-    hostel = models.ForeignKey(Hostels, on_delete=models.CASCADE, related_name='rooms', null=True, blank=True)
+    hostel = models.ForeignKey(Hostels, on_delete=models.CASCADE, related_name='rooms')
     room_number = models.CharField(max_length=10)
     room_type = models.CharField(max_length=20, choices=ROOM_TYPES)
     capacity = models.PositiveIntegerField(default=1, validators=[MinValueValidator(1), MaxValueValidator(4)])

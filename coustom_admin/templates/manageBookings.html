@@ -137,12 +137,10 @@
                                     <label for="duration" class="form-label">Duration (Months)</label>
                                     <input type="number" class="form-control" id="duration" name="duration" min="1" value="1" required>
                                 </div>
-
                             </div>
                         </div>
                     </div>
 
-                    
                     <div class="d-flex justify-content-end gap-2">
                         <button type="button" class="btn btn-secondary" id="cancelBooking">
                             <i class="bi bi-x-circle me-1"></i> Cancel
@@ -428,6 +426,7 @@
                 <button type="button" class="btn btn-primary" id="printBookingBtn">
                     <i class="bi bi-printer me-1"></i> Print Details
                 </button>
+            </div>
         </div>
     </div>
 </div>
@@ -451,59 +450,6 @@
                     <div class="modal-footer">
                         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                         <button type="submit" class="btn btn-danger" id="rejectButton">Confirm Rejection</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-<!-- Approve Booking Modal -->
-<div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered">
-        <div class="modal-content modal-custom fade-in">
-            <div class="modal-header bg-success text-white">
-                <h5 class="modal-title" id="approveModalLabel">Approve Booking</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="approveFormMessage" class="alert d-none slide-in" role="alert"></div>
-                <form id="approveForm" method="POST" action="">
-                    {% csrf_token %}
-                    <input type="hidden" name="room_id" id="selectedRoomId">
-                    
-                    <div class="mb-4">
-                        <h6>Booking Details</h6>
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <p class="mb-1"><strong>Hostel:</strong> <span id="approveHostelName"></span></p>
-                                <p class="mb-1"><strong>Room Type:</strong> <span id="approveRoomType"></span></p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-4">
-                        <h6>Available Rooms</h6>
-                        <div id="availableRoomsContainer" class="table-responsive">
-                            <div class="text-center py-4">
-                                <div class="spinner-border text-primary" role="status">
-                                    <span class="visually-hidden">Loading...</span>
-                                </div>
-                                <p class="mt-2 mb-0">Loading available rooms...</p>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label for="adminNotes" class="form-label">Admin Notes (Optional)</label>
-                        <textarea class="form-control" id="adminNotes" name="admin_notes" rows="3" placeholder="Add any notes or instructions for the student..."></textarea>
-                    </div>
-                    
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                        <button type="submit" class="btn btn-success" id="confirmApproveBtn" disabled>
-                            <i class="bi bi-check-circle me-1"></i> Approve Booking
-                        </button>
                     </div>
                 </form>
             </div>
@@ -594,712 +540,760 @@ function getCookie(name) {
     return cookieValue;
 }
 
-// Document ready function
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialize tooltips
-    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-    
-    // Handle view modal show event
-    const bookingViewModal = document.getElementById('viewModal');
-    if (bookingViewModal) {
-        bookingViewModal.addEventListener('show.bs.modal', function(event) {
-            const button = event.relatedTarget;
-            
-            // Get all data attributes from the button
-            const bookingId = button.getAttribute('data-booking-id');
-            const status = button.closest('tr').querySelector('.badge').textContent.trim();
-            
-            // Student Information
-            const studentName = button.getAttribute('data-student-name');
-            const studentEmail = button.getAttribute('data-student-email');
-            const studentPhone = button.getAttribute('data-student-phone');
-            const studentCnic = button.getAttribute('data-student-cnic');
-            
-            // Booking Information
-            const hostelName = button.getAttribute('data-hostel-name');
-            const roomType = button.getAttribute('data-room-type');
-            const requestDate = button.getAttribute('data-request-date');
-            const checkInDate = button.getAttribute('data-checkin-date');
-            const checkOutDate = button.getAttribute('data-checkout-date');
-            
-            // Payment Information
-            const monthlyRent = parseFloat(button.getAttribute('data-monthly-rent')) || 0;
-            const securityDeposit = parseFloat(button.getAttribute('data-security-deposit')) || 0;
-            const duration = parseInt(button.getAttribute('data-duration')) || 1;
-            const paymentStatus = button.getAttribute('data-payment-status');
-            
-            // Additional Information
-            const specialRequests = button.getAttribute('data-special-requests');
-            const adminNotes = button.getAttribute('data-admin-notes');
-            
-            // Set basic information
-            document.getElementById('modal-booking-status').textContent = status;
-            document.getElementById('modal-booking-status').className = `badge bg-${status === 'Approved' ? 'success' : status === 'Pending' ? 'warning' : 'danger'} fs-6 p-2`;
-            
-            // Set booking information
-            document.getElementById('modal-booking-id').textContent = `#${bookingId}`;
-            document.getElementById('modal-hostel-name').textContent = hostelName || '-';
-            document.getElementById('modal-room-type').textContent = roomType || '-';
-            document.getElementById('modal-request-date').textContent = formatDate(requestDate);
-            document.getElementById('modal-checkin-date').textContent = checkInDate || '-';
-            document.getElementById('modal-checkout-date').textContent = checkOutDate || '-';
-            
-            // Set student information
-            document.getElementById('modal-student-name').textContent = studentName || '-';
-            document.getElementById('modal-student-email').textContent = studentEmail || '-';
-            document.getElementById('modal-student-phone').textContent = studentPhone || '-';
-            document.getElementById('modal-student-cnic').textContent = studentCnic || '-';
-            
-            // Set payment information
-            document.getElementById('modal-room-type-rent').textContent = roomType || 'Standard';
-            document.getElementById('modal-monthly-rent').textContent = formatCurrency(monthlyRent);
-            document.getElementById('modal-security-deposit').textContent = formatCurrency(securityDeposit);
-            document.getElementById('modal-duration').textContent = `${duration} month${duration !== 1 ? 's' : ''}`;
-            document.getElementById('modal-total-amount').textContent = formatCurrency(monthlyRent * duration + securityDeposit);
-            
-            // Set payment status
-            const paymentStatusBadge = document.getElementById('modal-payment-status');
-            paymentStatusBadge.textContent = paymentStatus || 'Pending';
-            paymentStatusBadge.className = `badge bg-${paymentStatus === 'Paid' ? 'success' : 'warning'}`;
-            
-            // Set additional information
-            document.getElementById('modal-special-requests').textContent = specialRequests || 'No special requests';
-            document.getElementById('modal-admin-notes').textContent = adminNotes || 'No admin notes';
-        });
-    }
-    
-    // Handle print button
-    const printButton = document.getElementById('printBookingBtn');
-    if (printButton) {
-        printButton.addEventListener('click', function() {
-            // Open print dialog for the modal content
-            const printContents = document.querySelector('.modal-content').innerHTML;
-            const originalContents = document.body.innerHTML;
-            
-            document.body.innerHTML = `
-                <div class="container mt-4">
-                    <div class="text-center mb-4">
-                        <h4>Booking Details</h4>
-                        <p class="text-muted">Generated on ${new Date().toLocaleString()}</p>
-                    </div>
-                    ${printContents}
-                </div>
-            `;
-            
-            window.print();
-            document.body.innerHTML = originalContents;
-            window.location.reload();
-        });
-    }
-    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-        return new bootstrap.Tooltip(tooltipTriggerEl);
+// Handle view modal
+const bookingViewModal = document.getElementById('viewModal'); // Define bookingViewModal
+if (bookingViewModal) {
+    bookingViewModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        
+        // Get all data attributes from the button
+        const bookingId = button.getAttribute('data-booking-id');
+        const status = button.closest('tr').querySelector('.badge').textContent.trim();
+        
+        // Student Information
+        const studentName = button.getAttribute('data-student-name');
+        const studentEmail = button.getAttribute('data-student-email');
+        const studentPhone = button.getAttribute('data-student-phone');
+        const studentCnic = button.getAttribute('data-student-cnic');
+        
+        // Booking Information
+        const hostelName = button.getAttribute('data-hostel-name');
+        const roomType = button.getAttribute('data-room-type');
+        const requestDate = button.getAttribute('data-request-date');
+        const checkInDate = button.getAttribute('data-checkin-date');
+        const checkOutDate = button.getAttribute('data-checkout-date');
+        
+        // Payment Information
+        const monthlyRent = parseFloat(button.getAttribute('data-monthly-rent')) || 0;
+        const securityDeposit = parseFloat(button.getAttribute('data-security-deposit')) || 0;
+        const duration = parseInt(button.getAttribute('data-duration')) || 1;
+        const paymentStatus = button.getAttribute('data-payment-status');
+        
+        // Additional Information
+        const specialRequests = button.getAttribute('data-special-requests');
+        const adminNotes = button.getAttribute('data-admin-notes');
+        
+        // Set basic information
+        document.getElementById('modal-booking-status').textContent = status;
+        document.getElementById('modal-booking-status').className = `badge bg-${status === 'Approved' ? 'success' : status === 'Pending' ? 'warning' : 'danger'} fs-6 p-2`;
+        
+        // Set booking information
+        document.getElementById('modal-booking-id').textContent = `#${bookingId}`;
+        document.getElementById('modal-hostel-name').textContent = hostelName || '-';
+        document.getElementById('modal-room-type').textContent = roomType || '-';
+        document.getElementById('modal-request-date').textContent = formatDate(requestDate);
+        document.getElementById('modal-checkin-date').textContent = checkInDate || '-';
+        document.getElementById('modal-checkout-date').textContent = checkOutDate || '-';
+        
+        // Set student information
+        document.getElementById('modal-student-name').textContent = studentName || '-';
+        document.getElementById('modal-student-email').textContent = studentEmail || '-';
+        document.getElementById('modal-student-phone').textContent = studentPhone || '-';
+        document.getElementById('modal-student-cnic').textContent = studentCnic || '-';
+        
+        // Set payment information
+        document.getElementById('modal-room-type-rent').textContent = roomType || 'Standard';
+        document.getElementById('modal-monthly-rent').textContent = formatCurrency(monthlyRent);
+        document.getElementById('modal-security-deposit').textContent = formatCurrency(securityDeposit);
+        document.getElementById('modal-duration').textContent = `${duration} month${duration !== 1 ? 's' : ''}`;
+        document.getElementById('modal-total-amount').textContent = formatCurrency(monthlyRent * duration + securityDeposit);
+        
+        // Set payment status
+        const paymentStatusBadge = document.getElementById('modal-payment-status');
+        paymentStatusBadge.textContent = paymentStatus || 'Pending';
+        paymentStatusBadge.className = `badge bg-${paymentStatus === 'Paid' ? 'success' : 'warning'}`;
+        
+        // Set additional information
+        document.getElementById('modal-special-requests').textContent = specialRequests || 'No special requests';
+        document.getElementById('modal-admin-notes').textContent = adminNotes || 'No admin notes';
     });
+}
 
-    // DOM Elements
-    const hostelSelect = document.getElementById('hostel');
-    const roomTypeSelect = document.getElementById('roomType');
-    const paymentMethodSelect = document.getElementById('paymentMethod');
-    const transactionIdContainer = document.getElementById('transactionIdContainer');
-    const staffNameContainer = document.getElementById('staffNameContainer');
-    const durationInput = document.getElementById('duration');
-    const monthlyRentInput = document.getElementById('monthlyRent');
-    const securityDepositInput = document.getElementById('securityDeposit');
-    const totalAmountInput = document.getElementById('totalAmountValue');
-    const searchStudentBtn = document.getElementById('searchStudentBtn');
-    const studentSearch = document.getElementById('studentSearch');
-    const searchResults = document.getElementById('searchResults');
-    const bookingFormContainer = document.getElementById('bookingFormContainer');
-    const studentNameInput = document.getElementById('studentName');
-    const studentCnicInput = document.getElementById('studentCnic');
-    const studentIdInput = document.getElementById('studentId');
-    const cancelBookingBtn = document.getElementById('cancelBooking');
-    const roomTypeLoading = document.getElementById('roomTypeLoading');
-    
-    // Room type rates (will be populated when hostel is selected)
-    let roomRates = {};
-    
-    // Set minimum date for request date field
-    const today = new Date().toISOString().split('T')[0];
-    document.getElementById('requestDate').min = today;
-    document.getElementById('requestDate').value = today;
-    
-    // Add event listener for hostel select
-    if (hostelSelect) {
-        console.log('Found hostel select element, adding event listener');
-        hostelSelect.addEventListener('change', handleHostelChange);
-    } else {
-        console.error('Could not find hostel select element');
-    }
-    
-    // Handle hostel selection change
-    function handleHostelChange(event) {
-        const selectedHostelId = event.target.value;
-        const roomTypeSelect = document.getElementById('roomType');
+// Handle print button
+const printButton = document.getElementById('printBookingBtn');
+if (printButton) {
+    printButton.addEventListener('click', function() {
+        // Open print dialog for the modal content
+        const printContents = document.querySelector('.modal-content').innerHTML;
+        const originalContents = document.body.innerHTML;
         
-        // Always keep room type enabled and show static options
-        roomTypeSelect.innerHTML = `
-            <option value="" selected disabled>Select Room Type</option>
-            <option value="Single">Single</option>
-            <option value="Double">Double</option>
-            <option value="Shared">Shared</option>
+        document.body.innerHTML = `
+            <div class="container mt-4">
+                <div class="text-center mb-4">
+                    <h4>Booking Details</h4>
+                    <p class="text-muted">Generated on ${new Date().toLocaleString()}</p>
+                </div>
+                ${printContents}
+            </div>
         `;
-        roomTypeSelect.disabled = false;
-        roomRates = {
-            'Single': { rent: 0, deposit: 10000 },
-            'Double': { rent: 0, deposit: 10000 },
-            'Shared': { rent: 0, deposit: 10000 }
-        };
         
-        // Reset pricing when hostel changes
-        resetPricing();
+        window.print();
+        document.body.innerHTML = originalContents;
+        window.location.reload();
+    });
+}
+
+// Initialize tooltips
+const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
+const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+
+// DOM Elements
+const hostelSelect = document.getElementById('hostel');
+const roomTypeSelect = document.getElementById('roomType');
+const paymentMethodSelect = document.getElementById('paymentMethod');
+const transactionIdContainer = document.getElementById('transactionIdContainer');
+const staffNameContainer = document.getElementById('staffNameContainer');
+const durationInput = document.getElementById('duration');
+const monthlyRentInput = document.getElementById('monthlyRent');
+const securityDepositInput = document.getElementById('securityDeposit');
+const totalAmountInput = document.getElementById('totalAmountValue');
+const searchStudentBtn = document.getElementById('searchStudentBtn');
+const studentSearch = document.getElementById('studentSearch');
+const searchResults = document.getElementById('searchResults');
+const bookingFormContainer = document.getElementById('bookingFormContainer');
+const studentNameInput = document.getElementById('studentName');
+const studentCnicInput = document.getElementById('studentCnic');
+const studentIdInput = document.getElementById('studentId');
+const cancelBookingBtn = document.getElementById('cancelBooking');
+const roomTypeLoading = document.getElementById('roomTypeLoading');
+
+// Room type rates (will be populated when hostel is selected)
+let roomRates = {};
+
+// Set minimum date for request date field
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('requestDate').min = today;
+document.getElementById('requestDate').value = today;
+
+// Add event listener for hostel select
+if (hostelSelect) {
+    console.log('Found hostel select element, adding event listener');
+    hostelSelect.addEventListener('change', handleHostelChange);
+} else {
+    console.error('Could not find hostel select element');
+}
+
+// Handle hostel selection change
+function handleHostelChange(event) {
+    const selectedHostelId = event.target.value;
+    
+    // Always keep room type enabled and show static options
+    roomTypeSelect.innerHTML = `
+        <option value="" selected disabled>Select Room Type</option>
+        <option value="Single">Single</option>
+        <option value="Double">Double</option>
+        <option value="Shared">Shared</option>
+    `;
+    roomTypeSelect.disabled = false;
+    roomRates = {
+        'Single': { rent: 0, deposit: 10000 },
+        'Double': { rent: 0, deposit: 10000 },
+        'Shared': { rent: 0, deposit: 10000 }
+    };
+    
+    // Reset pricing when hostel changes
+    resetPricing();
+}
+
+// Reset pricing displays and inputs
+function resetPricing() {
+    if (monthlyRentInput) monthlyRentInput.value = '';
+    if (securityDepositInput) securityDepositInput.value = '';
+    if (totalAmountInput) totalAmountInput.textContent = '0.00';
+    
+    // Reset room type select but keep it enabled
+    if (roomTypeSelect) {
+        roomTypeSelect.value = '';
     }
     
-    // Reset pricing displays and inputs
-    function resetPricing() {
-        if (monthlyRentInput) monthlyRentInput.value = '';
-        if (securityDepositInput) securityDepositInput.value = '';
-        if (totalAmountInput) totalAmountInput.textContent = '0.00';
-        
-        // Reset room type select but keep it enabled
-        if (roomTypeSelect) {
-            roomTypeSelect.value = '';
-        }
-        
+    // Safely update display elements if they exist
+    const updateIfExists = (id, text) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
+    };
+    
+    updateIfExists('monthlyRentDisplay', 'PKR 0');
+    updateIfExists('securityDepositDisplay', 'PKR 0');
+    updateIfExists('subtotalDisplay', 'PKR 0');
+    updateIfExists('totalAmount', 'PKR 0');
+    updateIfExists('durationDisplay', '1 Month');
+}
+
+// Handle room type and duration changes
+function handleRoomTypeOrDurationChange() {
+    if (!roomTypeSelect) return;
+    
+    const roomType = roomTypeSelect.value;
+    if (roomType && roomRates[roomType]) {
+        const monthlyRent = roomRates[roomType].rent;
+        const securityDeposit = roomRates[roomType].deposit;
+        // Total is now just security deposit + one month's rent
+        const total = Number(monthlyRent) + Number(securityDeposit);
+
         // Safely update display elements if they exist
         const updateIfExists = (id, text) => {
             const el = document.getElementById(id);
             if (el) el.textContent = text;
         };
-        
-        updateIfExists('monthlyRentDisplay', 'PKR 0');
-        updateIfExists('securityDepositDisplay', 'PKR 0');
-        updateIfExists('subtotalDisplay', 'PKR 0');
-        updateIfExists('totalAmount', 'PKR 0');
-        updateIfExists('durationDisplay', '1 Month');
+
+        // Update hidden inputs if they exist
+        if (monthlyRentInput) monthlyRentInput.value = monthlyRent.toFixed(2);
+        if (securityDepositInput) securityDepositInput.value = securityDeposit.toFixed(2);
+        if (totalAmountInput) totalAmountInput.value = total.toFixed(2);
+
+        // Update display
+        updateIfExists('monthlyRentDisplay', `PKR ${formatNumber(monthlyRent.toFixed(2))}`);
+        updateIfExists('securityDepositDisplay', `PKR ${formatNumber(securityDeposit.toFixed(2))}`);
+        updateIfExists('subtotalDisplay', `PKR ${formatNumber(monthlyRent.toFixed(2))}`);
+        updateIfExists('totalAmount', `PKR ${formatNumber(total.toFixed(2))}`);
+    }
+}
+
+// Handle payment method change
+function updatePaymentMethodFields() {
+    if (!paymentMethodSelect) return;
+    
+    const paymentMethod = paymentMethodSelect.value;
+    const isCashPayment = paymentMethod === 'Cash';
+    const isOnlinePayment = ['Bank Transfer', 'EasyPaisa', 'JazzCash'].includes(paymentMethod);
+    
+    if (staffNameContainer) {
+        staffNameContainer.style.display = isCashPayment ? 'block' : 'none';
     }
     
-    // Handle room type and duration changes
-    function handleRoomTypeOrDurationChange() {
-        if (!roomTypeSelect) return;
-        
-        const roomType = roomTypeSelect.value;
-        if (roomType && roomRates[roomType]) {
-            const monthlyRent = roomRates[roomType].rent;
-            const securityDeposit = roomRates[roomType].deposit;
-            // Total is now just security deposit + one month's rent
-            const total = Number(monthlyRent) + Number(securityDeposit);
-
-            // Safely update display elements if they exist
-            const updateIfExists = (id, text) => {
-                const el = document.getElementById(id);
-                if (el) el.textContent = text;
-            };
-
-            // Update hidden inputs if they exist
-            if (monthlyRentInput) monthlyRentInput.value = monthlyRent.toFixed(2);
-            if (securityDepositInput) securityDepositInput.value = securityDeposit.toFixed(2);
-            if (totalAmountInput) totalAmountInput.value = total.toFixed(2);
-
-            // Update display
-            updateIfExists('monthlyRentDisplay', `PKR ${formatNumber(monthlyRent.toFixed(2))}`);
-            updateIfExists('securityDepositDisplay', `PKR ${formatNumber(securityDeposit.toFixed(2))}`);
-            updateIfExists('subtotalDisplay', `PKR ${formatNumber(monthlyRent.toFixed(2))}`); // Show one month's rent as subtotal
-            updateIfExists('totalAmount', `PKR ${formatNumber(total.toFixed(2))}`);
-        }
+    if (transactionIdContainer) {
+        transactionIdContainer.style.display = isOnlinePayment ? 'block' : 'none';
     }
     
-    // Handle payment method change
-    function updatePaymentMethodFields() {
-        const paymentMethodSelect = document.getElementById('paymentMethod');
-        const staffNameContainer = document.getElementById('staffNameContainer');
-        const transactionIdContainer = document.getElementById('transactionIdContainer');
-        const staffNameInput = document.getElementById('staffName');
-        const transactionIdInput = document.getElementById('transactionId');
-        
-        if (!paymentMethodSelect) return;
-        
-        const paymentMethod = paymentMethodSelect.value;
-        const isCashPayment = paymentMethod === 'Cash';
-        const isOnlinePayment = ['Bank Transfer', 'EasyPaisa', 'JazzCash'].includes(paymentMethod);
-        
-        if (staffNameContainer) {
-            staffNameContainer.style.display = isCashPayment ? 'block' : 'none';
-        }
-        
-        if (transactionIdContainer) {
-            transactionIdContainer.style.display = isOnlinePayment ? 'block' : 'none';
-        }
-        
-        if (staffNameInput) {
-            staffNameInput.required = isCashPayment;
-        }
-        
-        if (transactionIdInput) {
-            transactionIdInput.required = isOnlinePayment;
-        }
+    const staffNameInput = document.getElementById('staffName');
+    const transactionIdInput = document.getElementById('transactionId');
+    
+    if (staffNameInput) {
+        staffNameInput.required = isCashPayment;
     }
     
-    // Handle student search
-    function handleStudentSearch() {
-        const query = studentSearch.value.trim();
-        if (query.length < 3) {
-            searchResults.style.display = 'none';
-            searchResults.innerHTML = '';
+    if (transactionIdInput) {
+        transactionIdInput.required = isOnlinePayment;
+    }
+}
+
+// Handle student search
+function handleStudentSearch() {
+    const query = studentSearch.value.trim();
+    if (query.length < 3) {
+        searchResults.style.display = 'none';
+        searchResults.innerHTML = '';
+        return;
+    }
+
+    // Show loading state
+    searchResults.innerHTML = '<div class="text-center p-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+    searchResults.style.display = 'block';
+
+    fetch(`/admin/search_students/?q=${encodeURIComponent(query)}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        // Clear previous results
+        searchResults.innerHTML = '';
+        
+        // Create list group container
+        const listGroup = document.createElement('div');
+        listGroup.className = 'list-group';
+        searchResults.appendChild(listGroup);
+
+        if (data.error) {
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'alert alert-warning';
+            errorDiv.textContent = data.error;
+            searchResults.appendChild(errorDiv);
+            searchResults.style.display = 'block';
             return;
         }
 
-        // Show loading state
-        searchResults.innerHTML = '<div class="text-center p-3"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
-        searchResults.style.display = 'block';
+        if (!data.students || data.students.length === 0) {
+            const noResults = document.createElement('div');
+            noResults.className = 'alert alert-info';
+            noResults.textContent = 'No students found.';
+            searchResults.appendChild(noResults);
+            searchResults.style.display = 'block';
+            return;
+        }
 
-        fetch(`/admin/search_students/?q=${encodeURIComponent(query)}`, {
+        data.students.forEach(student => {
+            const item = document.createElement('a');
+            item.href = '#';
+            item.className = 'list-group-item list-group-item-action';
+            item.innerHTML = `
+                <strong>${student.full_name || 'N/A'}</strong><br>
+                <small>CNIC: ${student.cnic || 'N/A'} | Email: ${student.email || 'N/A'}</small>
+            `;
+            item.addEventListener('click', (e) => {
+                e.preventDefault();
+                const studentId = student.user_id || student.id || '';
+                if (studentIdInput) studentIdInput.value = studentId;
+                // Set the student field to the user ID
+                const studentField = document.getElementById('studentField');
+                if (studentField) studentField.value = studentId;
+                if (studentNameInput) studentNameInput.value = student.full_name || '';
+                if (studentCnicInput) studentCnicInput.value = student.cnic || 'N/A';
+                if (bookingFormContainer) bookingFormContainer.style.display = 'block';
+                searchResults.style.display = 'none';
+                console.log('Selected student ID:', studentId);
+            });
+            listGroup.appendChild(item);
+        });
+        searchResults.style.display = 'block';
+    })
+    .catch(error => {
+        console.error('Error searching students:', error);
+        searchResults.innerHTML = '<div class="alert alert-danger">Error searching students. Please try again.</div>';
+        searchResults.style.display = 'block';
+    });
+}
+
+// Handle form submission
+document.getElementById('bookingForm').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    const form = this;
+    const submitButton = form.querySelector('button[type="submit"]');
+    const originalButtonText = submitButton.innerHTML;
+    
+    // Basic form validation
+    const studentId = document.getElementById('studentId').value;
+    if (!studentId) {
+        showAlert('danger', 'Please select a student first.');
+        return;
+    }
+    
+    // Disable submit button and show loading state
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+    
+    try {
+        // Get form data
+        const formData = new FormData(form);
+        
+        // Ensure student_id is sent as an integer
+        const studentId = formData.get('student_id');
+        if (studentId) {
+            formData.set('student_id', parseInt(studentId, 10));
+        }
+        
+        console.log('Form data:', Object.fromEntries(formData.entries()));
+        
+        // Send AJAX request
+        const response = await fetch(form.action, {
+            method: 'POST',
+            body: formData,
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
             }
-        })
-        .then(response => response.json())
-        .then(data => {
-            // Clear previous results
-            searchResults.innerHTML = '';
-            
-            // Create list group container
-            const listGroup = document.createElement('div');
-            listGroup.className = 'list-group';
-            searchResults.appendChild(listGroup);
-
-            if (data.error) {
-                const errorDiv = document.createElement('div');
-                errorDiv.className = 'alert alert-warning';
-                errorDiv.textContent = data.error;
-                searchResults.appendChild(errorDiv);
-                searchResults.style.display = 'block';
-                return;
-            }
-
-            if (!data.students || data.students.length === 0) {
-                const noResults = document.createElement('div');
-                noResults.className = 'alert alert-info';
-                noResults.textContent = 'No students found.';
-                searchResults.appendChild(noResults);
-                searchResults.style.display = 'block';
-                return;
-            }
-
-            data.students.forEach(student => {
-                const item = document.createElement('a');
-                item.href = '#';
-                item.className = 'list-group-item list-group-item-action';
-                item.innerHTML = `
-                    <strong>${student.full_name || 'N/A'}</strong><br>
-                    <small>CNIC: ${student.cnic || 'N/A'} | Email: ${student.email || 'N/A'}</small>
-                `;
-                item.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    const studentId = student.user_id || student.id || '';
-                    if (studentIdInput) studentIdInput.value = studentId;
-                    // Set the student field to the user ID
-                    const studentField = document.getElementById('studentField');
-                    if (studentField) studentField.value = studentId;
-                    if (studentNameInput) studentNameInput.value = student.full_name || '';
-                    if (studentCnicInput) studentCnicInput.value = student.cnic || 'N/A';
-                    if (bookingFormContainer) bookingFormContainer.style.display = 'block';
-                    searchResults.style.display = 'none';
-                    console.log('Selected student ID:', studentId);
-                });
-                listGroup.appendChild(item);
-            });
-            searchResults.style.display = 'block';
-        })
-        .catch(error => {
-            console.error('Error searching students:', error);
-            searchResults.innerHTML = '<div class="alert alert-danger">Error searching students. Please try again.</div>';
-            searchResults.style.display = 'block';
         });
-    }
-    
-    // Handle form submission
-    document.getElementById('bookingForm').addEventListener('submit', async function(e) {
-        e.preventDefault();
-        const form = this;
-        const submitButton = form.querySelector('button[type="submit"]');
-        const originalButtonText = submitButton.innerHTML;
         
-        // Basic form validation
-        const studentId = document.getElementById('studentId').value;
-        if (!studentId) {
-            showAlert('danger', 'Please select a student first.');
-            return;
-        }
+        const data = await response.json();
+        console.log('Server response:', data);
         
-        // Disable submit button and show loading state
-        submitButton.disabled = true;
-        submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
-        
-        try {
-            // Get form data
-            const formData = new FormData(form);
+        if (response.ok && data.status === 'success') {
+            // Show success message
+            showAlert('success', data.message || 'Booking created successfully!');
+            // Reset form
+            form.reset();
+            // Hide form and show search again
+            document.getElementById('bookingFormContainer').style.display = 'none';
+            document.getElementById('studentSearch').value = '';
+            document.getElementById('searchResults').style.display = 'none';
+            // Reload the page after a delay to show the new booking
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            // Show error message with more details if available
+            let errorMessage = data.message || 'An error occurred. Please try again.';
             
-            // Ensure student_id is sent as an integer
-            const studentId = formData.get('student_id');
-            if (studentId) {
-                formData.set('student_id', parseInt(studentId, 10));
-            }
-            
-            console.log('Form data:', Object.fromEntries(formData.entries()));
-            
-            // Send AJAX request
-            const response = await fetch(form.action, {
-                method: 'POST',
-                body: formData,
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value
-                }
-            });
-            
-            const data = await response.json();
-            console.log('Server response:', data);
-            
-            if (response.ok && data.status === 'success') {
-                // Show success message
-                showAlert('success', data.message || 'Booking created successfully!');
-                // Reset form
-                form.reset();
-                // Hide form and show search again
-                document.getElementById('bookingFormContainer').style.display = 'none';
-                document.getElementById('studentSearch').value = '';
-                document.getElementById('searchResults').style.display = 'none';
-                // Reload the page after a delay to show the new booking
-                setTimeout(() => window.location.reload(), 1500);
-            } else {
-                // Show error message with more details if available
-                let errorMessage = data.message || 'An error occurred. Please try again.';
-                
-                // Handle form errors
-                if (data.errors) {
-                    // If there are field-specific errors, collect them
-                    if (typeof data.errors === 'object') {
-                        const errorMessages = [];
-                        for (const [field, errors] of Object.entries(data.errors)) {
-                            if (Array.isArray(errors)) {
-                                errorMessages.push(...errors);
-                            } else {
-                                errorMessages.push(errors);
-                            }
+            // Handle form errors
+            if (data.errors) {
+                // If there are field-specific errors, collect them
+                if (typeof data.errors === 'object') {
+                    const errorMessages = [];
+                    for (const [field, errors] of Object.entries(data.errors)) {
+                        if (Array.isArray(errors)) {
+                            errorMessages.push(...errors);
+                        } else {
+                            errorMessages.push(errors);
                         }
-                        errorMessage = errorMessages.join(' ');
-                    } else {
-                        errorMessage = data.errors;
                     }
+                    errorMessage = errorMessages.join(' ');
+                } else {
+                    errorMessage = data.errors;
                 }
-                
-                showAlert('danger', errorMessage);
-                // Re-enable submit button
-                submitButton.disabled = false;
-                submitButton.innerHTML = originalButtonText;
-                
-                // Scroll to the top to show the error message
-                window.scrollTo({ top: 0, behavior: 'smooth' });
             }
-        } catch (error) {
-            console.error('Error:', error);
-            showAlert('danger', `An error occurred: ${error.message || 'Please check the console for details.'}`);
+            
+            showAlert('danger', errorMessage);
             // Re-enable submit button
             submitButton.disabled = false;
             submitButton.innerHTML = originalButtonText;
+            
+            // Scroll to the top to show the error message
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
-    });
-    
-    // Handle cancel booking
-    cancelBookingBtn.addEventListener('click', () => {
-        bookingFormContainer.style.display = 'none';
-        studentSearch.value = '';
-        searchResults.style.display = 'none';
-        studentIdInput.value = '';
-        studentNameInput.value = '';
-        studentCnicInput.value = '';
-        resetPricing();
-        roomTypeSelect.innerHTML = '<option value="" selected disabled>Select Hostel First</option>';
-        roomTypeSelect.disabled = true;
-        hostelSelect.value = '';
-        paymentMethodSelect.value = '';
-        updatePaymentMethodFields();
-    });
-
-    // Set up event listeners
-    if (hostelSelect) {
-        hostelSelect.addEventListener('change', handleHostelChange);
-    }
-    if (roomTypeSelect) {
-        roomTypeSelect.addEventListener('change', handleRoomTypeOrDurationChange);
-    }
-    if (durationInput) {
-        durationInput.addEventListener('input', handleRoomTypeOrDurationChange);
-    }
-    if (paymentMethodSelect) {
-        paymentMethodSelect.addEventListener('change', updatePaymentMethodFields);
-    }
-    if (searchStudentBtn) {
-        searchStudentBtn.addEventListener('click', handleStudentSearch);
-    }
-    if (studentSearch) {
-        studentSearch.addEventListener('input', handleStudentSearch);
-    }
-
-    // Initialize payment method fields
-    updatePaymentMethodFields();
-
-    // Handle reject modal
-    const rejectModal = document.getElementById('rejectModal');
-    rejectModal.addEventListener('show.bs.modal', function(event) {
-        const button = event.relatedTarget;
-        const bookingId = button.getAttribute('data-booking-id');
-        const form = document.getElementById('rejectForm');
-        form.action = `/reject_booking/${bookingId}/`;
-    });
-
-    // View modal is already handled above with enhanced functionality
-
-    // Handle approve modal show event
-    const approveModal = document.getElementById('approveModal');
-    if (approveModal) {
-        approveModal.addEventListener('show.bs.modal', function(event) {
-            const button = event.relatedTarget;
-            const bookingId = button.getAttribute('data-booking-id');
-            const form = document.getElementById('approveForm');
-            const container = document.getElementById('availableRoomsContainer');
-            const confirmBtn = document.getElementById('confirmApproveBtn');
-            
-            // Reset form and UI
-            form.reset();
-            document.getElementById('selectedRoomId').value = '';
-            confirmBtn.disabled = true;
-            
-            // Show loading state
-            container.innerHTML = `
-                <div class="text-center py-4">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="mt-2 mb-0">Loading available rooms...</p>
-                </div>`;
-            
-            // Fetch available rooms
-            const url = `/admin/get_available_rooms/${bookingId}/`;
-            console.log('Fetching available rooms from:', url);
-            
-            fetch(url, {
-                method: 'GET',
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'Accept': 'application/json'
-                },
-                credentials: 'same-origin'
-            })
-            .then(response => {
-                console.log('Response status:', response.status);
-                if (!response.ok) {
-                    return response.text().then(text => {
-                        console.error('Error response:', text);
-                        throw new Error(`HTTP error! status: ${response.status}`);
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                console.log('Received data:', data);
-                if (data.status === 'success') {
-                    // Update booking info
-                    document.getElementById('approveHostelName').textContent = data.hostel_name;
-                    document.getElementById('approveRoomType').textContent = data.requested_room_type;
-                    
-                    if (data.available_rooms.length > 0) {
-                        // Create rooms table
-                        let html = `
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>Select</th>
-                                            <th>Room #</th>
-                                            <th>Floor</th>
-                                            <th>Capacity</th>
-                                            <th>Available Beds</th>
-                                            <th>Rent (per bed)</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>`;
-                        
-                        data.available_rooms.forEach(room => {
-                            html += `
-                                <tr>
-                                    <td>
-                                        <div class="form-check">
-                                            <input class="form-check-input room-radio" type="radio" 
-                                                name="roomSelection" 
-                                                id="room-${room.id}" 
-                                                value="${room.id}"
-                                                data-room-number="${room.room_number}">
-                                        </div>
-                                    </td>
-                                    <td>${room.room_number}</td>
-                                    <td>${room.floor_number}</td>
-                                    <td>${room.capacity}</td>
-                                    <td>${room.available_beds}</td>
-                                    <td>${formatCurrency(room.rent)}</td>
-                                </tr>`;
-                        });
-                        
-                        html += `
-                                    </tbody>
-                                </table>
-                            </div>`;
-                        
-                        container.innerHTML = html;
-                        
-                        // Handle room selection
-                        document.querySelectorAll('.room-radio').forEach(radio => {
-                            radio.addEventListener('change', function() {
-                                document.getElementById('selectedRoomId').value = this.value;
-                                confirmBtn.disabled = false;
-                            });
-                        });
-                    } else {
-                        container.innerHTML = `
-                            <div class="alert alert-warning mb-0">
-                                <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                                No available rooms found for the selected criteria.
-                            </div>`;
-                    }
-                } else {
-                    container.innerHTML = `
-                        <div class="alert alert-danger mb-0">
-                            <i class="bi bi-exclamation-octagon-fill me-2"></i>
-                            ${data.message || 'Failed to load available rooms. Please try again.'}
-                        </div>`;
-                }
-            })
-            .catch(error => {
-                console.error('Error fetching available rooms:', error);
-                container.innerHTML = `
-                    <div class="alert alert-danger mb-0">
-                        <i class="bi bi-exclamation-octagon-fill me-2"></i>
-                        An error occurred while loading available rooms. Please try again.
-                    </div>`;
-            });
-            
-            // Set form action
-            form.action = `/approve_booking/${bookingId}/`;
-        });
-        
-        // Handle approve form submission
-        const approveForm = document.getElementById('approveForm');
-        if (approveForm) {
-            approveForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const form = this;
-                const submitBtn = form.querySelector('button[type="submit"]');
-                const originalBtnText = submitBtn.innerHTML;
-                let bookingId = '';
-                
-                // Get booking ID from the modal trigger button
-                const modalTrigger = document.querySelector('[data-bs-target="#approveModal"]');
-                if (modalTrigger) {
-                    bookingId = modalTrigger.getAttribute('data-booking-id');
-                }
-                
-                if (!bookingId) {
-                    showAlert('danger', 'Invalid booking ID');
-                    return;
-                }
-                
-                // Validate room selection
-                const roomId = document.getElementById('selectedRoomId').value;
-                if (!roomId) {
-                    showAlert('danger', 'Please select a room to assign.');
-                    return;
-                }
-                
-                // Update button to show loading state
-                submitBtn.disabled = true;
-                submitBtn.innerHTML = `
-                    <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
-                    Processing...`;
-                
-                // Make sure we have the room ID and admin notes
-                const adminNotes = document.getElementById('adminNotes')?.value || '';
-                
-                // Create form data with required fields
-                const requestData = new FormData();
-                requestData.append('room_id', roomId);
-                requestData.append('admin_notes', adminNotes);
-                
-                // Debug log
-                console.log('Submitting form with:', {
-                    room_id: roomId,
-                    admin_notes: adminNotes,
-                    booking_id: bookingId
-                });
-                
-                // Send the request
-                fetch(`/admin/approve_booking/${bookingId}/`, {
-                    method: 'POST',
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-CSRFToken': getCookie('csrftoken'),
-                    },
-                    body: requestData
-                })
-                .then(response => {
-                    // Handle non-JSON responses
-                    const contentType = response.headers.get('content-type');
-                    if (!contentType || !contentType.includes('application/json')) {
-                        return response.text().then(text => {
-                            throw new Error('Invalid response from server');
-                        });
-                    }
-                    return response.json().catch(() => {
-                        throw new Error('Invalid JSON response from server');
-                    });
-                })
-                .then(data => {
-                    if (data && data.status === 'success') {
-                        showAlert('success', data.message || 'Booking approved successfully!');
-                        // Close the modal and refresh the page after a short delay
-                        const modal = bootstrap.Modal.getInstance(document.getElementById('approveModal'));
-                        if (modal) {
-                            modal.hide();
-                        }
-                        setTimeout(() => window.location.reload(), 1000);
-                    } else {
-                        throw new Error(data?.message || 'Failed to approve booking');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    showAlert('danger', error.message || 'An error occurred while processing your request. Please try again.');
-                })
-                .finally(() => {
-                    // Reset button state
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalBtnText;
-                });
-            });
-        }
+    } catch (error) {
+        console.error('Error:', error);
+        showAlert('danger', `An error occurred: ${error.message || 'Please check the console for details.'}`);
+        // Re-enable submit button
+        submitButton.disabled = false;
+        submitButton.innerHTML = originalButtonText;
     }
 });
 
-// Format currency
-function formatCurrency(amount) {
-    return new Intl.NumberFormat('en-PK', {
-        style: 'currency',
-        currency: 'PKR',
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2
-    }).format(amount || 0).replace('PKR', 'Rs.');
+// Handle cancel booking
+cancelBookingBtn.addEventListener('click', () => {
+    bookingFormContainer.style.display = 'none';
+    studentSearch.value = '';
+    searchResults.style.display = 'none';
+    studentIdInput.value = '';
+    studentNameInput.value = '';
+    studentCnicInput.value = '';
+    resetPricing();
+    roomTypeSelect.innerHTML = '<option value="" selected disabled>Select Hostel First</option>';
+    roomTypeSelect.disabled = true;
+    hostelSelect.value = '';
+    if (paymentMethodSelect) paymentMethodSelect.value = '';
+    updatePaymentMethodFields();
+});
+
+// Set up event listeners
+if (hostelSelect) {
+    hostelSelect.addEventListener('change', handleHostelChange);
+}
+if (roomTypeSelect) {
+    roomTypeSelect.addEventListener('change', handleRoomTypeOrDurationChange);
+}
+if (durationInput) {
+    durationInput.addEventListener('input', handleRoomTypeOrDurationChange);
+}
+if (paymentMethodSelect) {
+    paymentMethodSelect.addEventListener('change', updatePaymentMethodFields);
+}
+if (searchStudentBtn) {
+    searchStudentBtn.addEventListener('click', handleStudentSearch);
+}
+if (studentSearch) {
+    studentSearch.addEventListener('input', handleStudentSearch);
+}
+
+// Initialize payment method fields
+updatePaymentMethodFields();
+
+// Handle approve modal show event
+const approveModal = document.getElementById('approveModal');
+if (approveModal) {
+    approveModal.addEventListener('show.bs.modal', function(event) {
+        const button = event.relatedTarget;
+        const bookingId = button.getAttribute('data-booking-id');
+        const form = document.getElementById('approveForm');
+        const container = document.getElementById('availableRoomsContainer');
+        const confirmBtn = document.getElementById('confirmApproveBtn');
+        
+        // Reset form and UI
+        form.reset();
+        document.getElementById('selectedRoomId').value = '';
+        confirmBtn.disabled = true;
+        
+        // Show loading state
+        container.innerHTML = `
+            <div class="text-center py-4">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-2 mb-0">Loading available rooms...</p>
+            </div>`;
+        
+        // Fetch available rooms
+        const url = `/admin/get_available_rooms/${bookingId}/`;
+        console.log('Fetching available rooms from:', url);
+        
+        fetch(url, {
+            method: 'GET',
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'X-CSRFToken': getCookie('csrftoken'),
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin'
+        })
+        .then(response => {
+            console.log('Response status:', response.status);
+            if (!response.ok) {
+                return response.text().then(text => {
+                    console.error('Error response:', text);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                });
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Received data:', data);
+            if (data.status === 'success') {
+                // Update booking info
+                document.getElementById('approveHostelName').textContent = data.hostel_name;
+                document.getElementById('approveRoomType').textContent = data.requested_room_type;
+                
+                if (data.available_rooms.length > 0) {
+                    // Create rooms table
+                    let html = `
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Select</th>
+                                        <th>Room #</th>
+                                        <th>Floor</th>
+                                        <th>Capacity</th>
+                                        <th>Available Beds</th>
+                                        <th>Rent (per bed)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>`;
+                    
+                    data.available_rooms.forEach(room => {
+                        html += `
+                            <tr>
+                                <td>
+                                    <div class="form-check">
+                                        <input class="form-check-input room-radio" type="radio" 
+                                            name="roomSelection" 
+                                            id="room-${room.id}" 
+                                            value="${room.id}"
+                                            data-room-number="${room.room_number}">
+                                    </div>
+                                </td>
+                                <td>${room.room_number}</td>
+                                <td>${room.floor_number}</td>
+                                <td>${room.capacity}</td>
+                                <td>${room.available_beds}</td>
+                                <td>${formatCurrency(room.rent)}</td>
+                            </tr>`;
+                    });
+                    
+                    html += `
+                                </tbody>
+                            </table>
+                        </div>`;
+                    
+                    container.innerHTML = html;
+                    
+                    // Handle room selection
+                    document.querySelectorAll('.room-radio').forEach(radio => {
+                        radio.addEventListener('change', function() {
+                            document.getElementById('selectedRoomId').value = this.value;
+                            confirmBtn.disabled = false;
+                        });
+                    });
+                } else {
+                    container.innerHTML = `
+                        <div class="alert alert-warning mb-0">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            No available rooms found for the selected criteria.
+                        </div>`;
+                }
+            } else {
+                container.innerHTML = `
+                    <div class="alert alert-danger mb-0">
+                        <i class="bi bi-exclamation-octagon-fill me-2"></i>
+                        ${data.message || 'Failed to load available rooms. Please try again.'}
+                    </div>`;
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching available rooms:', error);
+            container.innerHTML = `
+                <div class="alert alert-danger mb-0">
+                    <i class="bi bi-exclamation-octagon-fill me-2"></i>
+                    An error occurred while loading available rooms. Please try again.
+                </div>`;
+        });
+        
+        // Set form action
+        form.action = `/approve_booking/${bookingId}/`;
+    });
+    
+    // Handle approve form submission
+    const approveForm = document.getElementById('approveForm');
+    if (approveForm) {
+        approveForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const form = this;
+            const submitBtn = form.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.innerHTML;
+            let bookingId = '';
+            
+            // Get booking ID from the modal trigger button
+            const modalTrigger = document.querySelector('[data-bs-target="#approveModal"]');
+            if (modalTrigger) {
+                bookingId = modalTrigger.getAttribute('data-booking-id');
+            }
+            
+            if (!bookingId) {
+                showAlert('danger', 'Invalid booking ID');
+                return;
+            }
+            
+            // Validate room selection
+            const roomId = document.getElementById('selectedRoomId').value;
+            if (!roomId) {
+                showAlert('danger', 'Please select a room to assign.');
+                return;
+            }
+            
+            // Update button to show loading state
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = `
+                <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
+                Processing...`;
+            
+            // Make sure we have the room ID and admin notes
+            const adminNotes = document.getElementById('adminNotes')?.value || '';
+            
+            // Create form data with required fields
+            const requestData = new FormData();
+            requestData.append('room_id', roomId);
+            requestData.append('admin_notes', adminNotes);
+            
+            // Debug log
+            console.log('Submitting form with:', {
+                room_id: roomId,
+                admin_notes: adminNotes,
+                booking_id: bookingId
+            });
+            
+            // Send the request
+            fetch(`/admin/approve_booking/${bookingId}/`, {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCookie('csrftoken'),
+                },
+                body: requestData
+            })
+            .then(response => {
+                // Handle non-JSON responses
+                const contentType = response.headers.get('content-type');
+                if (!contentType || !contentType.includes('application/json')) {
+                    return response.text().then(text => {
+                        throw new Error('Invalid response from server');
+                    });
+                }
+                return response.json().catch(() => {
+                    throw new Error('Invalid JSON response from server');
+                });
+            })
+            .then(data => {
+                if (data && data.status === 'success') {
+                    showAlert('success', data.message || 'Booking approved successfully!');
+                    // Close the modal and refresh the page after a short delay
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('approveModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                    setTimeout(() => window.location.reload(), 1000);
+                } else {
+                    throw new Error(data?.message || 'Failed to approve booking');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', error.message || 'An error occurred while processing your request. Please try again.');
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+            });
+        });
+    }
+    
+    // Handle reject modal show event
+    const rejectModal = document.getElementById('rejectModal');
+    if (rejectModal) {
+        rejectModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            const bookingId = button.getAttribute('data-booking-id');
+            const form = document.getElementById('rejectForm');
+            form.action = `/admin/reject_booking/${bookingId}/`;
+            
+            // Store booking ID in form for submission
+            form.setAttribute('data-booking-id', bookingId);
+            
+            // Clear any previous rejection reason
+            document.getElementById('rejectionReason').value = '';
+        });
+    }
+    
+    // Handle reject form submission
+    const rejectForm = document.getElementById('rejectForm');
+    if (rejectForm) {
+        rejectForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const bookingId = this.getAttribute('data-booking-id');
+            const rejectionReason = document.getElementById('rejectionReason').value;
+            
+            // Show loading state
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalBtnText = submitBtn.innerHTML;
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>Rejecting...';
+            
+            // Get CSRF token
+            const csrftoken = getCookie('csrftoken');
+            
+            // Make AJAX request
+            fetch(`/admin/reject_booking/${bookingId}/`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': csrftoken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: `rejection_reason=${encodeURIComponent(rejectionReason)}`
+            })
+            .then(response => {
+                if (response.redirected) {
+                    // If the response is a redirect, follow it
+                    window.location.href = response.url;
+                } else {
+                    return response.json();
+                }
+            })
+            .then(data => {
+                if (data && data.status === 'success') {
+                    // Show success message
+                    showAlert('success', data.message || 'Booking rejected successfully!');
+                    
+                    // Close the modal after a short delay
+                    const modal = bootstrap.Modal.getInstance(rejectModal);
+                    modal.hide();
+                    
+                    // Reload the page to update the booking status
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } else {
+                    throw new Error(data?.message || 'Failed to reject booking');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('danger', error.message || 'An error occurred while rejecting the booking.');
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = originalBtnText;
+            });
+        });
+    }
 }
 
 // Payment functionality has been removed
@@ -1502,22 +1496,21 @@ function formatCurrency(amount) {
     }
 
     .btn-primary::before {
-        content: linear-gradient(90deg, rgba(255, 255,255, 0.3), transparent);
-        background: absolute;
+        content: '';
         position: absolute;
         top: 0;
         left: -100%;
         width: 100%;
         height: 100%;
+        background: linear-gradient(90deg, rgba(255, 255, 255, 0.3), transparent);
         transition: left var(--transition-speed);
     }
 
     .btn-primary:hover::before {
-        opacity: 0.7;
-        cursor: not-allowed;
+        left: 0;
     }
 
-    .btn-primary:disabled {
+    .btn-primary:disabled::before {
         left: 100%;
     }
 

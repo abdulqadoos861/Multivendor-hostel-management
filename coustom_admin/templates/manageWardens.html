@@ -133,7 +133,7 @@
                 </div>
                 <div class="modal-body">
                     <div id="editWardenFormMessage" class="alert d-none slide-in" role="alert"></div>
-                    <form id="editWardenForm" method="POST" action="{% url 'updateWarden' 0 %}">
+                    <form id="editWardenForm" method="POST" action="">
                         {% csrf_token %}
                         <input type="hidden" id="edit_id" name="id">
                         <div class="mb-3">
@@ -622,6 +622,88 @@
         });
 
         // Handle edit warden button click
+        // Function to load warden data for editing
+        async function loadWardenData(wardenId) {
+            const messageDiv = document.getElementById('editWardenFormMessage');
+            messageDiv.classList.add('d-none');
+            
+            try {
+                const url = `/admin/get_warden/${wardenId}/`;
+                console.log('Fetching warden data from:', url);
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'same-origin'
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    console.error('Error response:', errorText);
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.status === 'success' && data.warden) {
+                    const warden = data.warden;
+                    console.log('Warden data:', warden); // Debug log
+                    
+                    // Set form values
+                    document.getElementById('edit_id').value = wardenId;
+                    document.getElementById('edit_name').value = warden.name || '';
+                    document.getElementById('edit_email').value = warden.email || '';
+                    document.getElementById('edit_phone').value = warden.contact_number || '';
+                    
+                    // Set gender
+                    const genderSelect = document.getElementById('edit_gender');
+                    if (genderSelect) {
+                        for (let i = 0; i < genderSelect.options.length; i++) {
+                            if (genderSelect.options[i].value === warden.gender) {
+                                genderSelect.selectedIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    // Set active status
+                    const isActiveCheckbox = document.getElementById('edit_is_active');
+                    if (isActiveCheckbox) {
+                        isActiveCheckbox.checked = warden.is_active || false;
+                    }
+                    
+                    // Update form action URL with the warden ID
+                    const form = document.getElementById('editWardenForm');
+                    form.action = form.action.replace(/\d+$/, wardenId);
+                    
+                    // Show the modal after populating the form
+                    const editModal = new bootstrap.Modal(document.getElementById('editWardenModal'));
+                    editModal.show();
+                    
+                } else {
+                    throw new Error(data.message || 'Failed to load warden data');
+                }
+            } catch (error) {
+                console.error('Error loading warden data:', error);
+                messageDiv.textContent = `Error: ${error.message || 'Failed to load warden data'}`;
+                messageDiv.classList.remove('d-none', 'alert-success');
+                messageDiv.classList.add('alert-danger');
+                
+                // Still show the modal even if there's an error
+                const editModal = new bootstrap.Modal(document.getElementById('editWardenModal'));
+                editModal.show();
+            }
+        }
+
+        // Handle edit warden button click
         document.querySelectorAll('.edit-warden').forEach(button => {
             button.addEventListener('click', function() {
                 currentWardenId = this.getAttribute('data-warden-id');
@@ -634,49 +716,72 @@
         const editWardenButton = document.getElementById('editWardenButton');
         editWardenForm.addEventListener('submit', async function(event) {
             event.preventDefault();
+            
+            // Disable the button and show loading state
             editWardenButton.disabled = true;
             editWardenButton.classList.add('btn-loading');
-            editWardenButton.textContent = 'Updating...';
-
-            const formData = new FormData(editWardenForm);
-            formData.append('id', currentWardenId);
+            editWardenButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>Updating...';
+            
             const messageDiv = document.getElementById('editWardenFormMessage');
-
+            messageDiv.classList.add('d-none');
+            
             try {
-                const response = await fetch(editWardenForm.action.replace('0', currentWardenId), {
+                const formData = new FormData(editWardenForm);
+                formData.append('csrfmiddlewaretoken', getCookie('csrftoken'));
+                formData.append('is_active', document.getElementById('edit_is_active').checked ? 'on' : 'off');
+                
+                console.log('Form data:', Object.fromEntries(formData.entries()));
+                
+                // Construct the update URL
+                const updateUrl = `/admin/update_warden/${currentWardenId}/`;
+                console.log('Update URL:', updateUrl);
+                
+                const response = await fetch(updateUrl, {
                     method: 'POST',
                     body: formData,
                     headers: {
-                        'X-CSRFToken': getCookie('csrftoken'),
-                        'X-Requested-With': 'XMLHttpRequest'
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': getCookie('csrftoken')
                     },
                     credentials: 'same-origin'
                 });
-
+                
                 const result = await response.json();
-                messageDiv.textContent = result.message;
+                console.log('Update response:', result);
+                
+                // Show success/error message
+                messageDiv.textContent = result.message || (result.status === 'success' ? 'Warden updated successfully' : 'Failed to update warden');
                 messageDiv.classList.remove('d-none', 'alert-success', 'alert-danger');
                 messageDiv.classList.add(result.status === 'success' ? 'alert-success' : 'alert-danger');
-
+                
                 if (result.status === 'success') {
+                    // Hide the modal and reload the page after a short delay
                     setTimeout(() => {
-                        const modal = document.getElementById('editWardenModal');
-                        bootstrap.Modal.getInstance(modal).hide();
-                        window.location.reload();
-                    }, 1000);
-                } else {
-                    editWardenButton.disabled = false;
-                    editWardenButton.classList.remove('btn-loading');
-                    editWardenButton.textContent = 'Update';
+                        const modal = bootstrap.Modal.getInstance(document.getElementById('editWardenModal'));
+                        if (modal) modal.hide();
+                        
+                        if (result.redirect_url) {
+                            window.location.href = result.redirect_url;
+                        } else {
+                            window.location.reload();
+                        }
+                    }, 1500);
+                    return;
                 }
+                
             } catch (error) {
-                console.error('Edit warden error:', error);
-                messageDiv.textContent = `An error occurred: ${error.message}`;
+                console.error('Error updating warden:', error);
+                messageDiv.textContent = `An error occurred: ${error.message || 'Unknown error'}`;
                 messageDiv.classList.remove('d-none', 'alert-success');
                 messageDiv.classList.add('alert-danger');
+            } finally {
+                // Re-enable the button and reset its state
                 editWardenButton.disabled = false;
                 editWardenButton.classList.remove('btn-loading');
                 editWardenButton.textContent = 'Update';
+                
+                // Ensure the message is visible
+                messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
             }
         });
 
@@ -734,40 +839,6 @@
                 confirmDeleteBtn.textContent = 'Delete';
             }
         });
-
-        // Function to load warden data for editing
-        async function loadWardenData(wardenId) {
-            try {
-                const response = await fetch(`/admin/getWarden/${wardenId}/`, {
-                    headers: {
-                        'X-CSRFToken': getCookie('csrftoken'),
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    credentials: 'same-origin'
-                });
-
-                const data = await response.json();
-                if (data.status === 'success') {
-                    document.getElementById('edit_id').value = wardenId;
-                    document.getElementById('edit_name').value = data.warden.name;
-                    document.getElementById('edit_email').value = data.warden.email;
-                    document.getElementById('edit_phone').value = data.warden.contact_number;
-                    document.getElementById('edit_gender').value = data.warden.gender;
-                    document.getElementById('edit_is_active').checked = data.warden.is_active;
-                } else {
-                    const messageDiv = document.getElementById('editWardenFormMessage');
-                    messageDiv.textContent = data.message;
-                    messageDiv.classList.remove('d-none', 'alert-success');
-                    messageDiv.classList.add('alert-danger');
-                }
-            } catch (error) {
-                console.error('Error loading warden data:', error);
-                const messageDiv = document.getElementById('editWardenFormMessage');
-                messageDiv.textContent = `An error occurred: ${error.message}`;
-                messageDiv.classList.remove('d-none', 'alert-success');
-                messageDiv.classList.add('alert-danger');
-            }
-        }
 
         // Smooth focus animation for inputs and selects
         const inputs = document.querySelectorAll('.form-control, .form-select');

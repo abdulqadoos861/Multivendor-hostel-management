@@ -1,9 +1,20 @@
+
 {% extends 'base.html' %}
 {% load static %}
 {% block title %}Manage Students{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
+    <!-- Hidden div to store messages as JSON -->
+    <div id="django-messages" style="display: none;" data-messages='[
+        {% for message in messages %}
+            {
+                "tags": "{{ message.tags|escapejs }}",
+                "message": "{{ message|escapejs }}"
+            }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]'></div>
+
     <!-- Add Student Card -->
     <div class="card mb-4">
         <div class="card-header bg-primary text-white">
@@ -18,7 +29,7 @@
                     </div>
                 {% endfor %}
             {% endif %}
-            <form id="studentForm" method="POST" action="{% url 'manageStudent' %}">
+            <form id="studentForm" method="POST" action="/admin/manage_student/">
                 {% csrf_token %}
                 <div class="row">
                     <input type="hidden" name="apply_for_booking" id="applyForBooking" value="0">
@@ -105,10 +116,9 @@
                         <div class="text-danger">{{ form.institute.errors }}</div>
                     {% endif %}
                 </div>
-                
                 <div class="mt-4">
                     <button type="submit" class="btn btn-primary" id="submitBtn">Add Student</button>
-                    <a href="{% url 'manageStudent' %}" class="btn btn-secondary">Cancel</a>
+                    <a href="/admin/manage_student/" class="btn btn-secondary">Cancel</a>
                 </div>
             </form>
         </div>
@@ -116,8 +126,27 @@
 
     <!-- Student List Card -->
     <div class="card">
-        <div class="card-header bg-primary text-white">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h4 class="mb-0">Student List</h4>
+            <div class="d-flex">
+                <div class="input-group me-2" style="max-width: 300px;">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Search students..." value="{{ request.GET.search|default:'' }}">
+                    <button class="btn btn-outline-light" type="button" id="searchButton">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <div class="btn-group" role="group">
+                    <a href="?status=active" class="btn btn-outline-light {% if request.GET.status == 'active' %}active{% endif %}">
+                        Active
+                    </a>
+                    <a href="?status=inactive" class="btn btn-outline-light {% if request.GET.status == 'inactive' %}active{% endif %}">
+                        Inactive
+                    </a>
+                    <a href="?" class="btn btn-outline-light {% if not request.GET.status %}active{% endif %}">
+                        All
+                    </a>
+                </div>
+            </div>
         </div>
         <div class="card-body">
             <div class="table-responsive">
@@ -130,6 +159,7 @@
                             <th>Contact Number</th>
                             <th>Institute</th>
                             <th>CNIC</th>
+                            <th>Status</th>
                             <th>Actions</th>
                         </tr>
                     </thead>
@@ -143,6 +173,29 @@
                                 <td>{{ student.institute }}</td>
                                 <td>{{ student.cnic }}</td>
                                 <td>
+                                    <span class="badge {% if student.user.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                        {% if student.user.is_active %}Active{% else %}Inactive{% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <!-- View Button -->
+                                    <button class="btn btn-sm btn-info view-student"
+                                            data-id="{{ student.user.id }}"
+                                            data-username="{{ student.user.username }}"
+                                            data-email="{{ student.user.email }}"
+                                            data-first-name="{{ student.user.first_name }}"
+                                            data-last-name="{{ student.user.last_name }}"
+                                            data-contact-number="{{ student.contact_number }}"
+                                            data-address="{{ student.address }}"
+                                            data-gender="{{ student.gender }}"
+                                            data-institute="{{ student.institute }}"
+                                            data-cnic="{{ student.cnic }}"
+                                            data-status="{{ student.user.is_active|yesno:'Active,Inactive' }}"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#viewStudentModal">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                    <!-- Edit Button -->
                                     <button class="btn btn-sm btn-warning edit-student"
                                             data-id="{{ student.user.id }}"
                                             data-username="{{ student.user.username }}"
@@ -154,14 +207,17 @@
                                             data-gender="{{ student.gender }}"
                                             data-institute="{{ student.institute }}"
                                             data-cnic="{{ student.cnic }}"
+                                            data-status="{{ student.user.is_active }}"
                                             data-bs-toggle="modal"
                                             data-bs-target="#editStudentModal">
-                                        Edit
+                                        <i class="fas fa-edit"></i> Edit
                                     </button>
+                                    <!-- Delete Button -->
                                     <button class="btn btn-sm btn-danger delete-student"
                                             data-id="{{ student.user.id }}"
-                                            data-username="{{ student.user.username }}">
-                                        Delete
+                                            data-username="{{ student.user.username }}"
+                                            data-delete-url="/admin/delete_student/0/">
+                                        <i class="fas fa-trash"></i> Delete
                                     </button>
                                 </td>
                             </tr>
@@ -172,351 +228,275 @@
         </div>
     </div>
 
+    <!-- View Student Modal -->
+    <div class="modal fade" id="viewStudentModal" tabindex="-1" aria-labelledby="viewStudentModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="viewStudentModalLabel">Student Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p><strong>Username:</strong> <span id="view_username"></span></p>
+                            <p><strong>First Name:</strong> <span id="view_first_name"></span></p>
+                            <p><strong>Last Name:</strong> <span id="view_last_name"></span></p>
+                            <p><strong>Email:</strong> <span id="view_email"></span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Contact Number:</strong> <span id="view_contact_number"></span></p>
+                            <p><strong>CNIC:</strong> <span id="view_cnic"></span></p>
+                            <p><strong>Gender:</strong> <span id="view_gender"></span></p>
+                            <p><strong>Status:</strong> <span id="view_status" class="badge"></span></p>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <p class="mb-1"><strong>Address:</strong></p>
+                        <p id="view_address" class="text-muted"></p>
+                    </div>
+                    <div class="mb-3">
+                        <p class="mb-1"><strong>Institute:</strong></p>
+                        <p id="view_institute" class="text-muted"></p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Edit Student Modal -->
     <div class="modal fade" id="editStudentModal" tabindex="-1" aria-labelledby="editStudentModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
-                <form id="editStudentForm" method="POST" action="{% url 'edit_student' 0 %}">
+                <form id="editStudentForm" method="POST" action="/admin/edit_student/0/" data-edit-url="/admin/edit_student/0/">
                     {% csrf_token %}
-                    <div class="modal-header">
+                    <div class="modal-header bg-warning text-white">
                         <h5 class="modal-title" id="editStudentModalLabel">Edit Student</h5>
-                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                     </div>
                     <div class="modal-body">
                         <input type="hidden" id="edit_user_id" name="user_id">
-                        <div class="mb-3">
-                            <label for="edit_username" class="form-label">Username</label>
-                            <input type="text" class="form-control" id="edit_username" name="username" required>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_username" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="edit_username" name="username" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_email" class="form-label">Email</label>
+                                <input type="email" class="form-control" id="edit_email" name="email" required>
+                            </div>
                         </div>
-                        <div class="mb-3">
-                            <label for="edit_email" class="form-label">Email</label>
-                            <input type="email" class="form-control" id="edit_email" name="email" required>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_first_name" class="form-label">First Name</label>
+                                <input type="text" class="form-control" id="edit_first_name" name="first_name" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_last_name" class="form-label">Last Name</label>
+                                <input type="text" class="form-control" id="edit_last_name" name="last_name" required>
+                            </div>
                         </div>
-                        <div class="mb-3">
-                            <label for="edit_first_name" class="form-label">First Name</label>
-                            <input type="text" class="form-control" id="edit_first_name" name="first_name" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="edit_last_name" class="form-label">Last Name</label>
-                            <input type="text" class="form-control" id="edit_last_name" name="last_name" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="edit_contact_number" class="form-label">Contact Number</label>
-                            <input type="text" class="form-control" id="edit_contact_number" name="contact_number" required>
-                            <div id="edit_contactError" class="text-danger" style="display: none;"></div>
-                        </div>
-                        <div class="mb-3">
-                            <label for="edit_cnic" class="form-label">CNIC</label>
-                            <input type="text" class="form-control" id="edit_cnic" name="cnic" required>
-                            <div id="edit_cnicError" class="text-danger" style="display: none;"></div>
-                            <div class="form-text">Enter CNIC without dashes (e.g., 1234567890123)</div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_contact_number" class="form-label">Contact Number</label>
+                                <input type="text" class="form-control" id="edit_contact_number" name="contact_number" required>
+                                <div id="edit_contactError" style="color: red; display: none;"></div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_cnic" class="form-label">CNIC</label>
+                                <input type="text" class="form-control" id="edit_cnic" name="cnic" required>
+                                <div id="edit_cnicError" style="color: red; display: none;"></div>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="edit_address" class="form-label">Address</label>
-                            <textarea class="form-control" id="edit_address" name="address" rows="4" required></textarea>
+                            <textarea class="form-control" id="edit_address" name="address" rows="2"></textarea>
                         </div>
-                        <div class="mb-3">
-                            <label for="edit_gender" class="form-label">Gender</label>
-                            <select class="form-select" id="edit_gender" name="gender" required>
-                                <option value="Male">Male</option>
-                                <option value="Female">Female</option>
-                                <option value="Other">Other</option>
-                            </select>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_gender" class="form-label">Gender</label>
+                                <select class="form-select" id="edit_gender" name="gender" required>
+                                    <option value="M">Male</option>
+                                    <option value="F">Female</option>
+                                    <option value="O">Other</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="edit_status" class="form-label">Status</label>
+                                <select class="form-select" id="edit_status" name="is_active">
+                                    <option value="true">Active</option>
+                                    <option value="false">Inactive</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="mb-3">
                             <label for="edit_institute" class="form-label">Institute</label>
                             <input type="text" class="form-control" id="edit_institute" name="institute" required>
+                            <div class="form-text">Enter the educational institute name</div>
                         </div>
-
                     </div>
                     <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-warning">Update Student</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
+
+    <!-- Success/Error Toast -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto" id="toast-title">Success</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toast-message"></div>
+        </div>
+    </div>
 </div>
 
 <script>
+// Utility function to get CSRF token
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// Helper function to show alerts
+function showAlert(message, type) {
+    const alertDiv = document.createElement('div');
+    alertDiv.className = `alert alert-${type} alert-dismissible fade show mt-3`;
+    alertDiv.role = 'alert';
+    alertDiv.innerHTML = `
+        ${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+    `;
+    const container = document.querySelector('.container');
+    if (container) {
+        container.insertBefore(alertDiv, container.firstChild);
+        setTimeout(() => {
+            if (document.body.contains(alertDiv)) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+}
+
+// Initialize tooltips
+var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
+});
+
+// Initialize toast
+var toastEl = document.getElementById('toast');
+var toast = new bootstrap.Toast(toastEl, { delay: 5000 });
+
+function showToast(title, message, type = 'success') {
+    const toastTitle = document.getElementById('toast-title');
+    const toastMessage = document.getElementById('toast-message');
+    const toastElement = document.getElementById('toast');
+    
+    toastTitle.textContent = title;
+    toastMessage.textContent = message;
+    
+    toastElement.classList.remove('bg-success', 'bg-danger', 'bg-warning');
+    if (type === 'success') {
+        toastElement.classList.add('bg-success', 'text-white');
+    } else if (type === 'error') {
+        toastElement.classList.add('bg-danger', 'text-white');
+    } else if (type === 'warning') {
+        toastElement.classList.add('bg-warning', 'text-dark');
+    }
+    
+    toast.show();
+}
+
+// Show Django messages as toasts
 document.addEventListener('DOMContentLoaded', function() {
-    // Initialize form elements
+    const messagesDiv = document.getElementById('django-messages');
+    if (messagesDiv) {
+        try {
+            const messages = JSON.parse(messagesDiv.dataset.messages || '[]');
+            messages.forEach(msg => {
+                showToast(
+                    msg.tags.charAt(0).toUpperCase() + msg.tags.slice(1),
+                    msg.message,
+                    msg.tags.toLowerCase()
+                );
+            });
+        } catch (e) {
+            console.error('Error parsing Django messages:', e);
+        }
+    }
+});
+
+// Handle search
+const searchInput = document.getElementById('searchInput');
+const searchButton = document.getElementById('searchButton');
+
+function performSearch() {
+    const searchTerm = searchInput.value.trim();
+    const currentUrl = new URL(window.location.href);
+    
+    if (searchTerm) {
+        currentUrl.searchParams.set('search', searchTerm);
+    } else {
+        currentUrl.searchParams.delete('search');
+    }
+    
+    const statusFilter = new URLSearchParams(window.location.search).get('status');
+    if (statusFilter) {
+        currentUrl.searchParams.set('status', statusFilter);
+    }
+    
+    window.location.href = currentUrl.toString();
+}
+
+if (searchButton) {
+    searchButton.addEventListener('click', performSearch);
+}
+
+if (searchInput) {
+    searchInput.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            performSearch();
+        }
+    });
+}
+
+// Main DOM Content Loaded handler
+document.addEventListener('DOMContentLoaded', function() {
     const studentForm = document.getElementById('studentForm');
     const passwordInput = document.getElementById('id_password');
     const confirmPasswordInput = document.getElementById('id_confirm_password');
     const submitBtn = document.getElementById('submitBtn');
-    
-    // Initialize edit student modal
     const editStudentModal = new bootstrap.Modal(document.getElementById('editStudentModal'));
-    const editForm = document.getElementById('editStudentForm');
     const editContactNumberInput = document.getElementById('edit_contact_number');
     const editCnicInput = document.getElementById('edit_cnic');
     const editContactError = document.getElementById('edit_contactError');
     const editCnicError = document.getElementById('edit_cnicError');
 
-    // Function to validate the form
-    function validateStudentForm() {
-        let isValid = true;
-        
-        // Reset any previous validation
-        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-        
-        // Check if passwords match
-        if (passwordInput.value !== confirmPasswordInput.value) {
-            passwordInput.classList.add('is-invalid');
-            confirmPasswordInput.classList.add('is-invalid');
-            const errorDiv = document.createElement('div');
-            errorDiv.className = 'invalid-feedback d-block';
-            errorDiv.textContent = 'Passwords do not match';
-            
-            // Remove any existing error messages
-            const existingError = confirmPasswordInput.nextElementSibling;
-            if (existingError && existingError.classList.contains('invalid-feedback')) {
-                existingError.remove();
-            }
-            
-            confirmPasswordInput.after(errorDiv);
-            isValid = false;
-        }
-        
-        // Check required fields
-        const requiredFields = studentForm.querySelectorAll('[required]');
-        requiredFields.forEach(field => {
-            if (!field.value.trim()) {
-                field.classList.add('is-invalid');
-                if (!field.nextElementSibling || !field.nextElementSibling.classList.contains('invalid-feedback')) {
-                    const errorDiv = document.createElement('div');
-                    errorDiv.className = 'invalid-feedback';
-                    errorDiv.textContent = 'This field is required';
-                    field.after(errorDiv);
-                }
-                isValid = false;
-            }
-        });
-        
-        return isValid;
+    // Debug: Check for unprocessed template tags
+    console.log('Checking for unprocessed template tags...');
+    if (document.body.innerHTML.includes('{%')) {
+        console.warn('Unprocessed Django template tags detected in HTML');
     }
-    
-    studentForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        console.log('Form submission started');
-        
-        // Validate form before submission
-        if (!validateStudentForm()) {
-            showAlert('Please correct the errors in the form', 'warning');
-            return;
-        }
-        
-        // Show loading state
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
-        
-        // Get form data
-        const formData = new FormData(this);
-        console.log('Form data:', Object.fromEntries(formData.entries()));
-        
-        // Submit the form via AJAX
-        fetch(this.action, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-            },
-            credentials: 'same-origin'
-        })
-        // ... previous code ...
 
-        .then(response => {
-            console.log('Response status:', response.status);
-            return response.json().then(data => {
-                console.log('Server response data:', data); // Log full response data
-                
-                if (!response.ok) {
-                    console.error('Error response:', data);
-                    // Clear previous error messages
-                    document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-                    document.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
-                    
-                    // Handle form validation errors
-                    if (data.errors) {
-                        console.log('Validation errors:', data.errors);
-                        
-                        // Show server-side validation errors
-                        Object.entries(data.errors).forEach(([field, messages]) => {
-                            console.log(`Processing error for field ${field}:`, messages);
-                            
-                            // Try different input selectors to find the field
-                            let input = document.querySelector(`[name="${field}"]`);
-                            if (!input) {
-                                // Try with 'id_' prefix which Django sometimes uses
-                                input = document.querySelector(`[name="id_${field}"]`);
-                            }
-                            
-                            const errorDiv = document.createElement('div');
-                            errorDiv.className = 'invalid-feedback d-block';
-                            
-                            // Handle both array and string error messages
-                            const errorMessage = Array.isArray(messages) ? messages[0] : messages;
-                            errorDiv.textContent = errorMessage;
-                            
-                            if (input) {
-                                console.log(`Found input for ${field}:`, input);
-                                input.classList.add('is-invalid');
-                                // Insert error message after the input
-                                const parent = input.parentNode;
-                                if (parent) {
-                                    parent.insertBefore(errorDiv, input.nextSibling);
-                                } else {
-                                    input.after(errorDiv);
-                                }
-                            } else {
-                                console.warn(`Could not find input for field: ${field}`);
-                                // If no specific input found, show error at the top
-                                showAlert(`${field}: ${errorMessage}`, 'danger');
-                            }
-                        });
-                    } else if (data.message) {
-                        // If no specific errors but there's a message, show it
-                        showAlert(data.message, 'danger');
-                    }
-                    
-                    // Throw error to be caught by the catch block
-                    throw new Error(data.message || 'Form validation failed');
-                }
-                return data;
-            }).catch(error => {
-                console.error('Error parsing JSON:', error);
-                throw new Error('Error processing server response');
-            });
-        })
-        .then(data => {
-            console.log('Success response:', data);
-            if (data.redirect_url) {
-                window.location.href = data.redirect_url;
-            } else {
-                showAlert(data.message || 'Student added successfully!', 'success');
-                studentForm.reset();
-                // Clear all validation errors
-                document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-                document.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            // Only show alert if we haven't already shown validation errors
-            if (!document.querySelector('.invalid-feedback')) {
-                showAlert(error.message || 'An error occurred while adding the student', 'danger');
-            }
-        })
-        .finally(() => {
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = 'Add Student';
-        });
-
-        // Validate contact number for edit form
-        editContactNumberInput.addEventListener('input', function() {
-            const contactValue = editContactNumberInput.value;
-            if (!/^\d{11}$/.test(contactValue)) {
-                editContactError.textContent = 'Contact number must be 11 digits.';
-                editContactError.style.display = 'block';
-            } else {
-                editContactError.style.display = 'none';
-            }
-        });
-
-// ... rest of the code ...
-
-        // Validate CNIC for edit form
-        editCnicInput.addEventListener('input', function() {
-            const cnicValue = editCnicInput.value;
-            if (!/^\d{13}$/.test(cnicValue)) {
-                editCnicError.textContent = 'CNIC must be 13 digits without dashes.';
-                editCnicError.style.display = 'block';
-            } else {
-                editCnicError.style.display = 'none';
-            }
-        });
-
-        editForm.addEventListener('submit', function(e) {
-            let isValid = true;
-            
-            // Validate contact number
-            const contactValue = editContactNumberInput.value;
-            if (!/^\d{11}$/.test(contactValue)) {
-                editContactError.textContent = 'Contact number must be 11 digits.';
-                editContactError.style.display = 'block';
-                isValid = false;
-            }
-            
-            // Validate CNIC
-            const cnicValue = editCnicInput.value;
-            if (!/^\d{13}$/.test(cnicValue)) {
-                editCnicError.textContent = 'CNIC must be 13 digits without dashes.';
-                editCnicError.style.display = 'block';
-                isValid = false;
-            }
-            
-            if (!isValid) {
-                e.preventDefault();
-            }
-        });
-
-        // Delete Student
-        const deleteButtons = document.querySelectorAll('.delete-student');
-        deleteButtons.forEach(button => {
-            button.addEventListener('click', function() {
-                const userId = this.getAttribute('data-id');
-                const username = this.getAttribute('data-username');
-                if (confirm(`Are you sure you want to delete student ${username}?`)) {
-                    fetch(`{% url 'delete_student' 0 %}`.replace('0', userId), {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRFToken': '{{ csrf_token }}',
-                            'Content-Type': 'application/json'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            alert(data.message);
-                            location.reload();
-                        } else {
-                            alert(data.message);
-                        }
-                    })
-                    .catch(error => {
-                        alert('Error deleting student: ' + error);
-                    });
-                }
-            });
-        });
-
-        // Helper function to show alerts
-        function showAlert(message, type) {
-            const alertDiv = document.createElement('div');
-            alertDiv.className = `alert alert-${type} alert-dismissible fade show mt-3`;
-            alertDiv.role = 'alert';
-            alertDiv.innerHTML = `
-                ${message}
-                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-            `;
-            
-            const container = document.querySelector('.container');
-            if (container) {
-                container.insertBefore(alertDiv, container.firstChild);
-                
-                // Auto-remove after 5 seconds
-                setTimeout(() => {
-                    if (document.body.contains(alertDiv)) {
-                        alertDiv.remove();
-                    }
-                }, 5000);
-            }
-        }
-    });
-    
     // Student Manager class
     class StudentManager {
         constructor() {
@@ -541,40 +521,33 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (!errorElement) return true;
             
-            // Clear previous error
             errorElement.textContent = '';
             
-            // Check required field
             if (field.required && !value.trim()) {
                 errorElement.textContent = 'This field is required';
                 return false;
             }
             
-            // Check min length
             if (field.minLength && value.length < field.minLength) {
                 errorElement.textContent = `Must be at least ${field.minLength} characters`;
                 return false;
             }
             
-            // Check max length
             if (field.maxLength && value.length > field.maxLength) {
                 errorElement.textContent = `Must be less than ${field.maxLength} characters`;
                 return false;
             }
             
-            // Check pattern
             if (field.pattern && !field.pattern.test(value)) {
                 errorElement.textContent = fieldName === 'contact_number' ? 'Must be 11 digits' : 'Must be 13 digits';
                 return false;
             }
             
-            // Check email format
             if (field.type === 'email' && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)) {
                 errorElement.textContent = 'Please enter a valid email address';
                 return false;
             }
             
-            // Check password match
             if (fieldName === 'confirm_password') {
                 const password = document.getElementById('id_password').value;
                 if (value !== password) {
@@ -598,19 +571,332 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Initialize student manager
     const studentManager = new StudentManager();
 
-    // Initialize form validation on input events
-    const form = document.getElementById('studentForm');
-    if (form) {
-        form.addEventListener('input', function(e) {
+    // Validate student form
+    function validateStudentForm() {
+        let isValid = true;
+        
+        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+        document.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+        
+        if (passwordInput && confirmPasswordInput && passwordInput.value !== confirmPasswordInput.value) {
+            passwordInput.classList.add('is-invalid');
+            confirmPasswordInput.classList.add('is-invalid');
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'invalid-feedback d-block';
+            errorDiv.textContent = 'Passwords do not match';
+            confirmPasswordInput.after(errorDiv);
+            isValid = false;
+        }
+        
+        const requiredFields = studentForm.querySelectorAll('[required]');
+        requiredFields.forEach(field => {
+            if (!field.value.trim()) {
+                field.classList.add('is-invalid');
+                if (!field.nextElementSibling || !field.nextElementSibling.classList.contains('invalid-feedback')) {
+                    const errorDiv = document.createElement('div');
+                    errorDiv.className = 'invalid-feedback';
+                    errorDiv.textContent = 'This field is required';
+                    field.after(errorDiv);
+                }
+                isValid = false;
+            }
+        });
+        
+        return isValid;
+    }
+
+    // Add Student Form Submission
+    if (studentForm) {
+        studentForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!validateStudentForm()) {
+                showAlert('Please correct the errors in the form', 'warning');
+                return;
+            }
+            
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+            
+            const formData = new FormData(this);
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                return response.json().then(data => {
+                    if (!response.ok) {
+                        document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                        document.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+                        
+                        if (data.errors) {
+                            Object.entries(data.errors).forEach(([field, messages]) => {
+                                let input = document.querySelector(`[name="${field}"]`);
+                                if (!input) {
+                                    input = document.querySelector(`[name="id_${field}"]`);
+                                }
+                                
+                                const errorDiv = document.createElement('div');
+                                errorDiv.className = 'invalid-feedback d-block';
+                                const errorMessage = Array.isArray(messages) ? messages[0] : messages;
+                                errorDiv.textContent = errorMessage;
+                                
+                                if (input) {
+                                    input.classList.add('is-invalid');
+                                    const parent = input.parentNode;
+                                    parent.insertBefore(errorDiv, input.nextSibling);
+                                } else {
+                                    showAlert(`${field}: ${errorMessage}`, 'danger');
+                                }
+                            });
+                        } else if (data.message) {
+                            showAlert(data.message, 'danger');
+                        }
+                        
+                        throw new Error(data.message || 'Form validation failed');
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                if (data.redirect_url) {
+                    window.location.href = data.redirect_url;
+                } else {
+                    showAlert(data.message || 'Student added successfully!', 'success');
+                    studentForm.reset();
+                    document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                    document.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
+                }
+            })
+            .catch(error => {
+                if (!document.querySelector('.invalid-feedback')) {
+                    showAlert(error.message || 'An error occurred while adding the student', 'danger');
+                }
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Add Student';
+            });
+        });
+    }
+
+    // Validate contact number and CNIC for edit form
+    if (editContactNumberInput && editContactError) {
+        editContactNumberInput.addEventListener('input', function() {
+            const contactValue = editContactNumberInput.value;
+            if (!/^\d{11}$/.test(contactValue)) {
+                editContactError.textContent = 'Contact number must be 11 digits.';
+                editContactError.style.display = 'block';
+            } else {
+                editContactError.textContent = '';
+                editContactError.style.display = 'none';
+            }
+        });
+    }
+
+    if (editCnicInput && editCnicError) {
+        editCnicInput.addEventListener('input', function() {
+            const cnicValue = editCnicInput.value;
+            if (!/^\d{13}$/.test(cnicValue)) {
+                editCnicError.textContent = 'CNIC must be 13 digits without dashes.';
+                editCnicError.style.display = 'block';
+            } else {
+                editCnicError.textContent = '';
+                editCnicError.style.display = 'none';
+            }
+        });
+    }
+
+    // Edit Student Form Submission
+    const editStudentForm = document.getElementById('editStudentForm');
+    if (editStudentForm) {
+        editStudentForm.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            let isValid = true;
+            if (editContactNumberInput && editContactError) {
+                const contactValue = editContactNumberInput.value;
+                if (!/^\d{11}$/.test(contactValue)) {
+                    editContactError.textContent = 'Contact number must be 11 digits.';
+                    editContactError.style.display = 'block';
+                    isValid = false;
+                } else {
+                    editContactError.textContent = '';
+                    editContactError.style.display = 'none';
+                }
+            }
+            
+            if (editCnicInput && editCnicError) {
+                const cnicValue = editCnicInput.value;
+                if (!/^\d{13}$/.test(cnicValue)) {
+                    editCnicError.textContent = 'CNIC must be 13 digits without dashes.';
+                    editCnicError.style.display = 'block';
+                    isValid = false;
+                } else {
+                    editCnicError.textContent = '';
+                    editCnicError.style.display = 'none';
+                }
+            }
+            
+            if (!isValid) {
+                showAlert('Please correct the errors in the form', 'warning');
+                return;
+            }
+            
+            const formData = new FormData(editStudentForm);
+            const submitButton = editStudentForm.querySelector('button[type="submit"]');
+            const originalButtonText = submitButton.innerHTML;
+            const studentId = document.getElementById('edit_user_id').value;
+            
+            if (!studentId) {
+                showAlert('Invalid student ID', 'danger');
+                return;
+            }
+            
+            const formDataObj = {};
+            formData.forEach((value, key) => {
+                formDataObj[key] = value;
+            });
+            
+            try {
+                submitButton.disabled = true;
+                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Updating...';
+                
+                const response = await fetch(`/admin/edit_student/${studentId}/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    },
+                    body: JSON.stringify(formDataObj),
+                    credentials: 'same-origin'
+                });
+                
+                const result = await response.json();
+                
+                if (result.status === 'success') {
+                    showAlert(result.message || 'Student updated successfully!', 'success');
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('editStudentModal'));
+                    if (modal) modal.hide();
+                    setTimeout(() => {
+                        if (result.redirect_url) {
+                            window.location.href = result.redirect_url;
+                        } else {
+                            window.location.reload();
+                        }
+                    }, 1000);
+                } else {
+                    showAlert(result.message || 'Failed to update student', 'danger');
+                }
+            } catch (error) {
+                showAlert(`Error: ${error.message}`, 'danger');
+            } finally {
+                submitButton.disabled = false;
+                submitButton.innerHTML = originalButtonText;
+            }
+        });
+    }
+
+    // View Student Modal Handler
+    document.querySelectorAll('.view-student').forEach(button => {
+        button.addEventListener('click', function() {
+            const modal = document.getElementById('viewStudentModal');
+            const fullName = `${this.dataset.firstName} ${this.dataset.lastName}`;
+            modal.querySelector('.modal-title').textContent = `Student: ${fullName}`;
+            
+            document.getElementById('view_username').textContent = this.dataset.username || 'N/A';
+            document.getElementById('view_first_name').textContent = this.dataset.firstName || 'N/A';
+            document.getElementById('view_last_name').textContent = this.dataset.lastName || 'N/A';
+            document.getElementById('view_email').textContent = this.dataset.email || 'N/A';
+            document.getElementById('view_contact_number').textContent = this.dataset.contactNumber || 'N/A';
+            document.getElementById('view_cnic').textContent = this.dataset.cnic || 'N/A';
+            
+            const genderMap = { 'M': 'Male', 'F': 'Female', 'O': 'Other' };
+            document.getElementById('view_gender').textContent = genderMap[this.dataset.gender] || 'N/A';
+            
+            const status = this.dataset.status || 'Active';
+            const statusElement = document.getElementById('view_status');
+            statusElement.textContent = status;
+            statusElement.className = 'badge ' + (status === 'Active' ? 'bg-success' : 'bg-danger');
+            
+            document.getElementById('view_address').textContent = this.dataset.address || 'N/A';
+            document.getElementById('view_institute').textContent = this.dataset.institute || 'N/A';
+        });
+    });
+
+    // Edit Student Modal Handler
+    document.querySelectorAll('.edit-student').forEach(button => {
+        button.addEventListener('click', function() {
+            const form = document.getElementById('editStudentForm');
+            const userId = this.dataset.id;
+            const baseUrl = form.dataset.editUrl.replace('0', userId);
+            
+            form.action = baseUrl;
+            
+            document.getElementById('edit_user_id').value = userId || '';
+            document.getElementById('edit_username').value = this.dataset.username || '';
+            document.getElementById('edit_email').value = this.dataset.email || '';
+            document.getElementById('edit_first_name').value = this.dataset.firstName || '';
+            document.getElementById('edit_last_name').value = this.dataset.lastName || '';
+            document.getElementById('edit_contact_number').value = this.dataset.contactNumber || '';
+            document.getElementById('edit_cnic').value = this.dataset.cnic || '';
+            document.getElementById('edit_address').value = this.dataset.address || '';
+            document.getElementById('edit_gender').value = this.dataset.gender || 'M';
+            document.getElementById('edit_institute').value = this.dataset.institute || '';
+            document.getElementById('edit_status').value = this.dataset.status === 'true' ? 'true' : 'false';
+        });
+    });
+
+    // Delete Student Handler
+    document.querySelectorAll('.delete-student').forEach(button => {
+        button.addEventListener('click', function() {
+            const userId = this.dataset.id;
+            const username = this.dataset.username;
+            const deleteUrl = this.dataset.deleteUrl.replace('0', userId);
+            
+            if (confirm(`Are you sure you want to delete the student "${username}"? This action cannot be undone.`)) {
+                fetch(deleteUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({})
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showAlert(data.message, 'success');
+                        this.closest('tr').remove();
+                    } else {
+                        showAlert(data.message || 'Error deleting student', 'danger');
+                    }
+                })
+                .catch(error => {
+                    showAlert('An error occurred while deleting the student', 'danger');
+                });
+            }
+        });
+    });
+
+    // Form validation on input events
+    if (studentForm) {
+        studentForm.addEventListener('input', function(e) {
             if (e.target.name && studentManager.fields[e.target.name]) {
                 studentManager.validateField(e.target.name, e.target.value);
             }
         });
         
-        form.addEventListener('submit', function(e) {
+        studentForm.addEventListener('submit', function(e) {
             if (!studentManager.validateForm()) {
                 e.preventDefault();
                 showAlert('Please correct the errors in the form', 'warning');

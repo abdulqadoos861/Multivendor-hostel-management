@@ -1,6 +1,528 @@
 {% extends 'base.html' %}
-{% block title %}Profile{% endblock %}
+{% load static %}
+
+{% block title %}My Profile - Hostel Management{% endblock %}
 
 {% block content %}
-<h1>Profile</h1>
+<div class="container-fluid px-4">
+    <h1 class="mt-4">My Profile</h1>
+    <ol class="breadcrumb mb-4">
+        <li class="breadcrumb-item"><a href="{% url 'dashboard' %}">Dashboard</a></li>
+        <li class="breadcrumb-item active">Profile</li>
+    </ol>
+    
+    <div class="row">
+        <!-- Left Column -->
+        <div class="col-lg-4">
+            <!-- Profile Card -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-person-circle me-1"></i> Profile Picture
+                </div>
+                <div class="card-body text-center">
+                    <div class="position-relative d-inline-block mb-3">
+                        <img id="profileImage" 
+                             src="https://ui-avatars.com/api/?name={{ user_data.name|urlencode }}&background=0D6EFD&color=fff&size=200" 
+                             class="rounded-circle shadow" 
+                             alt="Profile" 
+                             style="width: 150px; height: 150px; object-fit: cover;">
+                        <button class="btn btn-sm btn-primary position-absolute bottom-0 end-0 rounded-circle" 
+                                style="width: 36px; height: 36px;"
+                                data-bs-toggle="modal" 
+                                data-bs-target="#changePhotoModal">
+                            <i class="bi bi-camera"></i>
+                        </button>
+                    </div>
+                    <h5 class="mb-1">{{ user_data.name }}</h5>
+                    <p class="text-muted mb-2">{{ user_data.email }}</p>
+                    <span class="badge bg-success">
+                        {% if user_data.is_staff %}Staff{% else %}Student{% endif %}
+                    </span>
+                </div>
+                <div class="card-footer bg-light">
+                    <small class="text-muted">
+                        <i class="bi bi-calendar-check me-1"></i>
+                        Member since {{ user_data.date_joined|date:"F Y" }}
+                    </small>
+                </div>
+            </div>
+
+            <!-- Account Status -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-shield-lock me-1"></i> Account Status
+                </div>
+                <ul class="list-group list-group-flush">
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Status
+                        <span class="badge bg-{% if user_data.is_active %}success{% else %}danger{% endif %}">
+                            {% if user_data.is_active %}Active{% else %}Inactive{% endif %}
+                        </span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Last Login
+                        <span class="text-muted">{{ user_data.last_login|default:"Never" }}</span>
+                    </li>
+                    <li class="list-group-item d-flex justify-content-between align-items-center">
+                        Account Type
+                        <span class="text-muted">{% if user_data.is_staff %}Staff{% else %}Student{% endif %}</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div class="col-lg-8">
+            <!-- Personal Information -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="bi bi-person-lines-fill me-1"></i> Personal Information
+                    </div>
+                    <button class="btn btn-sm btn-light" id="editProfileBtn">
+                        <i class="bi bi-pencil-square me-1"></i> Edit Profile
+                    </button>
+                </div>
+                <div class="card-body">
+                    <form id="profileForm" class="needs-validation" novalidate>
+                        {% csrf_token %}
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="fullName" class="form-label">Full Name</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                    <input type="text" class="form-control" id="fullName" name="name"
+                                           value="{{ user_data.name }}" required disabled>
+                                    <div class="invalid-feedback">
+                                        Please provide your full name.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="email" class="form-label">Email Address</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-envelope"></i></span>
+                                    <input type="email" class="form-control" id="email" name="email"
+                                           value="{{ user_data.email }}" required disabled>
+                                    <div class="invalid-feedback">
+                                        Please provide a valid email address.
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="phone" class="form-label">Phone Number</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-telephone"></i></span>
+                                    <input type="tel" class="form-control" id="phone" name="phone"
+                                           value="{{ user_data.phone }}" disabled>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label for="address" class="form-label">Address</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="bi bi-geo-alt"></i></span>
+                                    <textarea class="form-control" id="address" name="address" rows="2" 
+                                              disabled>{{ user_data.address }}</textarea>
+                                </div>
+                            </div>
+                            <div class="col-12 mt-3 d-none" id="formButtons">
+                                <button type="button" class="btn btn-outline-secondary me-2" id="cancelEdit">
+                                    <i class="bi bi-x-circle me-1"></i> Cancel
+                                </button>
+                                <button type="submit" class="btn btn-primary" id="saveProfileBtn">
+                                    <i class="bi bi-save me-1"></i> Save Changes
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Change Password -->
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <i class="bi bi-key me-1"></i> Change Password
+                </div>
+                <div class="card-body">
+                    <form id="passwordForm">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="currentPassword" class="form-label">Current Password</label>
+                            <input type="password" class="form-control" id="currentPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="newPassword" class="form-label">New Password</label>
+                            <input type="password" class="form-control" id="newPassword" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirmPassword" class="form-label">Confirm New Password</label>
+                            <input type="password" class="form-control" id="confirmPassword" required>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-key me-1"></i> Update Password
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Change Photo Modal -->
+<div class="modal fade" id="changePhotoModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Change Profile Photo</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body text-center">
+                <div class="mb-4">
+                    <img id="imagePreview" 
+                         src="https://ui-avatars.com/api/?name={{ user_data.name|urlencode }}&background=0D6EFD&color=fff&size=200" 
+                         class="img-thumbnail rounded-circle" 
+                         style="width: 200px; height: 200px; object-fit: cover;"
+                         alt="Profile Preview">
+                </div>
+                <div class="mb-3">
+                    <input type="file" class="form-control" id="profilePhoto" accept="image/*">
+                    <div class="form-text">JPG, GIF or PNG. Max size 2MB</div>
+                </div>
+                <div class="d-grid gap-2">
+                    <button class="btn btn-primary" id="uploadPhotoBtn" disabled>
+                        <i class="bi bi-upload me-1"></i> Upload Photo
+                    </button>
+                    <button class="btn btn-outline-danger" id="removePhotoBtn">
+                        <i class="bi bi-trash me-1"></i> Remove Photo
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast Notification -->
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+    <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="toast-header">
+            <strong class="me-auto" id="toastTitle">Notification</strong>
+            <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+        </div>
+        <div class="toast-body" id="toastMessage"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize toast
+        const toastEl = document.getElementById('toast');
+        const toast = new bootstrap.Toast(toastEl, { autohide: true, delay: 5000 });
+        
+        // Show toast notification
+        function showToast(title, message, type = 'info') {
+            const toastTitle = document.getElementById('toastTitle');
+            const toastMessage = document.getElementById('toastMessage');
+            const toastHeader = toastEl.querySelector('.toast-header');
+            
+            // Reset classes
+            toastHeader.className = 'toast-header';
+            
+            // Set type-specific styles
+            switch(type) {
+                case 'success':
+                    toastHeader.classList.add('bg-success', 'text-white');
+                    break;
+                case 'error':
+                    toastHeader.classList.add('bg-danger', 'text-white');
+                    break;
+                case 'warning':
+                    toastHeader.classList.add('bg-warning', 'text-dark');
+                    break;
+                default:
+                    toastHeader.classList.add('bg-primary', 'text-white');
+            }
+            
+            toastTitle.textContent = title;
+            toastMessage.textContent = message;
+            toast.show();
+        }
+        
+        // Handle profile edit functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const editBtn = document.getElementById('editProfileBtn');
+            const cancelBtn = document.getElementById('cancelEdit');
+            const formButtons = document.getElementById('formButtons');
+            const profileForm = document.getElementById('profileForm');
+            const formInputs = document.querySelectorAll('#profileForm input, #profileForm textarea');
+            
+            // Store original form values
+            let originalValues = {};
+            
+            // Function to enable form editing
+            function enableFormEditing() {
+                formInputs.forEach(input => {
+                    originalValues[input.id] = input.value; // Store original value
+                    input.disabled = false;
+                    input.classList.remove('is-invalid');
+                });
+                if (formButtons) {
+                    formButtons.classList.remove('d-none');
+                }
+                if (editBtn) {
+                    editBtn.classList.add('d-none');
+                }
+            }
+            
+            // Function to disable form editing
+            function disableFormEditing() {
+                formInputs.forEach(input => {
+                    input.disabled = true;
+                    input.classList.remove('is-invalid');
+                });
+                if (formButtons) {
+                    formButtons.classList.add('d-none');
+                }
+                if (editBtn) {
+                    editBtn.classList.remove('d-none');
+                }
+            }
+            
+            // Function to reset form to original values
+            function resetForm() {
+                formInputs.forEach(input => {
+                    if (originalValues[input.id] !== undefined) {
+                        input.value = originalValues[input.id];
+                    }
+                });
+            }
+            
+            // Edit button click handler
+            if (editBtn) {
+                editBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    enableFormEditing();
+                });
+            }
+            
+            // Cancel button click handler
+            if (cancelBtn) {
+                cancelBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    resetForm();
+                    disableFormEditing();
+                });
+            }
+            
+            // Form validation
+            if (profileForm) {
+                // Disable form submission via enter key
+                profileForm.addEventListener('keydown', function(e) {
+                    if (e.key === 'Enter' && e.target.tagName !== 'TEXTAREA') {
+                        e.preventDefault();
+                    }
+                });
+                
+                // Add validation classes on blur
+                formInputs.forEach(input => {
+                    input.addEventListener('blur', function() {
+                        if (input.required && !input.value.trim()) {
+                            input.classList.add('is-invalid');
+                        } else if (input.type === 'email' && input.value) {
+                            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                            if (!emailRegex.test(input.value)) {
+                                input.classList.add('is-invalid');
+                            } else {
+                                input.classList.remove('is-invalid');
+                            }
+                        } else {
+                            input.classList.remove('is-invalid');
+                        }
+                    });
+                });
+            }
+        });
+        
+        // Handle profile form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            const profileForm = document.getElementById('profileForm');
+            const editBtn = document.getElementById('editProfileBtn');
+            const formButtons = document.getElementById('formButtons');
+            const formInputs = document.querySelectorAll('#profileForm input, #profileForm textarea');
+            
+            if (profileForm) {
+                profileForm.addEventListener('submit', async function(e) {
+                    e.preventDefault();
+                    
+                    const submitBtn = this.querySelector('button[type="submit"]');
+                    const originalBtnText = submitBtn.innerHTML;
+                    
+                    // Show loading state
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Saving...';
+                    
+                    try {
+                        // Validate form
+                        let isValid = true;
+                        formInputs.forEach(input => {
+                            if (input.required && !input.value.trim()) {
+                                input.classList.add('is-invalid');
+                                isValid = false;
+                            } else if (input.type === 'email' && input.value) {
+                                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                                if (!emailRegex.test(input.value)) {
+                                    input.classList.add('is-invalid');
+                                    isValid = false;
+                                } else {
+                                    input.classList.remove('is-invalid');
+                                }
+                            } else {
+                                input.classList.remove('is-invalid');
+                            }
+                        });
+                        
+                        if (!isValid) {
+                            throw new Error('Please fill in all required fields correctly.');
+                        }
+                        
+                        // Prepare form data
+                        const formData = {
+                            name: document.getElementById('fullName').value.trim(),
+                            email: document.getElementById('email').value.trim(),
+                            phone: document.getElementById('phone').value.trim(),
+                            address: document.getElementById('address').value.trim()
+                        };
+                        
+                        // Send update request
+                        const response = await fetch('', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'X-Requested-With': 'XMLHttpRequest',
+                                'X-CSRFToken': '{{ csrf_token }}'
+                            },
+                            body: JSON.stringify(formData)
+                        });
+                        
+                        const data = await response.json();
+                        
+                        if (!response.ok) {
+                            throw new Error(data.message || 'Failed to update profile');
+                        }
+                        
+                        // Show success message
+                        showToast('Success', 'Profile updated successfully', 'success');
+                        
+                        // Update the UI with new data
+                        const profileName = document.getElementById('profileName');
+                        if (profileName) {
+                            profileName.textContent = data.user.name || formData.name;
+                        }
+                        
+                        // Update profile image if name changed
+                        const profileImage = document.getElementById('profileImage');
+                        if (profileImage && formData.name) {
+                            profileImage.src = 
+                                `https://ui-avatars.com/api/?name=${encodeURIComponent(formData.name)}&background=0D6EFD&color=fff&size=200`;
+                        }
+                        
+                        // Disable form after successful update
+                        formInputs.forEach(input => input.disabled = true);
+                        if (formButtons) formButtons.classList.add('d-none');
+                        if (editBtn) editBtn.classList.remove('d-none');
+                        
+                    } catch (error) {
+                        console.error('Error updating profile:', error);
+                        showToast('Error', error.message || 'An error occurred while updating your profile', 'error');
+                    } finally {
+                        // Reset button state
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalBtnText;
+                    }
+                });
+            }
+        });
+        
+        // Handle password change form
+        const passwordForm = document.getElementById('passwordForm');
+        if (passwordForm) {
+            passwordForm.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                
+                const currentPassword = document.getElementById('currentPassword').value;
+                const newPassword = document.getElementById('newPassword').value;
+                const confirmPassword = document.getElementById('confirmPassword').value;
+                
+                if (newPassword !== confirmPassword) {
+                    showToast('Error', 'New passwords do not match', 'error');
+                    return;
+                }
+                
+                try {
+                    const response = await fetch(window.location.pathname, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFTOKEN': '{{ csrf_token }}',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({
+                            current_password: currentPassword,
+                            new_password: newPassword
+                        })
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.status === 'success') {
+                        showToast('Success', 'Password updated successfully', 'success');
+                        passwordForm.reset();
+                    } else {
+                        throw new Error(data.message || 'Failed to update password');
+                    }
+                } catch (error) {
+                    showToast('Error', error.message, 'error');
+                    console.error('Error updating password:', error);
+                }
+            });
+        }
+        
+        // Handle profile photo upload preview
+        const profilePhoto = document.getElementById('profilePhoto');
+        const uploadBtn = document.getElementById('uploadPhotoBtn');
+        const removeBtn = document.getElementById('removePhotoBtn');
+        const imagePreview = document.getElementById('imagePreview');
+        
+        if (profilePhoto) {
+            profilePhoto.addEventListener('change', function(e) {
+                const file = e.target.files[0];
+                if (file) {
+                    if (file.size > 2 * 1024 * 1024) { // 2MB limit
+                        showToast('Error', 'File size should be less than 2MB', 'error');
+                        return;
+                    }
+                    
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        imagePreview.src = e.target.result;
+                        uploadBtn.disabled = false;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        
+        // Handle remove photo
+        if (removeBtn) {
+            removeBtn.addEventListener('click', function() {
+                // Reset to default avatar
+                const name = document.getElementById('fullName').value || 'User';
+                imagePreview.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0D6EFD&color=fff&size=200`;
+                profilePhoto.value = '';
+                uploadBtn.disabled = true;
+            });
+        }
+    });
+</script>
 {% endblock %}

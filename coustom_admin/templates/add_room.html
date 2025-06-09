@@ -74,8 +74,8 @@
                 </thead>
                 <tbody id="roomTable">
                     {% for room in rooms %}
-                        <tr data-hostel="{{ room.hostel_id.id }}">
-                            <td>{{ room.hostel_id.name }}</td>
+                        <tr data-hostel="{{ room.hostel.id }}">
+                            <td>{{ room.hostel.name }}</td>
                             <td>{{ room.floor_number }}</td>
                             <td>{{ room.room_number }}</td>
                             <td>{{ room.room_type }}</td>
@@ -246,29 +246,31 @@ document.addEventListener('DOMContentLoaded', function() {
             const description = this.getAttribute('data-description');
 
             editRoomIdInput.value = roomId;
+            // Set the hostel value and trigger change event to update floor validation
             editHostelSelect.value = hostelId;
+            editHostelSelect.dispatchEvent(new Event('change'));
+            
+            // Set other values
             editFloorInput.value = floor;
             editRoomNumberInput.value = roomNumber;
             editRoomTypeSelect.value = roomType;
-            editDescriptionInput.value = description;
+            editDescriptionInput.value = description || '';
 
             // Update form action with room ID
             editForm.action = `{% url 'update_room' 0 %}`.replace('0', roomId);
-
-            // Set max floors for edit form
-            const selectedOption = editHostelSelect.options[editHostelSelect.selectedIndex];
-            editFloorInput.max = selectedOption ? parseInt(selectedOption.getAttribute('data-floors')) : 0;
         });
     });
 
     // Validate floor number for edit form
     editHostelSelect.addEventListener('change', function() {
-        const selectedOption = editHostelSelect.options[editHostelSelect.selectedIndex];
+        const selectedOption = this.options[this.selectedIndex];
         const maxFloors = selectedOption ? parseInt(selectedOption.getAttribute('data-floors')) : 0;
         
+        // Update the max attribute for floor input
         editFloorInput.max = maxFloors;
         editFloorError.style.display = 'none';
         
+        // If floor is already set, validate it against the new max floors
         if (editFloorInput.value !== '') {
             const floorValue = parseInt(editFloorInput.value);
             if (floorValue < 0 || floorValue > maxFloors) {

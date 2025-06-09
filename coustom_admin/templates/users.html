@@ -100,29 +100,30 @@
                             </td>
                             <td>{{ user.date_joined|date:"Y-m-d" }}</td>
                             <td class="action-buttons">
-                                <button class="btn btn-sm btn-info" data-bs-toggle="modal" 
-                                        data-bs-target="#viewModal" 
-                                        data-user-id="{{ user.id }}"
-                                        data-user-name="{{ user.get_full_name }}"
-                                        data-user-email="{{ user.email }}"
-                                        data-user-role="{% if user.is_superuser %}Admin{% elif user.is_staff %}Staff{% else %}Student{% endif %}"
-                                        data-user-status="{% if user.is_active %}Active{% else %}Inactive{% endif %}"
-                                        data-user-joined="{{ user.date_joined|date:'Y-m-d' }}">
-                                    <i class="bi bi-eye-fill"></i> View
-                                </button>
-                                {% if not user.is_superuser %}
-                                <button class="btn btn-sm btn-primary edit-user" data-bs-toggle="modal" 
-                                        data-bs-target="#editModal" 
-                                        data-user-id="{{ user.id }}">
-                                    <i class="bi bi-pencil-fill"></i> Edit
-                                </button>
-                                <button class="btn btn-sm btn-danger" data-bs-toggle="modal" 
-                                        data-bs-target="#deleteModal" 
-                                        data-user-id="{{ user.id }}"
-                                        data-user-name="{{ user.get_full_name|escapejs }}">
-                                    <i class="bi bi-trash-fill"></i> Delete
-                                </button>
-                                {% endif %}
+                                <div class="d-flex gap-2">
+                                    <button class="btn btn-sm btn-info view-user-btn" data-bs-toggle="modal" 
+                                            data-bs-target="#viewModal" 
+                                            data-user-id="{{ user.id }}">
+                                        <i class="bi bi-eye-fill"></i> View
+                                    </button>
+                                    {% if not user.is_superuser %}
+                                    <div class="form-check form-switch d-flex align-items-center">
+                                        <input class="form-check-input status-toggle" type="checkbox" 
+                                               data-user-id="{{ user.id }}" 
+                                               id="status-{{ user.id }}"
+                                               {% if user.is_active %}checked{% endif %}
+                                               style="width: 3em; height: 1.5em;">
+                                        <label class="form-check-label ms-2" for="status-{{ user.id }}" 
+                                               data-bs-toggle="tooltip" 
+                                               title="{% if user.is_active %}Deactivate user{% else %}Activate user{% endif %}">
+                                            <span class="badge {% if user.is_active %}bg-success{% else %}bg-secondary{% endif %}">
+                                                {% if user.is_active %}Active{% else %}Inactive{% endif %}
+                                            </span>
+                                        </label>
+                                    </div>
+
+                                    {% endif %}
+                                </div>
                             </td>
                         </tr>
                         {% empty %}
@@ -139,20 +140,67 @@
 
 <!-- View User Modal -->
 <div class="modal fade" id="viewModal" tabindex="-1" aria-labelledby="viewModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
         <div class="modal-content modal-custom fade-in">
             <div class="modal-header">
                 <h5 class="modal-title" id="viewModalLabel">User Details</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <h6>User Information</h6>
-                    <p><strong>Name:</strong> <span id="modal-user-name"></span></p>
-                    <p><strong>Email:</strong> <span id="modal-user-email"></span></p>
-                    <p><strong>Role:</strong> <span id="modal-user-role"></span></p>
-                    <p><strong>Status:</strong> <span id="modal-user-status"></span></p>
-                    <p><strong>Joined Date:</strong> <span id="modal-user-joined"></span></p>
+                <div id="userLoading" class="text-center py-4">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading...</span>
+                    </div>
+                    <p class="mt-2 mb-0">Loading user details...</p>
+                </div>
+                <div id="userDetails" style="display: none;">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3">Basic Information</h6>
+                            <div class="mb-3">
+                                <p class="mb-1"><strong>Full Name:</strong></p>
+                                <p id="modal-user-name" class="text-muted"></p>
+                            </div>
+                            <div class="mb-3">
+                                <p class="mb-1"><strong>Email:</strong></p>
+                                <p id="modal-user-email" class="text-muted"></p>
+                            </div>
+                            <div class="mb-3">
+                                <p class="mb-1"><strong>Username:</strong></p>
+                                <p id="modal-user-username" class="text-muted"></p>
+                            </div>
+                            <div class="mb-3">
+                                <p class="mb-1"><strong>Role:</strong></p>
+                                <p id="modal-user-role" class="text-muted"></p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <h6 class="border-bottom pb-2 mb-3">Account Information</h6>
+                            <div class="mb-3">
+                                <p class="mb-1"><strong>Status:</strong></p>
+                                <p id="modal-user-status"></p>
+                            </div>
+                            <div class="mb-3">
+                                <p class="mb-1"><strong>Last Login:</strong></p>
+                                <p id="modal-user-last-login" class="text-muted"></p>
+                            </div>
+                            <div class="mb-3">
+                                <p class="mb-1"><strong>Date Joined:</strong></p>
+                                <p id="modal-user-joined" class="text-muted"></p>
+                            </div>
+                            <div class="mb-3">
+                                <p class="mb-1"><strong>Account Type:</strong></p>
+                                <p id="modal-user-type" class="text-muted"></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="additionalInfo" class="mt-4">
+                        <!-- Additional user-specific information will be loaded here -->
+                    </div>
+                </div>
+                <div id="userError" class="alert alert-danger d-none" role="alert">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    <span id="errorMessage">Failed to load user details. Please try again.</span>
                 </div>
             </div>
             <div class="modal-footer">
@@ -162,50 +210,230 @@
     </div>
 </div>
 
-<!-- Edit User Modal -->
-<div class="modal fade" id="editModal" tabindex="-1" aria-labelledby="editModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content modal-custom fade-in">
-            <div class="modal-header">
-                <h5 class="modal-title" id="editModalLabel">Edit User</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <div id="editFormMessage" class="alert d-none slide-in" role="alert"></div>
-                <form id="editForm" method="POST">
-                    {% csrf_token %}
-                    <input type="hidden" id="edit_id" name="id">
-                    <div class="mb-3">
-                        <label for="edit_name" class="form-label">Full Name</label>
-                        <input type="text" class="form-control" id="edit_name" name="name" placeholder="Enter full name" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_email" class="form-label">Email Address</label>
-                        <input type="email" class="form-control" id="edit_email" name="email" placeholder="Enter email address" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="edit_role" class="form-label">Role</label>
-                        <select class="form-select" id="edit_role" name="role" required>
-                            <option selected disabled value="">Select role</option>
-                            <option value="student">Student</option>
-                            <option value="warden">Warden</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <div class="form-check form-switch">
-                            <input class="form-check-input" type="checkbox" id="edit_is_active" name="is_active">
-                            <label class="form-check-label" for="edit_is_active">Active Status</label>
-                        </div>
-                    </div>
-                    <div class="modal-footer">
-                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                        <button type="submit" class="btn btn-primary" id="editButton">Update</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
+<!-- Utility Functions and Status Toggle Handler -->
+<script>
+    // Function to get CSRF token from cookies
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Function to show toast notifications
+    function showToast(title, message, type = 'info') {
+        // Check if toast container exists, if not create it
+        let toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) {
+            toastContainer = document.createElement('div');
+            toastContainer.id = 'toast-container';
+            toastContainer.style.position = 'fixed';
+            toastContainer.style.top = '20px';
+            toastContainer.style.right = '20px';
+            toastContainer.style.zIndex = '1100';
+            document.body.appendChild(toastContainer);
+        }
+
+        // Create toast element
+        const toastId = 'toast-' + Date.now();
+        const toast = document.createElement('div');
+        toast.id = toastId;
+        toast.className = 'toast show align-items-center text-white bg-' + type + ' border-0';
+        toast.role = 'alert';
+        toast.setAttribute('aria-live', 'assertive');
+        toast.setAttribute('aria-atomic', 'true');
+        
+        // Toast header
+        const toastHeader = document.createElement('div');
+        toastHeader.className = 'd-flex';
+        toastHeader.innerHTML = [
+            '<div class="toast-body">',
+            '    <strong>', title, '</strong><br>',
+            '    ', message,
+            '</div>',
+            '<button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>'
+        ].join('');
+        
+        toast.appendChild(toastHeader);
+        toastContainer.appendChild(toast);
+        
+        // Auto-remove toast after 5 seconds
+        setTimeout(function() {
+            const toastElement = document.getElementById(toastId);
+            if (toastElement) {
+                toastElement.classList.remove('show');
+                setTimeout(function() {
+                    if (toastElement && toastElement.parentNode) {
+                        toastElement.parentNode.removeChild(toastElement);
+                    }
+                }, 300);
+            }
+        }, 5000);
+        
+        // Handle manual close
+        const closeButton = toast.querySelector('[data-bs-dismiss="toast"]');
+        if (closeButton) {
+            closeButton.addEventListener('click', function() {
+                toast.classList.remove('show');
+                setTimeout(function() {
+                    if (toast.parentNode) {
+                        toast.parentNode.removeChild(toast);
+                    }
+                }, 300);
+            });
+        }
+    }
+
+    // Initialize when DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.forEach(function(tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // Handle status toggle
+        document.querySelectorAll('.status-toggle').forEach(function(toggle) {
+            toggle.addEventListener('change', async function() {
+                const userId = this.getAttribute('data-user-id');
+                const isActive = this.checked;
+                const statusBadge = this.nextElementSibling.querySelector('.badge');
+                const tooltip = bootstrap.Tooltip.getInstance(this.nextElementSibling);
+                
+                // Update UI immediately for better UX
+                statusBadge.textContent = isActive ? 'Active' : 'Inactive';
+                statusBadge.className = 'badge ' + (isActive ? 'bg-success' : 'bg-secondary');
+                
+                if (tooltip) {
+                    tooltip.setContent({
+                        '.tooltip-inner': isActive ? 'Deactivate user' : 'Activate user'
+                    });
+                }
+
+                try {
+                    const response = await fetch('/admin/users/' + userId + '/toggle-status/', {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            is_active: isActive
+                        }),
+                        credentials: 'same-origin'
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to update status');
+                    }
+
+                    const data = await response.json();
+                    if (data.status !== 'success') {
+                        throw new Error(data.message || 'Failed to update status');
+                    }
+
+                    // Show success message
+                    showToast('Success', 'User ' + (isActive ? 'activated' : 'deactivated') + ' successfully', 'success');
+                    
+                } catch (error) {
+                    console.error('Error updating status:', error);
+                    
+                    // Revert UI on error
+                    this.checked = !isActive;
+                    statusBadge.textContent = !isActive ? 'Active' : 'Inactive';
+                    statusBadge.className = 'badge ' + (!isActive ? 'bg-success' : 'bg-secondary');
+                    
+                    if (tooltip) {
+                        tooltip.setContent({
+                            '.tooltip-inner': !isActive ? 'Deactivate user' : 'Activate user'
+                        });
+                    }
+                    
+                    showToast('Error', error.message || 'Failed to update status', 'error');
+                }
+            });
+        });
+    });
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize tooltips
+        const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+
+        // Handle status toggle
+        document.querySelectorAll('.status-toggle').forEach(toggle => {
+            toggle.addEventListener('change', async function() {
+                const userId = this.getAttribute('data-user-id');
+                const isActive = this.checked;
+                const statusBadge = this.nextElementSibling.querySelector('.badge');
+                const tooltip = bootstrap.Tooltip.getInstance(this.nextElementSibling);
+                
+                // Update UI immediately for better UX
+                statusBadge.textContent = isActive ? 'Active' : 'Inactive';
+                statusBadge.className = 'badge ' + (isActive ? 'bg-success' : 'bg-secondary');
+                
+                if (tooltip) {
+                    tooltip.setContent({
+                        '.tooltip-inner': isActive ? 'Deactivate user' : 'Activate user'
+                    });
+                }
+
+                try {
+                    const response = await fetch(`/admin/users/${userId}/toggle-status/`, {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRFToken': getCookie('csrftoken'),
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify({
+                            is_active: isActive
+                        }),
+                        credentials: 'same-origin'
+                    });
+
+                    if (!response.ok) {
+                        throw new Error('Failed to update status');
+                    }
+
+                    const data = await response.json();
+                    if (data.status !== 'success') {
+                        throw new Error(data.message || 'Failed to update status');
+                    }
+
+                    // Show success message
+                    showToast('Success', `User ${isActive ? 'activated' : 'deactivated'} successfully`, 'success');
+                    
+                } catch (error) {
+                    console.error('Error updating status:', error);
+                    
+                    // Revert UI on error
+                    this.checked = !isActive;
+                    statusBadge.textContent = !isActive ? 'Active' : 'Inactive';
+                    statusBadge.className = 'badge ' + (!isActive ? 'bg-success' : 'bg-secondary');
+                    
+                    if (tooltip) {
+                        tooltip.setContent({
+                            '.tooltip-inner': !isActive ? 'Deactivate user' : 'Activate user'
+                        });
+                    }
+                    
+                    showToast('Error', error.message || 'Failed to update status', 'error');
+                }
+            });
+        });
+    });
+</script>
 
 <!-- Delete User Modal -->
 <div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
@@ -659,8 +887,12 @@
         return cookieValue;
     }
 
+    // Cache for storing user details
+    const userDetailsCache = new Map();
+    
     document.addEventListener('DOMContentLoaded', function() {
         let currentUserId = null;
+        let isModalLoading = false; // To prevent multiple simultaneous loads
 
         // Handle filter form submission
         const filterForm = document.getElementById('filterForm');
@@ -671,82 +903,204 @@
             filterButton.textContent = 'Applying...';
         });
 
+        // Function to update the UI with user data
+        function updateUserDetailsUI(user) {
+            // Update basic info
+            document.getElementById('modal-user-name').textContent = user.full_name || 'N/A';
+            document.getElementById('modal-user-email').textContent = user.email || 'N/A';
+            document.getElementById('modal-user-username').textContent = user.username || 'N/A';
+            document.getElementById('modal-user-role').textContent = user.role_display || 'N/A';
+            document.getElementById('modal-user-type').textContent = user.is_staff ? 'Staff' : 'Regular User';
+            document.getElementById('modal-user-last-login').textContent = user.last_login ? new Date(user.last_login).toLocaleString() : 'Never';
+            document.getElementById('modal-user-joined').textContent = user.date_joined ? new Date(user.date_joined).toLocaleDateString() : 'N/A';
+            
+            // Update status with badge
+            const statusElement = document.getElementById('modal-user-status');
+            statusElement.innerHTML = user.is_active 
+                ? '<span class="badge bg-success">Active</span>' 
+                : '<span class="badge bg-danger">Inactive</span>';
+            
+            // Load additional info if available
+            const additionalInfo = document.getElementById('additionalInfo');
+            if (user.additional_info) {
+                let additionalHtml = '<h6 class="border-bottom pb-2 mb-3">Additional Information</h6>';
+                for (const [key, value] of Object.entries(user.additional_info)) {
+                    if (value) {
+                        additionalHtml += `
+                            <div class="mb-2">
+                                <p class="mb-1"><strong>${key.replace(/_/g, ' ').replace(/\w\S*/g, txt => txt.charAt(0).toUpperCase() + txt.substr(1).toLowerCase())}:</strong></p>
+                                <p class="text-muted">${value}</p>
+                            </div>`;
+                    }
+                }
+                additionalInfo.innerHTML = additionalHtml;
+            } else {
+                additionalInfo.innerHTML = '';
+            }
+            
+            // Show user details
+            document.getElementById('userLoading').style.display = 'none';
+            document.getElementById('userDetails').style.display = 'block';
+        }
+        
+        // Function to load user details
+        async function loadUserDetails(userId) {
+            const loadingElement = document.getElementById('userLoading');
+            const userDetailsElement = document.getElementById('userDetails');
+            const errorElement = document.getElementById('userError');
+            
+            // Prevent multiple simultaneous loads
+            if (isModalLoading) return;
+            isModalLoading = true;
+            
+            // Show loading, hide other states
+            loadingElement.style.display = 'block';
+            userDetailsElement.style.display = 'none';
+            errorElement.classList.add('d-none');
+            
+            // Check cache first
+            if (userDetailsCache.has(userId)) {
+                const cachedData = userDetailsCache.get(userId);
+                const cacheAge = (Date.now() - cachedData.timestamp) / 1000; // in seconds
+                
+                // If cache is fresh (less than 5 minutes old), use it
+                if (cacheAge < 300) {
+                    updateUserDetailsUI(cachedData.user);
+                    isModalLoading = false;
+                    return;
+                }
+            }
+            
+            try {
+                // Show loading immediately for better UX
+                loadingElement.style.display = 'block';
+                
+                // Fetch fresh data in the background
+                const response = await fetch(`/admin/getUserDetails/${userId}/`, {
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Cache-Control': 'no-cache'
+                    },
+                    credentials: 'same-origin',
+                    cache: 'no-store'
+                });
+                
+                if (!response.ok) throw new Error('Network response was not ok');
+                
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    // Cache the response
+                    userDetailsCache.set(userId, {
+                        user: data.user,
+                        timestamp: Date.now()
+                    });
+                    
+                    // Update UI with fresh data
+                    updateUserDetailsUI(data.user);
+                } else {
+                    throw new Error(data.message || 'Failed to load user details');
+                }
+            } catch (error) {
+                console.error('Error loading user details:', error);
+                
+                // If we have cached data, show it with a warning
+                if (userDetailsCache.has(userId)) {
+                    const cachedData = userDetailsCache.get(userId);
+                    updateUserDetailsUI(cachedData.user);
+                    
+                    // Show a small warning that data might be outdated
+                    const warning = document.createElement('div');
+                    warning.className = 'alert alert-warning alert-dismissible fade show mt-3 mb-0';
+                    warning.innerHTML = `
+                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                        Showing cached data. ${error.message}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    `;
+                    document.getElementById('additionalInfo').appendChild(warning);
+                } else {
+                    // No cached data, show error
+                    document.getElementById('errorMessage').textContent = error.message;
+                    errorElement.classList.remove('d-none');
+                    loadingElement.style.display = 'none';
+                }
+            } finally {
+                isModalLoading = false;
+            }
+        }
+
         // Handle view modal
         const viewModal = document.getElementById('viewModal');
         viewModal.addEventListener('show.bs.modal', function(event) {
             const button = event.relatedTarget;
-            const userName = button.getAttribute('data-user-name');
-            const userEmail = button.getAttribute('data-user-email');
-            const userRole = button.getAttribute('data-user-role');
-            const userStatus = button.getAttribute('data-user-status');
-            const userJoined = button.getAttribute('data-user-joined');
-
-            document.getElementById('modal-user-name').textContent = userName;
-            document.getElementById('modal-user-email').textContent = userEmail;
-            document.getElementById('modal-user-role').textContent = userRole;
-            document.getElementById('modal-user-status').textContent = userStatus;
-            document.getElementById('modal-user-joined').textContent = userJoined;
+            const userId = button.getAttribute('data-user-id');
+            console.log('View modal opened for user ID:', userId);
+            
+            // Load user details when modal is shown
+            if (userId) {
+                console.log('Loading user details for ID:', userId);
+                loadUserDetails(userId).catch(error => {
+                    console.error('Error in loadUserDetails:', error);
+                    document.getElementById('errorMessage').textContent = 'Error loading user details: ' + error.message;
+                    document.getElementById('userError').classList.remove('d-none');
+                    document.getElementById('userLoading').style.display = 'none';
+                });
+            } else {
+                console.error('No user ID found in button data attributes');
+                document.getElementById('errorMessage').textContent = 'User ID not provided';
+                document.getElementById('userError').classList.remove('d-none');
+                document.getElementById('userLoading').style.display = 'none';
+            }
         });
-
-        // Handle edit modal
-        document.querySelectorAll('.edit-user').forEach(button => {
-            button.addEventListener('click', function() {
-                currentUserId = this.getAttribute('data-user-id');
-                loadUserData(currentUserId);
-            });
+        
+        // Reset modal when hidden
+        viewModal.addEventListener('hidden.bs.modal', function() {
+            // Don't clear the cache, just hide the modal
+            document.getElementById('userDetails').style.display = 'none';
+            document.getElementById('userError').classList.add('d-none');
+            document.getElementById('userLoading').style.display = 'block';
+            
+            // Clear any alerts that were added
+            const alerts = document.querySelectorAll('#additionalInfo .alert');
+            alerts.forEach(alert => alert.remove());
+            
+            // Reset loading state
+            isModalLoading = false;
         });
-
-        // Handle edit form submission
-        const editForm = document.getElementById('editForm');
-        const editButton = document.getElementById('editButton');
-        if (editForm) {
-            editForm.addEventListener('submit', async function(event) {
-                event.preventDefault();
-                editButton.disabled = true;
-                editButton.classList.add('btn-loading');
-                editButton.textContent = 'Updating...';
-
-                const formData = new FormData(editForm);
-                const messageDiv = document.getElementById('editFormMessage');
-
-                try {
-                    const response = await fetch(`/users/update/${currentUserId}/`, {
-                        method: 'POST',
-                        body: formData,
+        
+        // Preload data when hovering over view button
+        document.addEventListener('mouseover', function(e) {
+            const viewBtn = e.target.closest('.view-user-btn');
+            if (viewBtn) {
+                const userId = viewBtn.dataset.userId;
+                console.log('Hovering over user ID:', userId);
+                if (userId && !viewBtn.dataset.preloaded && !userDetailsCache.has(userId)) {
+                    console.log('Preloading data for user ID:', userId);
+                    // Start preloading in the background
+                    fetch(`/admin/getUserDetails/${userId}/`, {
                         headers: {
                             'X-CSRFToken': getCookie('csrftoken'),
                             'X-Requested-With': 'XMLHttpRequest'
                         },
-                        credentials: 'same-origin'
-                    });
-
-                    const result = await response.json();
-                    messageDiv.textContent = result.message;
-                    messageDiv.classList.remove('d-none', 'alert-success', 'alert-danger');
-                    messageDiv.classList.add(result.status === 'success' ? 'alert-success' : 'alert-danger');
-
-                    if (result.status === 'success') {
-                        setTimeout(() => {
-                            const modal = document.getElementById('editModal');
-                            bootstrap.Modal.getInstance(modal).hide();
-                            window.location.reload();
-                        }, 1000);
-                    } else {
-                        editButton.disabled = false;
-                        editButton.classList.remove('btn-loading');
-                        editButton.textContent = 'Update';
-                    }
-                } catch (error) {
-                    console.error('Edit form submission error:', error);
-                    messageDiv.textContent = `An error occurred: ${error.message}`;
-                    messageDiv.classList.remove('d-none', 'alert-success');
-                    messageDiv.classList.add('alert-danger');
-                    editButton.disabled = false;
-                    editButton.classList.remove('btn-loading');
-                    editButton.textContent = 'Update';
+                        priority: 'low'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            userDetailsCache.set(userId, {
+                                user: data.user,
+                                timestamp: Date.now()
+                            });
+                            viewBtn.dataset.preloaded = 'true';
+                        }
+                    })
+                    .catch(console.error); // Silently fail for preloads
                 }
-            });
-        }
+            }
+        }, { passive: true });
+
+        // Status toggle handler is now in the inline script above
 
         // Handle delete modal
         const deleteModal = document.getElementById('deleteModal');
@@ -812,34 +1166,80 @@
 
         // Function to load user data for editing
         async function loadUserData(userId) {
+            const messageDiv = document.getElementById('editFormMessage');
+            messageDiv.classList.add('d-none');
+            
             try {
+                // Show loading state
+                const editButton = document.getElementById('editButton');
+                const originalButtonText = editButton.innerHTML;
+                editButton.disabled = true;
+                editButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Loading...';
+                
                 const response = await fetch(`/admin/getUser/${userId}/`, {
                     headers: {
                         'X-CSRFToken': getCookie('csrftoken'),
-                        'X-Requested-With': 'XMLHttpRequest'
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Cache-Control': 'no-cache'
                     },
-                    credentials: 'same-origin'
+                    credentials: 'same-origin',
+                    cache: 'no-store'
                 });
 
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
                 const data = await response.json();
+                console.log('User data loaded:', data);
+                
                 if (data.status === 'success') {
+                    const user = data.user;
                     document.getElementById('edit_id').value = userId;
-                    document.getElementById('edit_name').value = data.user.name;
-                    document.getElementById('edit_email').value = data.user.email;
-                    document.getElementById('edit_role').value = data.user.role;
-                    document.getElementById('edit_is_active').checked = data.user.is_active;
+                    document.getElementById('edit_name').value = user.full_name || '';
+                    document.getElementById('edit_email').value = user.email || '';
+                    document.getElementById('edit_username').value = user.username || '';
+                    
+                    // Set role if available
+                    if (user.role) {
+                        document.getElementById('edit_role').value = user.role;
+                    } else if (user.is_superuser) {
+                        document.getElementById('edit_role').value = 'admin';
+                    } else if (user.is_staff) {
+                        document.getElementById('edit_role').value = 'warden';
+                    } else {
+                        document.getElementById('edit_role').value = 'student';
+                    }
+                    
+                    // Set active status
+                    const isActiveCheckbox = document.getElementById('edit_is_active');
+                    if (user.is_active !== undefined) {
+                        isActiveCheckbox.checked = user.is_active === true || user.is_active === 'true';
+                    } else {
+                        // Default to true if status not provided
+                        isActiveCheckbox.checked = true;
+                    }
+                    
+                    // Show success message
+                    messageDiv.textContent = 'User data loaded successfully';
+                    messageDiv.classList.remove('d-none', 'alert-danger');
+                    messageDiv.classList.add('alert-success');
+                    
                 } else {
-                    const messageDiv = document.getElementById('editFormMessage');
-                    messageDiv.textContent = data.message;
-                    messageDiv.classList.remove('d-none', 'alert-success');
-                    messageDiv.classList.add('alert-danger');
+                    throw new Error(data.message || 'Failed to load user data');
                 }
             } catch (error) {
                 console.error('Error loading user data:', error);
-                const messageDiv = document.getElementById('editFormMessage');
-                messageDiv.textContent = `An error occurred: ${error.message}`;
+                messageDiv.textContent = `Error: ${error.message}`;
                 messageDiv.classList.remove('d-none', 'alert-success');
                 messageDiv.classList.add('alert-danger');
+            } finally {
+                // Restore button state
+                const editButton = document.getElementById('editButton');
+                if (editButton) {
+                    editButton.disabled = false;
+                    editButton.innerHTML = 'Update';
+                }
             }
         }
 
@@ -853,6 +1253,8 @@
                 this.style.transform = 'scale(1)';
             });
         });
+
+        // Delete functionality has been removed
     });
 </script>
 {% endblock %}
