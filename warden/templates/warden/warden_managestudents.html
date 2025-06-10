@@ -1,0 +1,248 @@
+{% extends 'warden/warden_base.html' %}
+{% load static %}
+
+{% block title %}Manage Students - Warden Panel{% endblock %}
+
+{% block page_title %}Manage Students{% endblock %}
+
+{% block breadcrumbs %}
+    <li class="breadcrumb-item"><a href="{% url 'warden:dashboard' %}">Dashboard</a></li>
+    <li class="breadcrumb-item active" aria-current="page">Manage Students</li>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <!-- Student List Card -->
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Student List</h4>
+            <div class="d-flex">
+                <div class="input-group me-2" style="max-width: 300px;">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Search students..." value="{{ request.GET.search|default:'' }}">
+                    <button class="btn btn-outline-light" type="button" id="searchButton">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <div class="btn-group" role="group">
+                    <a href="?status=active" class="btn btn-outline-light {% if request.GET.status == 'active' %}active{% endif %}">
+                        Active
+                    </a>
+                    <a href="?status=inactive" class="btn btn-outline-light {% if request.GET.status == 'inactive' %}active{% endif %}">
+                        Inactive
+                    </a>
+                    <a href="?" class="btn btn-outline-light {% if not request.GET.status %}active{% endif %}">
+                        All
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Contact</th>
+                            <th>Room</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentTable">
+                        {% for student in students %}
+                            <tr>
+                                <td>{{ student.user.username }}</td>
+                                <td>{{ student.user.get_full_name }}</td>
+                                <td>{{ student.user.email }}</td>
+                                <td>{{ student.contact_number|default:"-" }}</td>
+                                <td>{{ student.room.room_number|default:"-" }}</td>
+                                <td>
+                                    <span class="badge {% if student.user.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                        {% if student.user.is_active %}Active{% else %}Inactive{% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-info view-student"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#viewStudentModal"
+                                            data-first-name="{{ student.user.first_name }}"
+                                            data-last-name="{{ student.user.last_name }}"
+                                            data-email="{{ student.user.email }}"
+                                            data-username="{{ student.user.username }}"
+                                            data-contact="{{ student.contact_number|default:'-' }}"
+                                            data-cnic="{{ student.cnic|default:'-' }}"
+                                            data-address="{{ student.address|default:'-' }}"
+                                            data-gender="{{ student.get_gender_display|default:'-' }}"
+                                            data-institute="{{ student.institute|default:'-' }}"
+                                            data-room="{{ student.room.room_number|default:'Not Assigned' }}">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                </td>
+                            </tr>
+                        {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center">No students found.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if is_paginated %}
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    {% if page_obj.has_previous %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                &laquo;
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">&laquo;</span>
+                        </li>
+                    {% endif %}
+
+                    {% for i in paginator.page_range %}
+                        {% if page_obj.number == i %}
+                            <li class="page-item active"><span class="page-link">{{ i }}</span></li>
+                        {% else %}
+                            <li class="page-item">
+                                <a class="page-link" href="?page={{ i }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                    {{ i }}
+                                </a>
+                            </li>
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if page_obj.has_next %}
+                        <li class="page-item">
+                            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% if request.GET.search %}&search={{ request.GET.search }}{% endif %}{% if request.GET.status %}&status={{ request.GET.status }}{% endif %}">
+                                &raquo;
+                            </a>
+                        </li>
+                    {% else %}
+                        <li class="page-item disabled">
+                            <span class="page-link">&raquo;</span>
+                        </li>
+                    {% endif %}
+                </ul>
+            </nav>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- View Student Modal -->
+<div class="modal fade" id="viewStudentModal" tabindex="-1" aria-labelledby="viewStudentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="viewStudentModalLabel">Student Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Personal Information</h6>
+                        <hr>
+                        <p><strong>Name:</strong> <span id="viewFullName"></span></p>
+                        <p><strong>Username:</strong> <span id="viewUsername"></span></p>
+                        <p><strong>Email:</strong> <span id="viewEmail"></span></p>
+                        <p><strong>Contact:</strong> <span id="viewContact"></span></p>
+                        <p><strong>CNIC:</strong> <span id="viewCnic"></span></p>
+                        <p><strong>Gender:</strong> <span id="viewGender"></span></p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Academic Information</h6>
+                        <hr>
+                        <p><strong>Institute:</strong> <span id="viewInstitute"></span></p>
+                        <p><strong>Room Number:</strong> <span id="viewRoom"></span></p>
+                        <h6 class="mt-4">Address</h6>
+                        <hr>
+                        <p id="viewAddress" class="mb-0"></p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // View Student Modal
+    const viewStudentModal = document.getElementById('viewStudentModal');
+    if (viewStudentModal) {
+        viewStudentModal.addEventListener('show.bs.modal', function(event) {
+            const button = event.relatedTarget;
+            
+            // Extract info from data-* attributes
+            const firstName = button.getAttribute('data-first-name');
+            const lastName = button.getAttribute('data-last-name');
+            const username = button.getAttribute('data-username');
+            const email = button.getAttribute('data-email');
+            const contact = button.getAttribute('data-contact');
+            const cnic = button.getAttribute('data-cnic');
+            const address = button.getAttribute('data-address');
+            const gender = button.getAttribute('data-gender');
+            const institute = button.getAttribute('data-institute');
+            const room = button.getAttribute('data-room');
+            
+            // Update the modal's content
+            document.getElementById('viewFullName').textContent = `${firstName} ${lastName}`;
+            document.getElementById('viewUsername').textContent = username;
+            document.getElementById('viewEmail').textContent = email;
+            document.getElementById('viewContact').textContent = contact;
+            document.getElementById('viewCnic').textContent = cnic;
+            document.getElementById('viewGender').textContent = gender;
+            document.getElementById('viewInstitute').textContent = institute;
+            document.getElementById('viewRoom').textContent = room;
+            document.getElementById('viewAddress').textContent = address;
+        });
+    }
+    
+    // Search functionality
+    const searchInput = document.getElementById('searchInput');
+    const searchButton = document.getElementById('searchButton');
+    
+    if (searchButton && searchInput) {
+        searchButton.addEventListener('click', function() {
+            const searchValue = searchInput.value.trim();
+            const url = new URL(window.location.href);
+            
+            if (searchValue) {
+                url.searchParams.set('search', searchValue);
+            } else {
+                url.searchParams.delete('search');
+            }
+            
+            window.location.href = url.toString();
+        });
+        
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                searchButton.click();
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

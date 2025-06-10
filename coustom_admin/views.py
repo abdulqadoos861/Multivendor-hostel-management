@@ -1,40 +1,51 @@
+from datetime import datetime, date, timedelta
 from django.shortcuts import render, redirect, get_object_or_404
-from django.views.decorators.http import require_http_methods
-from django.views.decorators.csrf import csrf_exempt, csrf_protect
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required, user_passes_test
-from django.core.exceptions import ObjectDoesNotExist
-import json
 from django.contrib import messages
-from django.contrib.auth.models import User
-from django.contrib.auth import authenticate, login
-from django.db.models import Q, F, Count, Case, When, Value, IntegerField
+from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.contrib.auth.decorators import login_required, user_passes_test
-from django.http import JsonResponse
-from django.db import transaction
-from django.db.models import F, Q
-from .models import Hostels, Wardens, HostelWardens, Rooms, RoomTypeRate, Student, BookingRequest, RoomAssignment
-from django.http import HttpResponse, JsonResponse, HttpResponseRedirect
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_http_methods
-from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from django.db import transaction
-from datetime import datetime, timedelta
-from django.views.decorators.csrf import csrf_exempt, csrf_protect
-from django.db.models import Q, Count, F
+from django.db.models import Q, Count, F, Case, When, Value, IntegerField, CharField, Prefetch
+from django.db.models.functions import TruncMonth, ExtractMonth, ExtractYear, Concat
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.template.loader import render_to_string
+from django.core.mail import send_mail
+from django.conf import settings
+import calendar
+import json
+from django.utils import timezone
+from django.utils.safestring import mark_safe
+from django.contrib.auth import get_user_model
+
+# Get the User model
+User = get_user_model()
+
 from .forms import StudentRegistrationForm, BookingRequestForm
 from .payment_forms import PaymentForm
-from .models import Payment
+from .models import Payment, Hostels, RoomTypeRate, Rooms, BookingRequest, Student, RoomAssignment , Wardens
 from django.urls import reverse
 import json
 import re
 import logging
 from django.utils.safestring import mark_safe
 from django.db.models import Prefetch
-from .models import Hostels, RoomTypeRate
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
 
 logger = logging.getLogger(__name__)
+
+@login_required
+def users(request):
+    """
+    View to display all non-superuser users
+    """
+    users = User.objects.filter(is_superuser=False).order_by('-date_joined')
+    context = {
+        'users': users,
+        'page_title': 'Manage Users',
+        'active_menu': 'users',
+    }
+    return render(request, 'users.html', context)
 
 def is_student(user):
     return hasattr(user, 'student')
@@ -94,9 +105,6 @@ def admin_login(request):
             if user is not None and user.is_superuser:
                 login(request, user)
                 return redirect("dashboard")
-            elif user is not None and user.is_staff:
-                login(request, user)
-                return redirect("warden_dashboard")
             else:
                 messages.error(request, "Invalid credentials")
                 return render(request, "admin_login.html")
@@ -754,17 +762,23 @@ def edit_student(request, user_id):
     
     elif request.method == 'POST':
         try:
-            # Get form data from request.POST for form submission
-            username = request.POST.get('username')
-            email = request.POST.get('email')
-            first_name = request.POST.get('first_name')
-            last_name = request.POST.get('last_name')
-            contact_number = request.POST.get('contact_number')
-            cnic = request.POST.get('cnic')
-            address = request.POST.get('address')
-            gender = request.POST.get('gender')
-            institute = request.POST.get('institute')
-            is_active = request.POST.get('is_active', 'true').lower() == 'true'
+            # Check if the request is JSON
+            if request.content_type == 'application/json':
+                data = json.loads(request.body)
+            else:
+                data = request.POST
+                
+            # Get form data
+            username = data.get('username')
+            email = data.get('email')
+            first_name = data.get('first_name')
+            last_name = data.get('last_name')
+            contact_number = data.get('contact_number')
+            cnic = data.get('cnic')
+            address = data.get('address')
+            gender = data.get('gender')
+            institute = data.get('institute')
+            is_active = data.get('is_active', 'true').lower() == 'true'
             
             # Validate required fields
             required_fields = [
@@ -772,7 +786,7 @@ def edit_student(request, user_id):
                 'contact_number', 'cnic', 'gender', 'institute'
             ]
             
-            missing_fields = [field for field in required_fields if not request.POST.get(field)]
+            missing_fields = [field for field in required_fields if not data.get(field)]
             if missing_fields:
                 return JsonResponse({
                     'status': 'error',
@@ -914,14 +928,18 @@ def delete_student(request, user_id):
         'status': 'error',
         'message': 'Invalid request method. Only POST is allowed.'
     }, status=405)
-
+@csrf_exempt
 def manageWardens(request):
-    wardens = Wardens.objects.select_related('user_id').prefetch_related('hostelwardens_set__hostel').all().order_by('-created_at')
+    """
+    View to display all wardens with their assigned hostels
+    """
+    wardens = Wardens.objects.select_related('user').prefetch_related('hostelwardens_set__hostel').all().order_by('-created_at')
     return render(request, "manageWardens.html", {"wardens": wardens})
 
-@login_required
-@csrf_exempt
 def addWarden(request):
+    # Check if it's an AJAX request at the beginning
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
     if request.method == 'POST':
         try:
             name = request.POST.get('name')
@@ -930,9 +948,6 @@ def addWarden(request):
             gender = request.POST.get('gender')
             password = request.POST.get('password')
             confirm_password = request.POST.get('confirm_password')
-
-            # Check if it's an AJAX request
-            is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
             if not all([name, email, phone, gender, password, confirm_password]):
                 if is_ajax:
@@ -975,7 +990,8 @@ def addWarden(request):
                     user_id=user,
                     name=name,
                     contact_number=phone,
-                    gender=gender
+                    gender=gender,
+                    created_at=timezone.now()
                 )
                 warden.save()
 
@@ -984,7 +1000,7 @@ def addWarden(request):
                         'status': 'success', 
                         'message': 'Warden registered successfully',
                         'warden': {
-                            'id': warden.id,
+                            'id': user.id,
                             'name': warden.name,
                             'email': email,
                             'phone': phone,
@@ -1047,7 +1063,7 @@ def assignHostel(request):
                 messages.error(request, 'Warden ID and Hostel ID are required')
                 return redirect('manageWardens')
             
-            warden = get_object_or_404(Wardens, id=warden_id)
+            warden = get_object_or_404(Wardens, user_id=warden_id)
             hostel = get_object_or_404(Hostels, id=hostel_id)
             
             if HostelWardens.objects.filter(hostel=hostel).exists():
@@ -1072,11 +1088,13 @@ def assignHostel(request):
 def deleteWarden(request, warden_id):
     if request.method == 'POST':
         try:
-            warden = get_object_or_404(Wardens, id=warden_id)
+            warden = get_object_or_404(Wardens, user_id=warden_id)
             
+            # Delete any hostel assignments first
             HostelWardens.objects.filter(warden=warden).delete()
             
-            user = warden.user_id
+            # Delete the warden and associated user
+            user = warden.user
             warden.delete()
             user.delete()
             
@@ -1156,8 +1174,9 @@ def getWarden(request, warden_id):
     
     try:
         logger.info("Trying to get warden from database...")
-        warden = Wardens.objects.get(id=warden_id)
-        logger.info(f"Found warden: {warden.name} (ID: {warden.id})")
+        # Use select_related to fetch the related user in the same query
+        warden = Wardens.objects.select_related('user').get(user_id=warden_id)
+        logger.info(f"Found warden: {warden.name} (User ID: {warden.user_id})")
         
         # Get assigned hostels
         logger.info("Fetching assigned hostels...")
@@ -1166,18 +1185,16 @@ def getWarden(request, warden_id):
         ).values_list('id', flat=True))
         logger.info(f"Assigned hostels: {assigned_hostels}")
         
-        # Get the user email
-        user_email = warden.user_id.email if hasattr(warden, 'user_id') and warden.user_id else ''
-        
+        # Get the user email through the related user object
         data = {
             'status': 'success',
             'warden': {
-                'id': warden.id,
+                'id': warden.user_id,  # Use user_id as the ID since it's the primary key
                 'name': warden.name,
-                'email': user_email,  # Use email from User model
+                'email': warden.user.email if hasattr(warden, 'user') else '',
                 'contact_number': warden.contact_number,
                 'gender': warden.gender,
-                'is_active': warden.user_id.is_active if hasattr(warden, 'user_id') and warden.user_id else False,
+                'is_active': warden.user.is_active if hasattr(warden, 'user') else False,
                 'assigned_hostels': assigned_hostels
             }
         }
@@ -1200,9 +1217,9 @@ def updateWarden(request, warden_id):
     
     if request.method == 'POST':
         try:
-            logger.info("Trying to get warden from database...")
-            warden = Wardens.objects.get(id=warden_id)
-            logger.info(f"Found warden: {warden.name} (ID: {warden.id})")
+            logger.info(f"Trying to get warden with user_id: {warden_id}")
+            warden = Wardens.objects.select_related('user').get(user_id=warden_id)
+            logger.info(f"Found warden: {warden.name} (User ID: {warden.user_id})")
             
             # Log all POST data for debugging
             logger.info(f"POST data: {request.POST}")
@@ -1222,8 +1239,8 @@ def updateWarden(request, warden_id):
             warden.gender = gender
             
             # Update user fields if user exists
-            if hasattr(warden, 'user_id') and warden.user_id:
-                user = warden.user_id
+            if hasattr(warden, 'user') and warden.user:
+                user = warden.user
                 user.email = email
                 user.is_active = is_active
                 
@@ -1517,12 +1534,10 @@ def manage_booking(request):
         }
         hostels_data.append(hostel_data)
     
-    # Convert to JSON and mark as safe
+    # Convert hostels_data to JSON for JavaScript
     hostels_json = mark_safe(json.dumps(hostels_data, ensure_ascii=False))
     
-    # Get today's date for the date picker
-    from datetime import date
-    
+    # Prepare context
     context = {
         'bookings': bookings.order_by('-request_date'),
         'status_counts': {item['status']: item['count'] for item in status_counts},

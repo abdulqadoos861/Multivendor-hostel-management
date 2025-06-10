@@ -19,7 +19,12 @@ class Hostels(models.Model):
         return self.name
 
 class Wardens(models.Model):
-    user_id = models.ForeignKey(User, on_delete=models.CASCADE)
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='warden_profile',
+        primary_key=True
+    )
     name = models.CharField(max_length=100)
     contact_number = models.CharField(max_length=11)
     gender = models.CharField(max_length=10)
@@ -27,6 +32,10 @@ class Wardens(models.Model):
 
     def __str__(self):
         return self.name
+
+    @property
+    def email(self):
+        return self.user.email
 
 class HostelWardens(models.Model):
     hostel = models.ForeignKey(Hostels, on_delete=models.CASCADE)

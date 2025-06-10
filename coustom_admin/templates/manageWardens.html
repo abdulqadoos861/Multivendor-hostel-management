@@ -52,14 +52,14 @@
                     <td>{{ warden.created_at|date:"Y-m-d H:i:s" }}</td>
                     <td class="action-buttons">
                         <button type="button" class="btn btn-primary btn-sm edit-warden" data-bs-toggle="modal" 
-                                data-bs-target="#editWardenModal" data-warden-id="{{ warden.id }}">
+                                data-bs-target="#editWardenModal" data-warden-id="{{ warden.user.id }}">
                             <i class="bi bi-pencil-fill me-1"></i> Edit
                         </button>
-                        <a href="{% url 'getAvailableHostels' warden.id %}" class="btn btn-success btn-sm">
+                        <a href="{% url 'getAvailableHostels' warden.user.id %}" class="btn btn-success btn-sm">
                             <i class="bi bi-building-fill me-1"></i> Assign Hostel
                         </a>
                         <button type="button" class="btn btn-danger btn-sm delete-warden" data-bs-toggle="modal" 
-                                data-bs-target="#deleteConfirmModal" data-warden-id="{{ warden.id }}" data-warden-name="{{ warden.name|escapejs }}">
+                                data-bs-target="#deleteConfirmModal" data-warden-id="{{ warden.user.id }}" data-warden-name="{{ warden.name|escapejs }}">
                             <i class="bi bi-trash-fill me-1"></i> Delete
                         </button>
                     </td>
@@ -582,7 +582,7 @@
             const messageDiv = document.getElementById('wardenFormMessage');
 
             try {
-                const response = await fetch(wardenForm.action, {
+                const response = await fetch('/admin/add_warden/', {
                     method: 'POST',
                     body: formData,
                     headers: {

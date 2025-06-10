@@ -1,19 +1,11 @@
-
 {% extends 'base.html' %}
 {% load static %}
+
 {% block title %}Manage Students{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
-    <!-- Hidden div to store messages as JSON -->
-    <div id="django-messages" style="display: none;" data-messages='[
-        {% for message in messages %}
-            {
-                "tags": "{{ message.tags|escapejs }}",
-                "message": "{{ message|escapejs }}"
-            }{% if not forloop.last %},{% endif %}
-        {% endfor %}
-    ]'></div>
+    <!-- Messages will be shown by Django's message framework -->
 
     <!-- Add Student Card -->
     <div class="card mb-4">
@@ -178,45 +170,19 @@
                                     </span>
                                 </td>
                                 <td>
-                                    <!-- View Button -->
-                                    <button class="btn btn-sm btn-info view-student"
-                                            data-id="{{ student.user.id }}"
-                                            data-username="{{ student.user.username }}"
-                                            data-email="{{ student.user.email }}"
-                                            data-first-name="{{ student.user.first_name }}"
-                                            data-last-name="{{ student.user.last_name }}"
-                                            data-contact-number="{{ student.contact_number }}"
-                                            data-address="{{ student.address }}"
-                                            data-gender="{{ student.gender }}"
-                                            data-institute="{{ student.institute }}"
-                                            data-cnic="{{ student.cnic }}"
-                                            data-status="{{ student.user.is_active|yesno:'Active,Inactive' }}"
-                                            data-bs-toggle="modal"
-                                            data-bs-target="#viewStudentModal">
-                                        <i class="fas fa-eye"></i> View
-                                    </button>
                                     <!-- Edit Button -->
                                     <button class="btn btn-sm btn-warning edit-student"
                                             data-id="{{ student.user.id }}"
-                                            data-username="{{ student.user.username }}"
-                                            data-email="{{ student.user.email }}"
-                                            data-first-name="{{ student.user.first_name }}"
-                                            data-last-name="{{ student.user.last_name }}"
-                                            data-contact-number="{{ student.contact_number }}"
-                                            data-address="{{ student.address }}"
-                                            data-gender="{{ student.gender }}"
-                                            data-institute="{{ student.institute }}"
-                                            data-cnic="{{ student.cnic }}"
-                                            data-status="{{ student.user.is_active }}"
+                                            data-url="{% url 'edit_student' student.user.id %}"
                                             data-bs-toggle="modal"
                                             data-bs-target="#editStudentModal">
                                         <i class="fas fa-edit"></i> Edit
                                     </button>
                                     <!-- Delete Button -->
-                                    <button class="btn btn-sm btn-danger delete-student"
+                                    <button class="btn btn-sm btn-danger delete-student ms-1"
                                             data-id="{{ student.user.id }}"
                                             data-username="{{ student.user.username }}"
-                                            data-delete-url="/admin/delete_student/0/">
+                                            data-delete-url="{% url 'delete_student' student.user.id %}">
                                         <i class="fas fa-trash"></i> Delete
                                     </button>
                                 </td>
@@ -360,6 +326,12 @@
 </div>
 
 <script>
+// Form element references
+const editContactNumberInput = document.getElementById('edit_contact_number');
+const editCnicInput = document.getElementById('edit_cnic');
+const editContactError = document.getElementById('edit_contactError');
+const editCnicError = document.getElementById('edit_cnicError');
+
 // Utility function to get CSRF token
 function getCookie(name) {
     let cookieValue = null;
@@ -385,49 +357,47 @@ function showAlert(message, type) {
         ${message}
         <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
     `;
+    
     const container = document.querySelector('.container');
     if (container) {
         container.insertBefore(alertDiv, container.firstChild);
+        
+        // Auto-dismiss after 5 seconds
         setTimeout(() => {
-            if (document.body.contains(alertDiv)) {
-                alertDiv.remove();
-            }
+            const alert = bootstrap.Alert.getOrCreateInstance(alertDiv);
+            if (alert) alert.close();
         }, 5000);
     }
 }
 
-// Initialize tooltips
-var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
-var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
-    return new bootstrap.Tooltip(tooltipTriggerEl);
-});
-
-// Initialize toast
-var toastEl = document.getElementById('toast');
-var toast = new bootstrap.Toast(toastEl, { delay: 5000 });
-
+// Function to show toast notifications
 function showToast(title, message, type = 'success') {
-    const toastTitle = document.getElementById('toast-title');
-    const toastMessage = document.getElementById('toast-message');
-    const toastElement = document.getElementById('toast');
+    const toastContainer = document.getElementById('toast');
+    if (!toastContainer) return;
     
-    toastTitle.textContent = title;
-    toastMessage.textContent = message;
+    const toastTitle = toastContainer.querySelector('.toast-title');
+    const toastMessage = toastContainer.querySelector('.toast-message');
     
-    toastElement.classList.remove('bg-success', 'bg-danger', 'bg-warning');
+    if (toastTitle) toastTitle.textContent = title;
+    if (toastMessage) toastMessage.textContent = message;
+    
+    // Set appropriate background color based on type
+    toastContainer.classList.remove('bg-success', 'bg-danger', 'bg-warning');
     if (type === 'success') {
-        toastElement.classList.add('bg-success', 'text-white');
+        toastContainer.classList.add('bg-success');
     } else if (type === 'error') {
-        toastElement.classList.add('bg-danger', 'text-white');
+        toastContainer.classList.add('bg-danger');
     } else if (type === 'warning') {
-        toastElement.classList.add('bg-warning', 'text-dark');
+        toastContainer.classList.add('bg-warning');
     }
     
+    // Initialize and show the toast
+    const toast = new bootstrap.Toast(toastContainer);
     toast.show();
 }
 
 // Show Django messages as toasts
-document.addEventListener('DOMContentLoaded', function() {
+function showDjangoMessages() {
     const messagesDiv = document.getElementById('django-messages');
     if (messagesDiv) {
         try {
@@ -443,13 +413,46 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Error parsing Django messages:', e);
         }
     }
+}
+
+// Initialize everything when DOM is loaded
+document.addEventListener('DOMContentLoaded', function() {
+    // Show any Django messages
+    showDjangoMessages();
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Initialize popovers
+    var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+    var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+        return new bootstrap.Popover(popoverTriggerEl);
+    });
+
+    // Initialize search functionality
+    const searchInput = document.getElementById('searchInput');
+    const searchButton = document.getElementById('searchButton');
+
+    if (searchButton) {
+        searchButton.addEventListener('click', performSearch);
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+    }
 });
 
 // Handle search
-const searchInput = document.getElementById('searchInput');
-const searchButton = document.getElementById('searchButton');
-
 function performSearch() {
+    const searchInput = document.getElementById('searchInput');
+    if (!searchInput) return;
+    
     const searchTerm = searchInput.value.trim();
     const currentUrl = new URL(window.location.href);
     
@@ -465,18 +468,6 @@ function performSearch() {
     }
     
     window.location.href = currentUrl.toString();
-}
-
-if (searchButton) {
-    searchButton.addEventListener('click', performSearch);
-}
-
-if (searchInput) {
-    searchInput.addEventListener('keypress', function(e) {
-        if (e.key === 'Enter') {
-            performSearch();
-        }
-    });
 }
 
 // Main DOM Content Loaded handler
@@ -721,6 +712,7 @@ document.addEventListener('DOMContentLoaded', function() {
         editStudentForm.addEventListener('submit', async function(e) {
             e.preventDefault();
             
+            // Form validation
             let isValid = true;
             if (editContactNumberInput && editContactError) {
                 const contactValue = editContactNumberInput.value;
@@ -751,24 +743,27 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             
-            const formData = new FormData(editStudentForm);
-            const submitButton = editStudentForm.querySelector('button[type="submit"]');
+            const form = e.target;
+            const formData = new FormData(form);
+            const submitButton = form.querySelector('button[type="submit"]');
             const originalButtonText = submitButton.innerHTML;
-            const studentId = document.getElementById('edit_user_id').value;
+            const studentId = document.getElementById('edit_user_id')?.value;
             
             if (!studentId) {
                 showAlert('Invalid student ID', 'danger');
                 return;
             }
             
-            const formDataObj = {};
-            formData.forEach((value, key) => {
-                formDataObj[key] = value;
-            });
+            // Show loading state
+            submitButton.disabled = true;
+            submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Updating...';
             
             try {
-                submitButton.disabled = true;
-                submitButton.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Updating...';
+                // Convert FormData to JSON object
+                const formDataObj = {};
+                formData.forEach((value, key) => {
+                    formDataObj[key] = value;
+                });
                 
                 const response = await fetch(`/admin/edit_student/${studentId}/`, {
                     method: 'POST',
@@ -788,16 +783,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     const modal = bootstrap.Modal.getInstance(document.getElementById('editStudentModal'));
                     if (modal) modal.hide();
                     setTimeout(() => {
-                        if (result.redirect_url) {
-                            window.location.href = result.redirect_url;
-                        } else {
-                            window.location.reload();
-                        }
+                        window.location.reload();
                     }, 1000);
                 } else {
                     showAlert(result.message || 'Failed to update student', 'danger');
                 }
             } catch (error) {
+                console.error('Error updating student:', error);
                 showAlert(`Error: ${error.message}`, 'danger');
             } finally {
                 submitButton.disabled = false;
@@ -836,23 +828,94 @@ document.addEventListener('DOMContentLoaded', function() {
     // Edit Student Modal Handler
     document.querySelectorAll('.edit-student').forEach(button => {
         button.addEventListener('click', function() {
-            const form = document.getElementById('editStudentForm');
             const userId = this.dataset.id;
-            const baseUrl = form.dataset.editUrl.replace('0', userId);
+            const editUrl = this.dataset.url;
             
-            form.action = baseUrl;
+            // Get the modal and store the original content
+            const modal = document.getElementById('editStudentModal');
+            const modalInstance = new bootstrap.Modal(modal);
+            const form = modal.querySelector('#editStudentForm');
             
-            document.getElementById('edit_user_id').value = userId || '';
-            document.getElementById('edit_username').value = this.dataset.username || '';
-            document.getElementById('edit_email').value = this.dataset.email || '';
-            document.getElementById('edit_first_name').value = this.dataset.firstName || '';
-            document.getElementById('edit_last_name').value = this.dataset.lastName || '';
-            document.getElementById('edit_contact_number').value = this.dataset.contactNumber || '';
-            document.getElementById('edit_cnic').value = this.dataset.cnic || '';
-            document.getElementById('edit_address').value = this.dataset.address || '';
-            document.getElementById('edit_gender').value = this.dataset.gender || 'M';
-            document.getElementById('edit_institute').value = this.dataset.institute || '';
-            document.getElementById('edit_status').value = this.dataset.status === 'true' ? 'true' : 'false';
+            // Show loading state
+            const modalBody = modal.querySelector('.modal-body');
+            const originalContent = modalBody.innerHTML;
+            modalBody.innerHTML = '<div class="text-center my-5"><div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div></div>';
+            
+            // Show the modal first
+            modalInstance.show();
+            
+            // Get CSRF token
+            const csrftoken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            
+            // Fetch student data
+            fetch(editUrl, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': csrftoken
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    const student = data.student;
+                    console.log('Student data loaded:', student);
+                    
+                    // Restore modal content before setting values
+                    modalBody.innerHTML = originalContent;
+                    
+                    // Update form action
+                    form.action = editUrl;
+                    
+                    // Helper function to safely set value
+                    const setValue = (id, value, defaultValue = '') => {
+                        const element = document.getElementById(id);
+                        if (element) {
+                            element.value = value || defaultValue;
+                        } else {
+                            console.warn(`Element with ID '${id}' not found`);
+                        }
+                    };
+                    
+                    // Set values for all form fields
+                    setValue('edit_user_id', userId);
+                    setValue('edit_username', student.username);
+                    setValue('edit_email', student.email);
+                    setValue('edit_first_name', student.first_name);
+                    setValue('edit_last_name', student.last_name);
+                    setValue('edit_contact_number', student.contact_number);
+                    setValue('edit_cnic', student.cnic);
+                    setValue('edit_address', student.address);
+                    setValue('edit_gender', student.gender || 'M');
+                    setValue('edit_institute', student.institute);
+                    setValue('edit_status', student.is_active ? 'true' : 'false');
+                } else {
+                    throw new Error(data.message || 'Failed to load student data');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                // Restore original content first
+                modalBody.innerHTML = originalContent;
+                
+                // Show error message
+                const alertDiv = document.createElement('div');
+                alertDiv.className = 'alert alert-danger alert-dismissible fade show';
+                alertDiv.role = 'alert';
+                alertDiv.innerHTML = `
+                    Failed to load student data: ${error.message}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                `;
+                
+                // Insert the alert at the top of the modal body
+                modalBody.insertBefore(alertDiv, modalBody.firstChild);
+            });
         });
     });
 

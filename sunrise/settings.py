@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'coustom_admin',
     'frontend',
+    'warden',
 ]
 
 MIDDLEWARE = [
