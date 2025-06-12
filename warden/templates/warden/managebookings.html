@@ -1,0 +1,490 @@
+{% extends 'warden/warden_base.html' %}
+{% block title %}Manage Bookings{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Filters Section -->
+    <div class="card filter-card mb-4 fade-in">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Filter Bookings</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3" id="filterForm">
+                <div class="col-md-4 col-sm-6">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select" id="status" name="status">
+                        <option value="">All Status</option>
+                        <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="Approved" {% if status_filter == 'Approved' %}selected{% endif %}>Approved</option>
+                        <option value="Rejected" {% if status_filter == 'Rejected' %}selected{% endif %}>Rejected</option>
+                    </select>
+                </div>
+                <div class="col-md-4 col-sm-12">
+                    <label for="search" class="form-label">Search</label>
+                    <input type="text" class="form-control" id="search" name="search" 
+                           placeholder="Search by student name" value="{{ search_query }}">
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary me-2" id="filterButton">
+                        <i class="bi bi-funnel-fill me-1"></i> Apply Filters
+                    </button>
+                    <a href="{% url 'warden:manage_bookings' %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create New Booking Section -->
+    <div class="card mb-4 fade-in">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Create New Booking</h5>
+        </div>
+        <div class="card-body">
+            <!-- Student Search -->
+            <div class="mb-4">
+                <h6>Search Student</h6>
+                <div class="input-group">
+                    <input type="text" id="studentSearch" class="form-control" placeholder="Search by student name or CNIC">
+                    <button class="btn btn-primary" type="button" id="searchStudentBtn">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+                <div id="searchResults" class="mt-2" style="display: none;">
+                    <div class="list-group">
+                        <!-- Search results will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Booking Form (initially hidden) -->
+            <div id="bookingFormContainer" style="display: none;">
+                <h6>Booking Details</h6>
+                <form id="bookingForm" method="POST" action="{% url 'warden:create_booking' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="student_id" id="studentId">
+                    <input type="hidden" name="student" id="studentField">
+                    
+                    <!-- Student Information -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">Student Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="studentName" class="form-label">Student Name</label>
+                                    <input type="text" class="form-control" id="studentName" readonly>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="studentCnic" class="form-label">CNIC</label>
+                                    <input type="text" class="form-control" id="studentCnic" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Booking Details -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">Booking Details</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="roomType" class="form-label">Room Type</label>
+                                    <select class="form-select" id="roomType" name="room_type" required>
+                                        <option value="" selected disabled>Select Room Type</option>
+                                        <option value="Single">Single</option>
+                                        <option value="Double">Double</option>
+                                        <option value="Shared">Shared</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="requestDate" class="form-label">Check-in Date</label>
+                                    <input type="date" class="form-control" id="requestDate" name="check_in_date" required min="{{ today|date:'Y-m-d' }}">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="duration" class="form-label">Duration (Months)</label>
+                                    <input type="number" class="form-control" id="duration" name="duration" min="1" value="1" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" id="cancelBooking">
+                            <i class="bi bi-x-circle me-1"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i> Create Booking
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bookings Table -->
+    <div class="card bookings-card fade-in">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Booking Requests</h5>
+            <span class="badge bg-primary">Total: {{ total_bookings }}</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover bookings-table">
+                    <thead>
+                        <tr>
+                            <th>Booking ID</th>
+                            <th>Student Name</th>
+                            <th>Room Type</th>
+                            <th>Request Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for booking in bookings %}
+                        <tr>
+                            <td>#{{ booking.id }}</td>
+                            <td>{{ booking.student.get_full_name }}</td>
+                            <td>{{ booking.room_type }}</td>
+                            <td>{{ booking.request_date|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                {% if booking.status == 'Pending' %}
+                                    <span class="badge bg-warning">Pending</span>
+                                {% elif booking.status == 'Approved' %}
+                                    <span class="badge bg-success">Approved</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Rejected</span>
+                                {% endif %}
+                            </td>
+                            <td class="action-buttons">
+                                {% if booking.status == 'Pending' %}
+                                    <button class="btn btn-sm btn-success approve-btn me-1" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#approveModal"
+                                            data-booking-id="{{ booking.id }}">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Approve
+                                    </button>
+                                    <button class="btn btn-sm btn-danger reject-btn"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#rejectModal"
+                                            data-booking-id="{{ booking.id }}">
+                                        <i class="bi bi-x-circle-fill me-1"></i> Reject
+                                    </button>
+                                {% endif %}
+                                <button class="btn btn-sm btn-info view-btn"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#viewModal"
+                                        data-booking-id="{{ booking.id }}">
+                                    <i class="bi bi-eye-fill me-1"></i> View
+                                </button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Approve Modal -->
+<div class="modal fade" id="approveModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Approve Booking</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to approve this booking request?</p>
+                <form id="approveForm" method="POST">
+                    {% csrf_token %}
+                    <input type="hidden" id="approveBookingId">
+                    <div class="mb-3">
+                        <label for="roomSelect" class="form-label">Select Room</label>
+                        <select class="form-select" id="roomSelect" name="room_id" required>
+                            <option value="">Loading rooms...</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="adminNotes" class="form-label">Notes (Optional)</label>
+                        <textarea class="form-control" id="adminNotes" name="admin_notes" rows="3"></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-success" id="confirmApprove">Approve</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Reject Booking</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to reject this booking request?</p>
+                <form id="rejectForm" method="POST">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="rejectReason" class="form-label">Reason for Rejection</label>
+                        <textarea class="form-control" id="rejectReason" name="admin_notes" rows="3" required></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmReject">Reject</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- View Modal -->
+<div class="modal fade" id="viewModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Booking Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Details will be populated via JavaScript -->
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    // Handle student search
+    $('#searchStudentBtn').click(function() {
+        var query = $('#studentSearch').val();
+        $.ajax({
+            url: '{% url "warden:search_students" %}',
+            data: { 'query': query },
+            success: function(data) {
+                var results = $('#searchResults .list-group');
+                results.empty();
+                data.forEach(function(student) {
+                    results.append(
+                        `<a href="#" class="list-group-item list-group-item-action select-student"
+                           data-id="${student.id}"
+                           data-name="${student.full_name}"
+                           data-cnic="${student.cnic}">
+                            ${student.full_name} (${student.cnic})
+                        </a>`
+                    );
+                });
+                $('#searchResults').show();
+            }
+        });
+    });
+
+    // Handle student selection
+    $(document).on('click', '.select-student', function(e) {
+        e.preventDefault();
+        $('#studentId').val($(this).data('id'));
+        $('#studentName').val($(this).data('name'));
+        $('#studentCnic').val($(this).data('cnic'));
+        $('#searchResults').hide();
+        $('#bookingFormContainer').show();
+    });
+
+    // Handle booking form submission
+    $('#bookingForm').submit(function(e) {
+        e.preventDefault();
+        $.ajax({
+            url: $(this).attr('action'),
+            method: 'POST',
+            data: $(this).serialize(),
+            success: function(response) {
+                if (response.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Error creating booking: ' + response.error);
+                }
+            },
+            error: function(xhr) {
+                alert('Error creating booking: ' + (xhr.responseJSON?.error || 'Unknown error'));
+            }
+        });
+    });
+
+    // Handle cancel booking
+    $('#cancelBooking').click(function() {
+        $('#bookingFormContainer').hide();
+        $('#bookingForm')[0].reset();
+        $('#studentSearch').val('');
+    });
+
+    // Handle booking approval
+    $('#confirmApprove').click(function() {
+        var bookingId = $('#approveModal').data('bookingId');
+        var roomId = $('#roomSelect').val();
+        var notes = $('#adminNotes').val();
+
+        if (!roomId) {
+            alert('Please select a room.');
+            return;
+        }
+
+        $.ajax({
+            url: `/warden/bookings/${bookingId}/approve/`,
+            method: 'POST',
+            data: {
+                'room_id': roomId,
+                'admin_notes': notes,
+                'csrfmiddlewaretoken': $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function(response) {
+                if (response.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Error approving booking: ' + response.error);
+                }
+            },
+            error: function(xhr) {
+                alert('Error approving booking: ' + (xhr.responseJSON?.error || 'Unknown error'));
+            }
+        });
+    });
+
+    // Populate rooms when approve modal is shown
+    $('#approveModal').on('show.bs.modal', function(event) {
+        var button = $(event.relatedTarget); // Button that triggered the modal
+        var bookingId = button.data('booking-id');
+        var modal = $(this);
+        modal.data('bookingId', bookingId);
+        $('#approveBookingId').val(bookingId);
+
+        // Fetch booking details to get room type and check-in date
+        $.ajax({
+            url: `/warden/bookings/${bookingId}/details/`,
+            method: 'GET',
+            success: function(bookingData) {
+                // Fetch available rooms based on booking details
+                $.ajax({
+                    url: `{% url 'warden:get_available_rooms' %}`,
+                    method: 'GET',
+                    data: {
+                        'room_type': bookingData.room_type,
+                        'check_in_date': bookingData.check_in_date.split(' ')[0] // Extract date part
+                    },
+                    success: function(data) {
+                        var roomSelect = $('#roomSelect');
+                        roomSelect.empty();
+                        if (data.length > 0) {
+                            roomSelect.append('<option value="">Select a Room</option>');
+                            data.forEach(function(room) {
+                                roomSelect.append(`<option value="${room.id}">${room.room_number} (Capacity: ${room.capacity}, Occupied: ${room.current_occupants})</option>`);
+                            });
+                        } else {
+                            roomSelect.append('<option value="">No available rooms</option>');
+                        }
+                    },
+                    error: function() {
+                        alert('Error fetching available rooms.');
+                        $('#roomSelect').empty().append('<option value="">Error loading rooms</option>');
+                    }
+                });
+            },
+            error: function() {
+                alert('Error fetching booking details.');
+            }
+        });
+    });
+
+    // Handle booking rejection
+    $('#confirmReject').click(function() {
+        var bookingId = $('#rejectModal').data('bookingId');
+        var reason = $('#rejectReason').val();
+        if (!reason) {
+            alert('Please provide a reason for rejection');
+            return;
+        }
+        $.ajax({
+            url: `/warden/bookings/${bookingId}/reject/`,
+            method: 'POST',
+            data: {
+                'admin_notes': reason,
+                'csrfmiddlewaretoken': $('[name=csrfmiddlewaretoken]').val()
+            },
+            success: function() {
+                location.reload();
+            },
+            error: function() {
+                alert('Error rejecting booking');
+            }
+        });
+    });
+
+    // Store booking ID when opening modals
+    $('.approve-btn').click(function() {
+        $('#approveModal').data('bookingId', $(this).data('booking-id'));
+    });
+
+    $('.reject-btn').click(function() {
+        $('#rejectModal').data('bookingId', $(this).data('booking-id'));
+    });
+
+    // Handle view booking details
+    $('.view-btn').click(function() {
+        var bookingId = $(this).data('booking-id');
+        $.ajax({
+            url: `/warden/bookings/${bookingId}/details/`,
+            success: function(data) {
+                var modalBody = $('#viewModal .modal-body');
+                modalBody.html(`
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <strong>Student Name:</strong>
+                            <p>${data.student_name}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>Room Type:</strong>
+                            <p>${data.room_type}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>Check-in Date:</strong>
+                            <p>${data.check_in_date}</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>Duration:</strong>
+                            <p>${data.duration} months</p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <strong>Status:</strong>
+                            <p>${data.status}</p>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <strong>Admin Notes:</strong>
+                            <p>${data.admin_notes || 'No notes available'}</p>
+                        </div>
+                    </div>
+                `);
+            },
+            error: function() {
+                alert('Error fetching booking details');
+            }
+        });
+    });
+});
+</script>
+{% endblock %}
+{% endblock %}

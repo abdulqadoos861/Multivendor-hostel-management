@@ -138,6 +138,8 @@
         }
     </style>
     {% block extra_css %}{% endblock %}
+    <!-- jQuery -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 </head>
 <body>
     <div class="container-fluid">
@@ -157,6 +159,11 @@
                         <li class="nav-item">
                             <a class="nav-link {% if 'students' in request.path %}active{% endif %}" href="{% url 'warden:manage_students' %}">
                                 <i class="fas fa-users"></i> Manage Students
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'bookings' in request.path %}active{% endif %}" href="{% url 'warden:manage_bookings' %}">
+                                <i class="fas fa-book"></i> Manage Bookings
                             </a>
                         </li>
                         <li class="nav-item">

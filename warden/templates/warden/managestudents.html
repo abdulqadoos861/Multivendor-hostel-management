@@ -1,0 +1,303 @@
+{% extends 'warden/warden_base.html' %}
+{% load static %}
+
+{% block title %}Manage Students{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <!-- Add Student Card -->
+    <div class="card mb-4">
+        <div class="card-header bg-primary text-white">
+            <h4 class="mb-0">Add New Student</h4>
+        </div>
+        <div class="card-body">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            <form id="studentForm" method="POST" action="{% url 'warden:manage_students' %}">
+                {% csrf_token %}
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="id_username" class="form-label">Username</label>
+                        {{ form.username }}
+                        {% if form.username.errors %}
+                            <div class="text-danger">{{ form.username.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="id_email" class="form-label">Email</label>
+                        {{ form.email }}
+                        {% if form.email.errors %}
+                            <div class="text-danger">{{ form.email.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="id_password" class="form-label">Password</label>
+                        {{ form.password }}
+                        {% if form.password.errors %}
+                            <div class="text-danger">{{ form.password.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="id_confirm_password" class="form-label">Confirm Password</label>
+                        {{ form.confirm_password }}
+                        {% if form.confirm_password.errors %}
+                            <div class="text-danger">{{ form.confirm_password.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label for="id_first_name" class="form-label">First Name</label>
+                        {{ form.first_name }}
+                        {% if form.first_name.errors %}
+                            <div class="text-danger">{{ form.first_name.errors }}</div>
+                        {% endif %}
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label for="id_last_name" class="form-label">Last Name</label>
+                        {{ form.last_name }}
+                        {% if form.last_name.errors %}
+                            <div class="text-danger">{{ form.last_name.errors }}</div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <label for="id_contact_number" class="form-label">Contact Number</label>
+                    {{ form.contact_number }}
+                    {% if form.contact_number.errors %}
+                        <div class="text-danger">{{ form.contact_number.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="mb-3">
+                    <label for="id_cnic" class="form-label">CNIC</label>
+                    {{ form.cnic }}
+                    {% if form.cnic.errors %}
+                        <div class="text-danger">{{ form.cnic.errors }}</div>
+                    {% endif %}
+                    <div class="form-text">{{ form.cnic.help_text }}</div>
+                </div>
+                <div class="mb-3">
+                    <label for="id_address" class="form-label">Address</label>
+                    {{ form.address }}
+                    {% if form.address.errors %}
+                        <div class="text-danger">{{ form.address.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="mb-3">
+                    <label for="id_gender" class="form-label">Gender</label>
+                    {{ form.gender }}
+                    {% if form.gender.errors %}
+                        <div class="text-danger">{{ form.gender.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="mb-3">
+                    <label for="id_institute" class="form-label">Institute</label>
+                    {{ form.institute }}
+                    {% if form.institute.errors %}
+                        <div class="text-danger">{{ form.institute.errors }}</div>
+                    {% endif %}
+                </div>
+                <div class="mt-4">
+                    <button type="submit" class="btn btn-primary" id="submitBtn">Add Student</button>
+                    <button type="reset" class="btn btn-secondary">Reset</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    <!-- Student List Card -->
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Student List</h4>
+            <div class="d-flex">
+                <div class="input-group me-2" style="max-width: 300px;">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Search students..." value="{{ request.GET.search|default:'' }}">
+                    <button class="btn btn-outline-light" type="button" id="searchButton">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <div class="btn-group" role="group">
+                    <a href="?status=active" class="btn btn-outline-light {% if request.GET.status == 'active' %}active{% endif %}">
+                        Active
+                    </a>
+                    <a href="?status=inactive" class="btn btn-outline-light {% if request.GET.status == 'inactive' %}active{% endif %}">
+                        Inactive
+                    </a>
+                    <a href="?" class="btn btn-outline-light {% if not request.GET.status %}active{% endif %}">
+                        All
+                    </a>
+                </div>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+            <div class="table-responsive">
+                <table class="table table-striped">
+                    <thead>
+                        <tr>
+                            <th>Username</th>
+                            <th>Full Name</th>
+                            <th>Email</th>
+                            <th>Contact Number</th>
+                            <th>Institute</th>
+                            <th>CNIC</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="studentTable">
+                        {% for student in students %}
+                            <tr>
+                                <td>{{ student.user.username }}</td>
+                                <td>{{ student.user.first_name }} {{ student.user.last_name }}</td>
+                                <td>{{ student.user.email }}</td>
+                                <td>{{ student.contact_number }}</td>
+                                <td>{{ student.institute }}</td>
+                                <td>{{ student.cnic }}</td>
+                                <td>
+                                    <span class="badge {% if student.user.is_active %}bg-success{% else %}bg-danger{% endif %}">
+                                        {% if student.user.is_active %}Active{% else %}Inactive{% endif %}
+                                    </span>
+                                </td>
+                                <td>
+                                    <!-- View Button -->
+                                    <button class="btn btn-sm btn-info view-student"
+                                            data-id="{{ student.id }}"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#viewStudentModal">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Student Modal -->
+    <div class="modal fade" id="viewStudentModal" tabindex="-1" aria-labelledby="viewStudentModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="viewStudentModalLabel">Student Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Username:</label>
+                            <p id="modal-username"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Full Name:</label>
+                            <p id="modal-fullname"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Email:</label>
+                            <p id="modal-email"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Contact Number:</label>
+                            <p id="modal-contact"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">CNIC:</label>
+                            <p id="modal-cnic"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Institute:</label>
+                            <p id="modal-institute"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Gender:</label>
+                            <p id="modal-gender"></p>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="fw-bold">Status:</label>
+                            <p id="modal-status"></p>
+                        </div>
+                        <div class="col-12 mb-3">
+                            <label class="fw-bold">Address:</label>
+                            <p id="modal-address"></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% block extra_js %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle view student button clicks
+            document.querySelectorAll('.view-student').forEach(button => {
+                button.addEventListener('click', function() {
+                    const studentId = this.getAttribute('data-id');
+                    fetch(`/warden/student/${studentId}/details/`, {
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                        }
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error('Network response was not ok');
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        // Update modal with student details
+                        document.getElementById('modal-username').textContent = data.username;
+                        document.getElementById('modal-fullname').textContent = `${data.first_name} ${data.last_name}`;
+                        document.getElementById('modal-email').textContent = data.email;
+                        document.getElementById('modal-contact').textContent = data.contact_number;
+                        document.getElementById('modal-cnic').textContent = data.cnic;
+                        document.getElementById('modal-institute').textContent = data.institute;
+                        document.getElementById('modal-gender').textContent = data.gender;
+                        document.getElementById('modal-address').textContent = data.address;
+                        document.getElementById('modal-status').textContent = data.is_active ? 'Active' : 'Inactive';
+                        document.getElementById('modal-status').className = data.is_active ? 'text-success' : 'text-danger';
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Error fetching student details');
+                    });
+                });
+            });
+
+            // Handle search functionality
+            document.getElementById('searchButton').addEventListener('click', function() {
+                const searchQuery = document.getElementById('searchInput').value;
+                window.location.href = `?search=${encodeURIComponent(searchQuery)}`;
+            });
+
+            // Allow search on Enter key press
+            document.getElementById('searchInput').addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    document.getElementById('searchButton').click();
+                }
+            });
+        });
+    </script>
+    {% endblock %}
+</div>
+{% endblock %}
