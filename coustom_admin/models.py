@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models import Q
 from django.contrib.auth.models import User
 from django.utils import timezone
 import uuid
@@ -125,6 +126,15 @@ class BookingRequest(models.Model):
     check_in_date = models.DateField()
     check_out_date = models.DateField(null=True, blank=True)
     request_date = models.DateTimeField(auto_now_add=True, help_text='When the booking was requested')
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['student'],
+                condition=Q(status='Pending') | Q(status='Approved'),
+                name='unique_active_booking_per_student'
+            )
+        ]
     updated_at = models.DateTimeField(auto_now=True)
     admin_notes = models.TextField(blank=True, null=True)
     

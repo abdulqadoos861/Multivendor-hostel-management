@@ -55,9 +55,10 @@
                                 data-bs-target="#editWardenModal" data-warden-id="{{ warden.user.id }}">
                             <i class="bi bi-pencil-fill me-1"></i> Edit
                         </button>
-                        <a href="{% url 'getAvailableHostels' warden.user.id %}" class="btn btn-success btn-sm">
+                        <button type="button" class="btn btn-success btn-sm assign-hostel" data-bs-toggle="modal" 
+                                data-bs-target="#assignHostelModal" data-warden-id="{{ warden.user.id }}" data-warden-name="{{ warden.name|escapejs }}">
                             <i class="bi bi-building-fill me-1"></i> Assign Hostel
-                        </a>
+                        </button>
                         <button type="button" class="btn btn-danger btn-sm delete-warden" data-bs-toggle="modal" 
                                 data-bs-target="#deleteConfirmModal" data-warden-id="{{ warden.user.id }}" data-warden-name="{{ warden.name|escapejs }}">
                             <i class="bi bi-trash-fill me-1"></i> Delete
@@ -165,6 +166,37 @@
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                             <button type="submit" class="btn btn-primary" id="editWardenButton">Update</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Assign Hostel Modal -->
+    <div class="modal fade" id="assignHostelModal" tabindex="-1" aria-labelledby="assignHostelModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content modal-custom fade-in">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="assignHostelModalLabel">Assign Hostel to Warden</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="assignHostelMessage" class="alert d-none slide-in" role="alert"></div>
+                    <p>Assign a hostel to "<span id="assignWardenName"></span>":</p>
+                    <form id="assignHostelForm" method="POST" action="">
+                        {% csrf_token %}
+                        <input type="hidden" id="assign_warden_id" name="warden_id">
+                        <div class="mb-3">
+                            <label for="hostel_select" class="form-label">Select Hostel</label>
+<select class="form-select" id="hostel_select" name="hostel" required>
+                                <option value="" disabled selected>Select a hostel</option>
+                                <!-- Hostels will be populated dynamically via JavaScript -->
+                            </select>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="assignHostelButton">Assign</button>
                         </div>
                     </form>
                 </div>
@@ -782,6 +814,143 @@
                 
                 // Ensure the message is visible
                 messageDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+        });
+
+        // Handle assign hostel button click
+        document.querySelectorAll('.assign-hostel').forEach(button => {
+            button.addEventListener('click', function() {
+                currentWardenId = this.getAttribute('data-warden-id');
+                const wardenName = this.getAttribute('data-warden-name');
+                document.getElementById('assignWardenName').textContent = wardenName;
+                document.getElementById('assign_warden_id').value = currentWardenId;
+                fetchAvailableHostels();
+            });
+        });
+
+        // Fetch available hostels for the dropdown
+        function fetchAvailableHostels() {
+fetch(`/admin/get_available_hostels/${currentWardenId}/`, {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': getCookie('csrftoken'),
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                credentials: 'same-origin'
+            })
+            .then(response => response.json())
+            .then(data => {
+                const hostelSelect = document.getElementById('hostel_select');
+                hostelSelect.innerHTML = '<option value="" disabled selected>Select a hostel</option>';
+                if (data.hostels && data.hostels.length > 0) {
+                    data.hostels.forEach(hostel => {
+                        const option = document.createElement('option');
+                        option.value = hostel.id;
+                        option.textContent = hostel.name;
+                        hostelSelect.appendChild(option);
+                    });
+                } else {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'No hostels available';
+                    option.disabled = true;
+                    hostelSelect.appendChild(option);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching hostels:', error);
+                const messageDiv = document.getElementById('assignHostelMessage');
+                messageDiv.textContent = 'Error loading hostels. Please try again.';
+                messageDiv.classList.remove('d-none', 'alert-success');
+                messageDiv.classList.add('alert-danger');
+            });
+        }
+
+        // Handle assign hostel form submission
+        const assignHostelForm = document.getElementById('assignHostelForm');
+        const assignHostelButton = document.getElementById('assignHostelButton');
+        assignHostelForm.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            assignHostelButton.disabled = true;
+            assignHostelButton.classList.add('btn-loading');
+            assignHostelButton.textContent = 'Assigning...';
+
+            const formData = new FormData(assignHostelForm);
+            const messageDiv = document.getElementById('assignHostelMessage');
+            const wardenId = document.getElementById('assign_warden_id').value;
+const hostelSelect = document.getElementById('hostel_select');
+if (!hostelSelect) {
+    console.error('Hostel select element not found');
+    alert('Hostel select element not found. Please contact support.');
+    assignHostelButton.disabled = false;
+    assignHostelButton.classList.remove('btn-loading');
+    assignHostelButton.textContent = 'Assign';
+    return;
+}
+const hostelId = hostelSelect.value;
+if (!hostelId) {
+    console.error('No hostel selected');
+    alert('Please select a hostel from the dropdown.');
+    assignHostelButton.disabled = false;
+    assignHostelButton.classList.remove('btn-loading');
+    assignHostelButton.textContent = 'Assign';
+    return;
+}
+
+            if (!wardenId) {
+                messageDiv.textContent = 'Error: Warden ID is missing. Please try again.';
+                messageDiv.classList.remove('d-none', 'alert-success');
+                messageDiv.classList.add('alert-danger');
+                assignHostelButton.disabled = false;
+                assignHostelButton.classList.remove('btn-loading');
+                assignHostelButton.textContent = 'Assign';
+                return;
+            }
+            if (!hostelId) {
+                messageDiv.textContent = 'Error: Please select a hostel from the dropdown.';
+                messageDiv.classList.remove('d-none', 'alert-success');
+                messageDiv.classList.add('alert-danger');
+                assignHostelButton.disabled = false;
+                assignHostelButton.classList.remove('btn-loading');
+                assignHostelButton.textContent = 'Assign';
+                return;
+            }
+
+            try {
+                const response = await fetch('/admin/assign_hostel/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': getCookie('csrftoken'),
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    credentials: 'same-origin'
+                });
+
+                const result = await response.json();
+                messageDiv.textContent = result.message;
+                messageDiv.classList.remove('d-none', 'alert-success', 'alert-danger');
+                messageDiv.classList.add(result.status === 'success' ? 'alert-success' : 'alert-danger');
+
+                if (result.status === 'success') {
+                    setTimeout(() => {
+                        const modal = document.getElementById('assignHostelModal');
+                        bootstrap.Modal.getInstance(modal).hide();
+                        window.location.reload();
+                    }, 1000);
+                } else {
+                    assignHostelButton.disabled = false;
+                    assignHostelButton.classList.remove('btn-loading');
+                    assignHostelButton.textContent = 'Assign';
+                }
+            } catch (error) {
+                console.error('Assign hostel error:', error);
+                messageDiv.textContent = `An error occurred: ${error.message}`;
+                messageDiv.classList.remove('d-none', 'alert-success');
+                messageDiv.classList.add('alert-danger');
+                assignHostelButton.disabled = false;
+                assignHostelButton.classList.remove('btn-loading');
+                assignHostelButton.textContent = 'Assign';
             }
         });
 

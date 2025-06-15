@@ -8,6 +8,7 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <!-- Custom CSS -->
     <style>
         :root {
@@ -137,9 +138,9 @@
             }
         }
     </style>
-    {% block extra_css %}{% endblock %}
     <!-- jQuery -->
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+
 </head>
 <body>
     <div class="container-fluid">
@@ -162,13 +163,18 @@
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link {% if 'bookings' in request.path %}active{% endif %}" href="{% url 'warden:manage_bookings' %}">
+                            <a class="nav-link {% if 'bookings' in request.path %}active{% endif %}" href=" {% url 'warden:manage_booking' %} ">
                                 <i class="fas fa-book"></i> Manage Bookings
                             </a>
                         </li>
                         <li class="nav-item">
-                            <a class="nav-link" href="#">
+                            <a class="nav-link {% if 'rooms' in request.path %}active{% endif %}" href="{% url 'warden:manage_rooms' %}">
                                 <i class="fas fa-bed"></i> Rooms
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link {% if 'room-assignments' in request.path %}active{% endif %}" href="{% url 'warden:room_assignments' %}">
+                                <i class="fas fa-house-user"></i> Room Assignments
                             </a>
                         </li>
                         <!-- Commented out complaints link until feature is implemented

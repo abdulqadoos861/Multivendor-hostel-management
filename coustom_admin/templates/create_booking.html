@@ -7,10 +7,20 @@
         <div class="col-md-8">
             <div class="card">
                 <div class="card-header bg-primary text-white">
-                    <h4 class="card-title mb-0">Booking Application Removed</h4>
+                    <h4 class="card-title mb-0">Create Booking Request</h4>
                 </div>
-                <dv class="card-body">
-                    <p>This page has been removed. Please use the main booking system instead.</p>
+                <div class="card-body">
+                    <div id="formMessages"></div>
+                    <form id="bookingForm" method="POST" action="{% url 'create_booking' %}">
+                        {% csrf_token %}
+                        <!-- Your form fields here -->
+                        <div class="d-grid gap-2 mt-3">
+                            <button type="submit" id="submitButton" class="btn btn-primary">
+                                <span id="submitText">Submit Booking Request</span>
+                                <span id="submitSpinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -18,15 +28,27 @@
 </div>
 {% endblock %}
 
-{% block extra_js %}{% endblock %}
-    if ($('#id_hostel').val() && $('#id_check_in_date').val() && $('#id_check_out_date').val()) {
-        checkAvailability();
-    }
+{% block extra_js %}
+<script>
+$(document).ready(function() {
+    const bookingForm = document.getElementById('bookingForm');
+    const submitButton = document.getElementById('submitButton');
+    const submitSpinner = document.getElementById('submitSpinner');
+    const submitText = document.getElementById('submitText');
+    
+    // Track submission state
+    let isSubmitting = false;
     
     // Form submission
     bookingForm.addEventListener('submit', function(e) {
         e.preventDefault();
         
+        // Prevent double submission
+        if (isSubmitting) {
+            return;
+        }
+        
+        isSubmitting = true;
         const formData = new FormData(bookingForm);
         
         // Show loading state

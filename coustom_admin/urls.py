@@ -50,6 +50,7 @@ urlpatterns = [
     path('delete_warden/<int:warden_id>/', views.deleteWarden, name='deleteWarden'),
     path('update_warden/<int:warden_id>/', views.updateWarden, name='updateWarden'),
     path('get_warden/<int:warden_id>/', views.getWarden, name='getWarden'),
+    path('remove-warden/<int:hostel_id>/', views.removeWardenFromHostel, name='removeWardenFromHostel'),
 
     # User Management
     path('users/', views.users, name='users'),

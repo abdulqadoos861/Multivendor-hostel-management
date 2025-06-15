@@ -1,0 +1,135 @@
+{% extends 'warden/warden_base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'warden/css/warden_styles.css' %}">
+{% endblock %}
+
+{% block header_title %}
+<i class="bi bi-house-door-fill"></i> Manage Rooms
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1 class="h3 mb-4 text-gray-800">Manage Rooms</h1>
+    
+    <!-- Hostel Information -->
+    <div class="card shadow mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Hostel Information</h5>
+        </div>
+        <div class="card-body">
+            <h6>{{ hostel.name }}</h6>
+            <p class="mb-0">Total Rooms: {{ total_rooms }}</p>
+            <p class="mb-0">Available Rooms: {{ available_rooms }}</p>
+            <p class="mb-0">Occupied Rooms: {{ occupied_rooms }}</p>
+        </div>
+    </div>
+    
+    <!-- Rooms Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Room List</h5>
+            <span class="badge bg-primary">Total: {{ total_rooms }}</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="roomsTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Room Number</th>
+                            <th>Room Type</th>
+                            <th>Capacity</th>
+                            <th>Current Occupants</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for room in rooms %}
+                        <tr>
+                            <td>{{ room.room_number }}</td>
+                            <td>{{ room.room_type.name }}</td>
+                            <td>{{ room.capacity }}</td>
+                            <td>{{ room.current_occupants }}</td>
+                            <td>
+                                {% if room.current_occupants < room.capacity %}
+                                    <span class="badge bg-success">Available</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Occupied</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#roomDetailsModal{{ room.id }}">
+                                    <i class="fas fa-eye"></i> View Details
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">No rooms found for this hostel.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Room Details Modals -->
+{% for room in rooms %}
+<div class="modal fade" id="roomDetailsModal{{ room.id }}" tabindex="-1" aria-labelledby="roomDetailsModalLabel{{ room.id }}" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="roomDetailsModalLabel{{ room.id }}">Room Details - {{ room.room_number }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Room Number:</strong> {{ room.room_number }}</p>
+                        <p><strong>Room Type:</strong> {{ room.room_type.name }}</p>
+                        <p><strong>Capacity:</strong> {{ room.capacity }}</p>
+                        <p><strong>Current Occupants:</strong> {{ room.current_occupants }}</p>
+                        <p><strong>Status:</strong> {% if room.current_occupants < room.capacity %}Available{% else %}Occupied{% endif %}</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Occupants:</h6>
+                        {% if room.current_occupants > 0 %}
+                            <ul class="list-group">
+                                {% for assignment in room.roomassignment_set.all %}
+                                    {% if assignment.is_active %}
+                                        <li class="list-group-item">{{ assignment.student.get_full_name }} (Check-in: {{ assignment.check_in_date }})</li>
+                                    {% endif %}
+                                {% empty %}
+                                    <li class="list-group-item">No active occupants found.</li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p>No occupants currently assigned to this room.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Initialize DataTables if available
+        // $(document).ready(function() {
+        //     $('#roomsTable').DataTable();
+        // });
+    });
+</script>
+{% endblock extra_js %}

@@ -1,0 +1,658 @@
+{% extends 'warden/warden_base.html' %}
+{% load static %}
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'warden/css/warden_styles.css' %}">
+{% endblock %}
+
+{% block header_title %}
+<i class="bi bi-calendar-check-fill"></i> Manage Bookings
+{% endblock %}
+
+{% block content %}
+<!-- Debug: Check hostels data in template -->
+<div style="display: none;" id="debug-hostels">
+    Raw hostels data: {{ hostels|safe }}
+    Type: {{ hostels|stringformat:'r' }}
+</div>
+
+<div class="container-fluid mt-4">
+    <h1 class="h3 mb-4 text-gray-800">Manage Bookings</h1>
+    <!-- Filters Section -->
+    <div class="card shadow mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Filter Bookings</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3" id="filterForm">
+                <div class="col-md-3 col-sm-6">
+                    <label for="status" class="form-label">Application Status</label>
+                    <select class="form-select" id="status" name="status">
+                        <option value="">All Status</option>
+                        <option value="Pending" {% if status_filter == 'Pending' %}selected{% endif %}>Pending</option>
+                        <option value="Approved" {% if status_filter == 'Approved' %}selected{% endif %}>Approved</option>
+                        <option value="Rejected" {% if status_filter == 'Rejected' %}selected{% endif %}>Rejected</option>
+                    </select>
+                </div>
+                <div class="col-md-3 col-sm-12">
+                    <label for="search" class="form-label">Student</label>
+                    <input type="text" class="form-control" id="search" name="search" 
+                           placeholder="Search by student name" value="{{ search_query }}">
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary me-2" id="filterButton">
+                        <i class="bi bi-funnel-fill me-1"></i> Apply Filters
+                    </button>
+                    <a href="{% url 'manage_booking' %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Create New Booking Section -->
+    <div class="card shadow mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Create New Booking</h5>
+        </div>
+        <div class="card-body">
+            <!-- Student Search -->
+            <div class="mb-4">
+                <h6>Search Student</h6>
+                <div class="input-group">
+                    <input type="text" id="studentSearch" class="form-control" placeholder="Search by student name or CNIC">
+                    <button class="btn btn-primary" type="button" id="searchStudentBtn">
+                        <i class="bi bi-search"></i> Search
+                    </button>
+                </div>
+                <div id="searchResults" class="mt-2" style="display: none;">
+                    <div class="list-group">
+                        <!-- Search results will be populated here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Booking Form (initially hidden) -->
+            <div id="bookingFormContainer" style="display: none;">
+                <h6>Booking Details</h6>
+                <form id="bookingForm" method="POST" action="{% url 'warden:create_booking' %}">
+                    {% csrf_token %}
+                    <input type="hidden" name="student_id" id="studentId">
+                    <input type="hidden" name="student" id="studentField">
+                    
+                    <!-- Student Information -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">Student Information</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="studentName" class="form-label">Student Name</label>
+                                    <input type="text" class="form-control" id="studentName" readonly>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="studentCnic" class="form-label">CNIC</label>
+                                    <input type="text" class="form-control" id="studentCnic" readonly>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Booking Details -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <h6 class="mb-0">Booking Details</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="hostel" class="form-label">Hostel</label>
+                                    <select class="form-select" id="hostel" name="hostel" required>
+                                        <option value="" selected disabled>Select Hostel</option>
+                                        {% for hostel in hostels %}
+                                            <option value="{{ hostel.id }}">{{ hostel.name }}</option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="roomType" class="form-label">Room Type</label>
+                                    <select class="form-select" id="roomType" name="room_type" required>
+                                        <option value="" selected disabled>Select Room Type</option>
+                                        <option value="Single">Single</option>
+                                        <option value="Double">Double</option>
+                                        <option value="Shared">Shared</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="requestDate" class="form-label">Check-in Date</label>
+                                    <input type="date" class="form-control" id="requestDate" name="check_in_date" required min="{{ today|date:'Y-m-d' }}">
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="duration" class="form-label">Duration (Months)</label>
+                                    <input type="number" class="form-control" id="duration" name="duration" min="1" value="1" required>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2">
+                        <button type="button" class="btn btn-secondary" id="cancelBooking">
+                            <i class="bi bi-x-circle me-1"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-check-circle me-1"></i> Create Booking
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bookings Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Booking Requests</h5>
+            <span class="badge bg-primary">Total: {{ total_bookings }}</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="bookingsTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Booking ID</th>
+                            <th>Student Name</th>
+                            <th>Hostel</th>
+                            <th>Room Type</th>
+                            <th>Request Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for booking in bookings %}
+                        <tr>
+                            <td>#{{ booking.id }}</td>
+                            <td>{{ booking.student.get_full_name }}</td>
+                            <td>{{ booking.hostel.name }}</td>
+                            <td>{{ booking.room_type }}</td>
+                            <td>{{ booking.request_date|date:"Y-m-d H:i" }}</td>
+                            <td>
+                                {% if booking.status == 'Pending' %}
+                                    <span class="badge bg-warning">Pending</span>
+                                {% elif booking.status == 'Approved' %}
+                                    <span class="badge bg-success">Approved</span>
+                                {% else %}
+                                    <span class="badge bg-danger">Rejected</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if booking.status == 'Pending' %}
+                                    <button type="button" class="btn btn-success btn-sm approve-btn" data-bs-toggle="modal" data-bs-target="#approveModal" data-booking-id="{{ booking.id }}">
+                                        <i class="fas fa-check"></i> Approve
+                                    </button>
+                                    <button type="button" class="btn btn-danger btn-sm reject-btn" data-bs-toggle="modal" data-bs-target="#rejectModal" data-booking-id="{{ booking.id }}">
+                                        <i class="fas fa-times"></i> Reject
+                                    </button>
+                                {% else %}
+                                    <button type="button" class="btn btn-info btn-sm" data-bs-toggle="modal" data-bs-target="#viewDetailsModal{{ booking.id }}">
+                                        <i class="fas fa-eye"></i> View Details
+                                    </button>
+                                {% endif %}
+                            </td>
+                        </tr>
+
+
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+ <!-- Approve Booking Modal -->
+ <div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
+     <div class="modal-dialog">
+         <div class="modal-content">
+             <div class="modal-header">
+                 <h5 class="modal-title" id="approveModalLabel">Approve Booking</h5>
+                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+             </div>
+             <div class="modal-body">
+                 <p>Are you sure you want to approve this booking request?</p>
+                 <form id="approveBookingForm" method="post" action="{% url 'warden:approve_booking' %}">
+                     {% csrf_token %}
+                     <input type="hidden" name="booking_id" id="approveBookingId">
+                     <input type="hidden" name="action" value="approve">
+                     <div class="mb-3">
+                         <label for="room_assignment" class="form-label">Assign Room:</label>
+                         <select class="form-select" id="room_assignment" name="room_assignment" required>
+                             <option value="">Select a room</option>
+                             {% for room in available_rooms %}
+                                 <option value="{{ room.id }}">{{ room.room_number }} ({{ room.room_type.name }})</option>
+                             {% endfor %}
+                         </select>
+                     </div>
+                        <div class="mb-3">
+                            <label for="check_out_date" class="form-label">Check-out Date (optional)</label>
+                            <input type="date" class="form-control" id="check_out_date" name="check_out_date">
+                        </div>
+                        <div class="mb-3">
+                            <label for="admin_notes" class="form-label">Comments/Notes (optional)</label>
+                            <textarea class="form-control" id="admin_notes" name="admin_notes" rows="3" placeholder="Add any additional notes or comments regarding this approval."></textarea>
+                        </div>
+
+                     <button type="submit" class="btn btn-success">Approve</button>
+                 </form>
+             </div>
+         </div>
+     </div>
+ </div>
+
+ <!-- Reject Booking Modal -->
+ <div class="modal fade" id="rejectModal" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
+     <div class="modal-dialog">
+         <div class="modal-content">
+             <div class="modal-header">
+                 <h5 class="modal-title" id="rejectModalLabel">Reject Booking</h5>
+                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+             </div>
+             <div class="modal-body">
+                 <p>Are you sure you want to reject this booking request?</p>
+                 <form id="rejectBookingForm" method="post" action="{% url 'warden:reject_booking' %}">
+                     {% csrf_token %}
+                     <input type="hidden" name="booking_id" id="rejectBookingId">
+                     <input type="hidden" name="action" value="reject">
+                     <div class="mb-3">
+                         <label for="rejection_reason" class="form-label">Reason for Rejection:</label>
+                         <textarea class="form-control" id="rejection_reason" name="rejection_reason" rows="3" required></textarea>
+                     </div>
+                     <button type="submit" class="btn btn-danger">Reject</button>
+                 </form>
+             </div>
+         </div>
+     </div>
+ </div>
+
+ <!-- View Booking Details Modal -->
+ <div class="modal fade" id="viewDetailsModal" tabindex="-1" aria-labelledby="viewDetailsModalLabel" aria-hidden="true">
+     <div class="modal-dialog modal-lg">
+         <div class="modal-content">
+             <div class="modal-header">
+                 <h5 class="modal-title" id="viewDetailsModalLabel">Booking Details</h5>
+                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+             </div>
+             <div class="modal-body">
+                 <div id="bookingDetailsContent">
+                     <p><strong>Booking ID:</strong> <span id="detailBookingId"></span></p>
+                     <p><strong>Student Name:</strong> <span id="detailStudentName"></span></p>
+                     <p><strong>Student Email:</strong> <span id="detailStudentEmail"></span></p>
+                     <p><strong>Student CNIC:</strong> <span id="detailStudentCnic"></span></p>
+                     <p><strong>Hostel:</strong> <span id="detailHostelName"></span></p>
+                     <p><strong>Room Type:</strong> <span id="detailRoomType"></span></p>
+                     <p><strong>Check-in Date:</strong> <span id="detailCheckInDate"></span></p>
+                     <p><strong>Request Date:</strong> <span id="detailRequestDate"></span></p>
+                     <p><strong>Status:</strong> <span id="detailStatus"></span></p>
+                     <p><strong>Assigned Room:</strong> <span id="detailAssignedRoom"></span></p>
+                     <p><strong>Admin Notes:</strong> <span id="detailAdminNotes"></span></p>
+                 </div>
+             </div>
+             <div class="modal-footer">
+                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+             </div>
+         </div>
+     </div>
+ </div>
+
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const studentSearchInput = document.getElementById('studentSearch');
+        const searchStudentBtn = document.getElementById('searchStudentBtn');
+        const searchResultsDiv = document.getElementById('searchResults');
+        const bookingFormContainer = document.getElementById('bookingFormContainer');
+        const studentIdInput = document.getElementById('studentId');
+        const studentFieldInput = document.getElementById('studentField');
+        const studentNameInput = document.getElementById('studentName');
+        const studentCnicInput = document.getElementById('studentCnic');
+        const cancelBookingBtn = document.getElementById('cancelBooking');
+
+        // Function to clear and hide search results
+        function clearSearchResults() {
+            searchResultsDiv.innerHTML = '<div class="list-group"></div>';
+            searchResultsDiv.style.display = 'none';
+        }
+
+        // Function to hide booking form
+        function hideBookingForm() {
+            bookingFormContainer.style.display = 'none';
+            studentIdInput.value = '';
+            studentFieldInput.value = '';
+            studentNameInput.value = '';
+            studentCnicInput.value = '';
+            document.getElementById('hostel').value = '';
+            document.getElementById('roomType').value = '';
+            document.getElementById('requestDate').value = '';
+            document.getElementById('duration').value = '1';
+        }
+
+        // Search student functionality
+
+         searchStudentBtn.addEventListener('click', function() {
+               const query = studentSearchInput.value.trim();
+
+            if (query.length > 2) {
+                fetch(`/warden/search_student/?q=${query}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const listGroup = searchResultsDiv.querySelector('.list-group');
+                        listGroup.innerHTML = '';
+                        if (data.students.length > 0) {
+                            data.students.forEach(student => {
+                                const item = document.createElement('a');
+                                item.href = '#';
+                                item.classList.add('list-group-item', 'list-group-item-action');
+                                item.innerHTML = `<strong>${student.name}</strong> (${student.cnic})`;
+                                item.addEventListener('click', function(e) {
+                                    e.preventDefault();
+                                    studentIdInput.value = student.id;
+                                    studentFieldInput.value = student.id; // Set student field for form submission
+                                    studentNameInput.value = student.name;
+                                    studentCnicInput.value = student.cnic;
+                                    bookingFormContainer.style.display = 'block';
+                                    clearSearchResults();
+                                });
+                                listGroup.appendChild(item);
+                            });
+                            searchResultsDiv.style.display = 'block';
+                        } else {
+                            listGroup.innerHTML = '<div class="list-group-item">No students found.</div>';
+                            searchResultsDiv.style.display = 'block';
+                        }
+                    })
+                    .catch(error => console.error('Error searching student:', error));
+            } else {
+                clearSearchResults();
+                alert('Please enter at least 3 characters to search for a student.');
+            }
+        });
+
+        // Cancel booking form
+        cancelBookingBtn.addEventListener('click', function() {
+            hideBookingForm();
+        });
+
+        // Handle form submission for booking creation
+        document.getElementById('bookingForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const formData = new FormData(this);
+            const actionUrl = this.getAttribute('action');
+            console.log('Submitting booking form to URL:', actionUrl);
+            fetch(actionUrl, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.text().then(text => {
+                        throw new Error(`HTTP error! Status: ${response.status} - Response: ${text.substring(0, 100)}...`);
+                    });
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Booking created successfully!');
+                    hideBookingForm();
+                    location.reload(); // Reload page to show new booking
+                } else {
+                    alert('Unable to create booking: ' + (data.message || data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Unable to create booking due to a technical error: ' + error.message);
+            });
+        });
+
+        // Handle form submission for approve/reject actions
+        document.querySelectorAll('#approveBookingForm, #rejectBookingForm').forEach(form => {
+            form.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const submitButton = this.querySelector('[type="submit"]');
+                submitButton.disabled = true;
+                
+                const formData = new FormData(this);
+                const actionUrl = this.getAttribute('action');
+                console.log('Submitting form to URL:', actionUrl);
+                fetch(actionUrl, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(errorData => {
+                            console.log('Error response data:', errorData);
+                            throw { message: errorData.message || errorData.error || 'Network response was not ok' };
+                        }).catch(err => {
+                            console.error('Error parsing JSON response:', err);
+                            throw { message: 'Network response was not ok' };
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success || data.status === 'success') {
+                        alert('Booking status updated successfully!');
+                        bootstrap.Modal.getInstance(document.getElementById(form.id === 'approveBookingForm' ? 'approveModal' : 'rejectModal')).hide();
+                        location.reload(); // Reload page to reflect changes
+                    } else {
+                        alert('Error updating booking status: ' + (data.error || data.message || 'Unknown error'));
+                        submitButton.disabled = false;
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error updating booking status: ' + (error.message || 'An error occurred while processing your request.'));
+                    submitButton.disabled = false;
+                });
+            });
+        });
+
+        // Handle Approve Modal display and room assignment
+        document.querySelectorAll('.approve-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const bookingId = this.getAttribute('data-booking-id');
+                document.getElementById('approveBookingId').value = bookingId;
+
+                // Fetch available rooms for the specific booking with proper headers
+                fetch(`/warden/bookings/get-available-rooms/?booking_id=${bookingId}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                    .then(response => {
+                        if (!response.ok) {
+                            return response.json().catch(err => {
+                                throw new Error(`HTTP error! Status: ${response.status} - Unable to parse error response`);
+                            }).then(errorData => {
+                                throw new Error(`HTTP error! Status: ${response.status} - ${errorData.error || 'Unknown error'}`);
+                            });
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        const roomAssignmentSelect = document.getElementById('room_assignment');
+                        roomAssignmentSelect.innerHTML = '<option value="">Select a room</option>';
+                        if (data.available_rooms && data.available_rooms.length > 0) {
+                            data.available_rooms.forEach(room => {
+                                const option = document.createElement('option');
+                                option.value = room.id;
+                                option.textContent = `${room.room_number} (${room.room_type_name})`;
+                                roomAssignmentSelect.appendChild(option);
+                            });
+                        } else {
+                            const option = document.createElement('option');
+                            option.value = '';
+                            option.textContent = 'No available rooms for this booking criteria.';
+                            roomAssignmentSelect.appendChild(option);
+                        }
+                        // Show the modal using pure DOM manipulation
+                        const modalElement = document.getElementById('approveModal');
+                        modalElement.classList.add('show');
+                        modalElement.style.display = 'block';
+                        modalElement.setAttribute('aria-hidden', 'false');
+                        document.body.classList.add('modal-open');
+                        const backdrop = document.createElement('div');
+                        backdrop.classList.add('modal-backdrop', 'fade', 'show');
+                        backdrop.id = 'approveModalBackdrop';
+                        document.body.appendChild(backdrop);
+                        // Add event listener to close modal when clicking on backdrop or close button
+                        backdrop.addEventListener('click', function() {
+                            modalElement.classList.remove('show');
+                            modalElement.style.display = 'none';
+                            modalElement.setAttribute('aria-hidden', 'true');
+                            document.body.classList.remove('modal-open');
+                            backdrop.remove();
+                        });
+                        document.querySelector('#approveModal .btn-close').addEventListener('click', function() {
+                            modalElement.classList.remove('show');
+                            modalElement.style.display = 'none';
+                            modalElement.setAttribute('aria-hidden', 'true');
+                            document.body.classList.remove('modal-open');
+                            backdrop.remove();
+                        });
+                    })
+                    .catch(error => console.error('Error fetching available rooms:', error));
+            });
+        });
+
+        // Handle Reject Modal display and reason input
+        document.querySelectorAll('.reject-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const bookingId = this.getAttribute('data-booking-id');
+                document.getElementById('rejectBookingId').value = bookingId;
+                // Show the modal using pure DOM manipulation
+                const modalElement = document.getElementById('rejectModal');
+                modalElement.classList.add('show');
+                modalElement.style.display = 'block';
+                modalElement.setAttribute('aria-hidden', 'false');
+                document.body.classList.add('modal-open');
+                const backdrop = document.createElement('div');
+                backdrop.classList.add('modal-backdrop', 'fade', 'show');
+                backdrop.id = 'rejectModalBackdrop';
+                document.body.appendChild(backdrop);
+                // Add event listener to close modal when clicking on backdrop or close button
+                backdrop.addEventListener('click', function() {
+                    modalElement.classList.remove('show');
+                    modalElement.style.display = 'none';
+                    modalElement.setAttribute('aria-hidden', 'true');
+                    document.body.classList.remove('modal-open');
+                    backdrop.remove();
+                });
+                document.querySelector('#rejectModal .btn-close').addEventListener('click', function() {
+                    modalElement.classList.remove('show');
+                    modalElement.style.display = 'none';
+                    modalElement.setAttribute('aria-hidden', 'true');
+                    document.body.classList.remove('modal-open');
+                    backdrop.remove();
+                });
+            });
+        });
+
+        // Handle View Details button click
+        document.querySelectorAll('button[data-bs-target^="#viewDetailsModal"]').forEach(button => {
+            button.addEventListener('click', function() {
+                const bookingId = this.getAttribute('data-bs-target').replace('#viewDetailsModal', '');
+                fetch(`/warden/bookings/${bookingId}/details/`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().catch(err => {
+                            throw new Error(`HTTP error! Status: ${response.status} - Unable to parse error response`);
+                        }).then(errorData => {
+                            throw new Error(`HTTP error! Status: ${response.status} - ${errorData.error || 'Unknown error'}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('detailBookingId').textContent = data.id;
+                    document.getElementById('detailStudentName').textContent = data.student_name;
+                    document.getElementById('detailStudentEmail').textContent = data.student_email;
+                    document.getElementById('detailStudentCnic').textContent = data.student_cnic;
+                    document.getElementById('detailHostelName').textContent = data.hostel_name;
+                    document.getElementById('detailRoomType').textContent = data.room_type;
+                    document.getElementById('detailCheckInDate').textContent = data.check_in_date;
+                    document.getElementById('detailRequestDate').textContent = data.request_date;
+                    document.getElementById('detailStatus').textContent = data.status;
+                    document.getElementById('detailAssignedRoom').textContent = data.assigned_room;
+                    document.getElementById('detailAdminNotes').textContent = data.admin_notes;
+                    const modalElement = document.getElementById('viewDetailsModal');
+                    modalElement.classList.add('show');
+                    modalElement.style.display = 'block';
+                    modalElement.setAttribute('aria-hidden', 'false');
+                    document.body.classList.add('modal-open');
+                    const backdrop = document.createElement('div');
+                    backdrop.classList.add('modal-backdrop', 'fade', 'show');
+                    backdrop.id = 'modalBackdrop';
+                    document.body.appendChild(backdrop);
+                    // Add event listener to close modal when clicking on backdrop or close button
+                    backdrop.addEventListener('click', function() {
+                        modalElement.classList.remove('show');
+                        modalElement.style.display = 'none';
+                        modalElement.setAttribute('aria-hidden', 'true');
+                        document.body.classList.remove('modal-open');
+                        backdrop.remove();
+                    });
+                    document.querySelector('#viewDetailsModal .btn-close').addEventListener('click', function() {
+                        modalElement.classList.remove('show');
+                        modalElement.style.display = 'none';
+                        modalElement.setAttribute('aria-hidden', 'true');
+                        document.body.classList.remove('modal-open');
+                        backdrop.remove();
+                    });
+                    document.querySelector('#viewDetailsModal .btn-secondary').addEventListener('click', function() {
+                        modalElement.classList.remove('show');
+                        modalElement.style.display = 'none';
+                        modalElement.setAttribute('aria-hidden', 'true');
+                        document.body.classList.remove('modal-open');
+                        backdrop.remove();
+                    });
+                })
+                .catch(error => {
+                    console.error('Error fetching booking details:', error);
+                    alert('Error fetching booking details: ' + error.message);
+                });
+            });
+        });
+
+        // Initialize DataTables (if you have it)
+        // $(document).ready(function() {
+        //     $('#bookingsTable').DataTable();
+        // });
+    });
+</script>
+{% endblock extra_js %}
+
+                                {% if booking.status == 'Pending' %}
+                                    <button class="btn btn-sm btn-success approve-btn me-1" 
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#approveModal"
+                                            data-booking-id="{{ booking.id }}">
+                                        <i class="bi bi-check-circle-fill me-1"></i> Approve
+                                    {% endif %}

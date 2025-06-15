@@ -1,0 +1,179 @@
+{% extends 'warden/warden_base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'warden/css/warden_styles.css' %}">
+{% endblock %}
+
+{% block header_title %}
+<i class="bi bi-house-door-fill"></i> Room Assignments
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1 class="h3 mb-4 text-gray-800">Room Assignments</h1>
+    
+    <!-- Filters Section -->
+    <div class="card shadow mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Filter Assignments</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3" id="filterForm">
+                <div class="col-md-3 col-sm-6">
+                    <label for="student_name" class="form-label">Student Name</label>
+                    <input type="text" class="form-control" id="student_name" name="student_name" 
+                           placeholder="Search by student name" value="{{ student_name_filter }}">
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <label for="room_number" class="form-label">Room Number</label>
+                    <input type="text" class="form-control" id="room_number" name="room_number" 
+                           placeholder="Search by room number" value="{{ room_number_filter }}">
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <label for="room_type" class="form-label">Room Type</label>
+                    <select class="form-select" id="room_type" name="room_type">
+                        <option value="">All Room Types</option>
+                        <option value="Single" {% if room_type_filter == 'Single' %}selected{% endif %}>Single</option>
+                        <option value="Double" {% if room_type_filter == 'Double' %}selected{% endif %}>Double</option>
+                        <option value="Shared" {% if room_type_filter == 'Shared' %}selected{% endif %}>Shared</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary me-2" id="filterButton">
+                        <i class="bi bi-funnel-fill me-1"></i> Apply Filters
+                    </button>
+                    <a href="{% url 'warden:room_assignments' %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Hostel Info -->
+    <div class="card shadow mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Hostel Information</h5>
+        </div>
+        <div class="card-body">
+            <h6>{{ hostel.name }}</h6>
+            <p class="text-muted">{{ hostel.address }}</p>
+            <div class="mt-2">
+                <span class="badge bg-primary me-2">Total Assignments: {{ total_assignments }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Room Assignments Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Current Room Assignments</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="assignmentsTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Room Number</th>
+                            <th>Room Type</th>
+                            <th>Student Name</th>
+                            <th>Check-in Date</th>
+                            <th>Check-out Date</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for assignment in assignments %}
+                        <tr>
+                            <td>{{ assignment.room.room_number }}</td>
+                            <td>{{ assignment.room.room_type }}</td>
+                            <td>{{ assignment.booking.student.get_full_name }}</td>
+                            <td>{{ assignment.check_in_date|date:"Y-m-d" }}</td>
+                            <td>{{ assignment.check_out_date|date:"Y-m-d"|default:"N/A" }}</td>
+                            <td>
+                                <button type="button" class="btn btn-info btn-sm view-details-btn" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#studentDetailsModal"
+                                        data-student-id="{{ assignment.booking.student.id }}">
+                                    <i class="bi bi-eye-fill me-1"></i> View Student
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">No active room assignments found for this hostel.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Student Details Modal -->
+<div class="modal fade" id="studentDetailsModal" tabindex="-1" aria-labelledby="studentDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="studentDetailsModalLabel">Student Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="studentDetailsContent">
+                    <p><strong>Name:</strong> <span id="detailStudentName"></span></p>
+                    <p><strong>Email:</strong> <span id="detailStudentEmail"></span></p>
+                    <p><strong>CNIC:</strong> <span id="detailStudentCnic"></span></p>
+                    <p><strong>Contact Number:</strong> <span id="detailStudentContact"></span></p>
+                    <p><strong>Institute:</strong> <span id="detailStudentInstitute"></span></p>
+                    <p><strong>Address:</strong> <span id="detailStudentAddress"></span></p>
+                    <p><strong>Gender:</strong> <span id="detailStudentGender"></span></p>
+                    <p><strong>Account Status:</strong> <span id="detailStudentStatus"></span></p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Handle View Student Details button click
+        document.querySelectorAll('.view-details-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const studentId = this.getAttribute('data-student-id');
+                fetch(`/warden/student/${studentId}/details/`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    document.getElementById('detailStudentName').textContent = `${data.first_name} ${data.last_name}`;
+                    document.getElementById('detailStudentEmail').textContent = data.email;
+                    document.getElementById('detailStudentCnic').textContent = data.cnic;
+                    document.getElementById('detailStudentContact').textContent = data.contact_number;
+                    document.getElementById('detailStudentInstitute').textContent = data.institute;
+                    document.getElementById('detailStudentAddress').textContent = data.address;
+                    document.getElementById('detailStudentGender').textContent = data.gender;
+                    document.getElementById('detailStudentStatus').textContent = data.is_active ? 'Active' : 'Inactive';
+                })
+                .catch(error => {
+                    console.error('Error fetching student details:', error);
+                    alert('Error fetching student details. Please try again.');
+                });
+            });
+        });
+    });
+</script>
+{% endblock extra_js %}

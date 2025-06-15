@@ -24,7 +24,7 @@ User = get_user_model()
 
 from .forms import StudentRegistrationForm, BookingRequestForm
 from .payment_forms import PaymentForm
-from .models import Payment, Hostels, RoomTypeRate, Rooms, BookingRequest, Student, RoomAssignment , Wardens
+from .models import Payment, Hostels, RoomTypeRate, Rooms, BookingRequest, Student, RoomAssignment, Wardens, HostelWardens
 from django.urls import reverse
 import json
 import re
@@ -1041,15 +1041,30 @@ def getAvailableHostels(request, warden_id):
             assigned_hostel_ids = HostelWardens.objects.values_list('hostel_id', flat=True)
             available_hostels = Hostels.objects.exclude(id__in=assigned_hostel_ids)
             
-            context = {
-                'warden_id': warden_id,
-                'hostels': available_hostels
-            }
-            return render(request, 'assign_hostel.html', context)
+            hostels_data = [
+                {
+                    'id': hostel.id,
+                    'name': hostel.name,
+                    'address': hostel.address,
+                    'total_floors': hostel.total_floors
+                }
+                for hostel in available_hostels
+            ]
+            
+            return JsonResponse({
+                'status': 'success',
+                'hostels': hostels_data,
+                'warden_id': warden_id
+            })
         except Exception as e:
-            messages.error(request, str(e))
-            return redirect('manageWardens')
-    return redirect('manageWardens')
+            return JsonResponse({
+                'status': 'error',
+                'message': str(e)
+            }, status=500)
+    return JsonResponse({
+        'status': 'error',
+        'message': 'Invalid request method'
+    }, status=400)
 
 @login_required
 @csrf_exempt
@@ -1060,14 +1075,25 @@ def assignHostel(request):
             hostel_id = request.POST.get('hostel')
             
             if not all([warden_id, hostel_id]):
-                messages.error(request, 'Warden ID and Hostel ID are required')
+                error_msg = 'Both Warden ID and Hostel ID are required'
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    if not warden_id and not hostel_id:
+                        return JsonResponse({'status': 'error', 'message': 'Both Warden ID and Hostel ID are required'}, status=400)
+                    elif not warden_id:
+                        return JsonResponse({'status': 'error', 'message': 'Warden ID is required'}, status=400)
+                    elif not hostel_id:
+                        return JsonResponse({'status': 'error', 'message': 'Hostel ID is required'}, status=400)
+                messages.error(request, error_msg)
                 return redirect('manageWardens')
             
             warden = get_object_or_404(Wardens, user_id=warden_id)
             hostel = get_object_or_404(Hostels, id=hostel_id)
             
             if HostelWardens.objects.filter(hostel=hostel).exists():
-                messages.error(request, 'This hostel is already assigned to another warden')
+                error_msg = 'This hostel is already assigned to another warden'
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse({'status': 'error', 'message': error_msg}, status=400)
+                messages.error(request, error_msg)
                 return redirect('manageWardens')
             
             hostel_warden = HostelWardens(
@@ -1076,10 +1102,16 @@ def assignHostel(request):
             )
             hostel_warden.save()
             
-            messages.success(request, f'Hostel {hostel.name} assigned to warden {warden.name} successfully')
+            success_msg = f'Hostel {hostel.name} assigned to warden {warden.name} successfully'
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'success', 'message': success_msg})
+            messages.success(request, success_msg)
             return redirect('manageWardens')
         except Exception as e:
-            messages.error(request, str(e))
+            error_msg = str(e)
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({'status': 'error', 'message': error_msg}, status=500)
+            messages.error(request, error_msg)
             return redirect('manageWardens')
     return redirect('manageWardens')
 
@@ -1302,6 +1334,63 @@ def updateWarden(request, warden_id):
         return JsonResponse({
             'status': 'error', 
             'message': 'Invalid request method'
+        }, status=405)
+
+@login_required
+@csrf_exempt
+def removeWardenFromHostel(request, hostel_id):
+    """
+    Remove a warden assignment from a specific hostel.
+    """
+    logger = logging.getLogger(__name__)
+    logger.info(f"removeWardenFromHostel called with hostel_id: {hostel_id}")
+    logger.info(f"Request method: {request.method}")
+    
+    if request.method == 'POST':
+        try:
+            logger.info(f"Trying to get hostel with id: {hostel_id}")
+            hostel = Hostels.objects.get(id=hostel_id)
+            logger.info(f"Found hostel: {hostel.name} (ID: {hostel.id})")
+            
+            logger.info(f"Attempting to remove warden assignment from hostel: {hostel.name}")
+            assignment = HostelWardens.objects.filter(hostel=hostel).first()
+            
+            if assignment:
+                warden_name = assignment.warden.name if assignment.warden else "Unknown Warden"
+                assignment.delete()
+                logger.info(f"Removed warden assignment from hostel: {hostel.name}")
+                
+                return JsonResponse({
+                    'status': 'success',
+                    'message': f'Warden {warden_name} has been removed from {hostel.name} successfully.',
+                    'redirect_url': reverse('hostels')
+                })
+            else:
+                logger.warning(f"No warden assignment found for hostel: {hostel.name}")
+                return JsonResponse({
+                    'status': 'error',
+                    'message': f'No warden assignment found for {hostel.name}.'
+                }, status=404)
+                
+        except Hostels.DoesNotExist as e:
+            logger.error(f"Hostel not found: {e}")
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Hostel not found.'
+            }, status=404)
+            
+        except Exception as e:
+            logger.error(f"Error removing warden from hostel: {str(e)}", exc_info=True)
+            return JsonResponse({
+                'status': 'error',
+                'message': f'Failed to remove warden from hostel: {str(e)}'
+            }, status=500)
+            
+    else:
+        logger.warning("Invalid request method")
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Invalid request method. Use POST to remove a warden assignment.'
         }, status=405)
 
 @login_required
@@ -1589,7 +1678,7 @@ def create_booking(request):
                 from .models import BookingRequest
                 existing_approved_booking = BookingRequest.objects.filter(
                     student=student.user,
-                    status='Approved'
+                    status__in=['Approved', 'Pending']
                 ).exists()
                 
                 if existing_approved_booking:
@@ -1635,7 +1724,7 @@ def create_booking(request):
             from .models import BookingRequest
             existing_approved_booking = BookingRequest.objects.filter(
                 student=student.user,
-                status='Approved'
+                status__in=['Approved', 'Pending']
             ).exists()
             
             if existing_approved_booking:
