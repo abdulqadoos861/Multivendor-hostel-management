@@ -41,6 +41,7 @@ INSTALLED_APPS = [
     'frontend',
     'warden',
     'student',
+    'messincharge'
 ]
 
 MIDDLEWARE = [
@@ -58,7 +59,7 @@ ROOT_URLCONF = 'sunrise.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [BASE_DIR / 'messincharge' / 'templates'],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [

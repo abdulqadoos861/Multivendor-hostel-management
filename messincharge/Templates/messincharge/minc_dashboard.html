@@ -1,0 +1,11 @@
+{% extends 'messincharge/minc_base.html' %}
+
+{% block title %}Mess Incharge Dashboard{% endblock %}
+
+{% block content %}
+    <h1>Mess Incharge Dashboard</h1>
+    <div class="welcome-message">
+        Welcome, {% if user.is_authenticated %}{{ user.username }}{% else %}Guest{% endif %}!
+    </div>
+    <!-- Add dashboard content here -->
+{% endblock %}

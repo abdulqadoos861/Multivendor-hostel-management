@@ -74,9 +74,17 @@ urlpatterns = [
     
     # Payment Management - Removed payment functionality
 
+    # Mess Incharge Management
+    path('manageMessIncharge/', views.manage_mess_incharge, name='manage_mess_incharge'),
+    path('add_mess_incharge/', views.add_mess_incharge, name='add_mess_incharge'),
+    path('edit_mess_incharge/<int:mess_incharge_id>/', views.edit_mess_incharge, name='edit_mess_incharge'),
+    path('delete_mess_incharge/<int:mess_incharge_id>/', views.delete_mess_incharge, name='delete_mess_incharge'),
+    path('get_mess_incharge/<int:mess_incharge_id>/', views.get_mess_incharge, name='get_mess_incharge'),
+
     # Other
     path('complaints/', views.complaints, name='complaints'),
     path('expenses/', views.expenses, name='expenses'),
     path('profile/', views.profile, name='profile'),
     path('manageBooking/', views.manage_booking, name='manage_booking_camel'),
+    path('mess_menu/', views.mess_menu, name='mess_menu'),
 ]

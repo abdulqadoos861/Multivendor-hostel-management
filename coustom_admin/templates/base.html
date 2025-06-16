@@ -578,6 +578,18 @@
                     </a>
                 </li>
                 <li class="nav-item">
+                    <a href="{% url 'mess_menu' %}" class="nav-link {% if request.resolver_match.url_name == 'mess_menu' %}active{% endif %}">
+                        <i class="bi bi-menu-app-fill"></i>
+                        Mess Menu
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'manage_mess_incharge' %}" class="nav-link {% if request.resolver_match.url_name == 'manage_mess_incharge' %}active{% endif %}">
+                        <i class="bi bi-person-check-fill"></i>
+                        Mess Incharge
+                    </a>
+                </li>
+                <li class="nav-item">
                     <a href="{% url 'profile' %}" class="nav-link {% if request.resolver_match.url_name == 'profile' %}active{% endif %}">
                         <i class="bi bi-person-circle"></i>
                         Profile

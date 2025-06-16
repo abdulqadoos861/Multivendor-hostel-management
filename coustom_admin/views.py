@@ -24,7 +24,7 @@ User = get_user_model()
 
 from .forms import StudentRegistrationForm, BookingRequestForm
 from .payment_forms import PaymentForm
-from .models import Payment, Hostels, RoomTypeRate, Rooms, BookingRequest, Student, RoomAssignment, Wardens, HostelWardens
+from .models import Payment, Hostels, RoomTypeRate, Rooms, BookingRequest, Student, RoomAssignment, Wardens, HostelWardens, MessIncharge
 from django.urls import reverse
 import json
 import re
@@ -2608,3 +2608,173 @@ def get_hostels(request):
         return JsonResponse(hostels_data, safe=False)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
+@login_required
+def mess_menu(request):
+    return render(request, "mess_menu.html")
+
+@login_required
+def manage_mess_incharge(request):
+    """
+    View to display all mess incharge with their assigned hostels
+    """
+    mess_incharges = MessIncharge.objects.select_related('user', 'hostel').all().order_by('-created_at')
+    hostels = Hostels.objects.all()
+    return render(request, "manageMessIncharge.html", {"mess_incharges": mess_incharges, "hostels": hostels})
+
+@login_required
+@csrf_exempt
+def add_mess_incharge(request):
+    if request.method == 'POST':
+        try:
+            name = request.POST.get('name')
+            email = request.POST.get('email')
+            phone = request.POST.get('phone')
+            gender = request.POST.get('gender')
+            hostel_id = request.POST.get('hostel')
+            password = request.POST.get('password')
+            confirm_password = request.POST.get('confirm_password')
+
+            if not all([name, email, phone, gender, hostel_id, password, confirm_password]):
+                return JsonResponse({'status': 'error', 'message': 'All fields are required'}, status=400)
+
+            if password != confirm_password:
+                return JsonResponse({'status': 'error', 'message': 'Passwords do not match'}, status=400)
+
+            if User.objects.filter(email=email).exists():
+                return JsonResponse({'status': 'error', 'message': 'Email already registered'}, status=400)
+
+            username = email.split('@')[0]
+            if User.objects.filter(username=username).exists():
+                base_username = username
+                counter = 1
+                while User.objects.filter(username=username).exists():
+                    username = f"{base_username}{counter}"
+                    counter += 1
+
+            try:
+                user = User(
+                    username=username,
+                    email=email,
+                    first_name=name.split()[0],
+                    last_name=' '.join(name.split()[1:]) if len(name.split()) > 1 else '',
+                    is_staff=True
+                )
+                user.set_password(password)
+                user.save()
+
+                hostel = Hostels.objects.get(id=hostel_id)
+                mess_incharge = MessIncharge(
+                    user=user,
+                    name=name,
+                    contact_number=phone,
+                    gender=gender,
+                    hostel=hostel,
+                    created_at=timezone.now()
+                )
+                mess_incharge.save()
+
+                return JsonResponse({
+                    'status': 'success', 
+                    'message': 'Mess Incharge registered successfully',
+                    'mess_incharge': {
+                        'id': user.id,
+                        'name': mess_incharge.name,
+                        'email': email,
+                        'phone': phone,
+                        'gender': gender,
+                        'hostel': hostel.name
+                    }
+                })
+            except Exception as e:
+                if 'user' in locals():
+                    user.delete()
+                return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    
+    hostels = Hostels.objects.all()
+    return render(request, "manageMessIncharge.html", {"hostels": hostels})
+
+@login_required
+@csrf_exempt
+def edit_mess_incharge(request, mess_incharge_id):
+    if request.method == 'POST':
+        try:
+            mess_incharge = MessIncharge.objects.select_related('user').get(user_id=mess_incharge_id)
+            name = request.POST.get('name')
+            email = request.POST.get('email')
+            phone = request.POST.get('phone')
+            gender = request.POST.get('gender')
+            hostel_id = request.POST.get('hostel')
+            is_active = request.POST.get('is_active') == 'on'
+
+            mess_incharge.name = name
+            mess_incharge.contact_number = phone
+            mess_incharge.gender = gender
+            mess_incharge.hostel = Hostels.objects.get(id=hostel_id)
+
+            if hasattr(mess_incharge, 'user') and mess_incharge.user:
+                user = mess_incharge.user
+                user.email = email
+                user.is_active = is_active
+                password = request.POST.get('password')
+                if password and password.strip() != '':
+                    user.set_password(password)
+                user.save()
+
+            mess_incharge.save()
+            return JsonResponse({
+                'status': 'success', 
+                'message': 'Mess Incharge updated successfully',
+                'redirect_url': reverse('manage_mess_incharge')
+            })
+        except MessIncharge.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': 'Mess Incharge not found'}, status=404)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': f'Failed to update Mess Incharge: {str(e)}'}, status=500)
+    else:
+        mess_incharge = get_object_or_404(MessIncharge, user_id=mess_incharge_id)
+        hostels = Hostels.objects.all()
+        return render(request, "manageMessIncharge.html", {"mess_incharge": mess_incharge, "hostels": hostels})
+
+@login_required
+@csrf_exempt
+def delete_mess_incharge(request, mess_incharge_id):
+    if request.method == 'POST':
+        try:
+            mess_incharge = get_object_or_404(MessIncharge, user_id=mess_incharge_id)
+            user = mess_incharge.user
+            mess_incharge.delete()
+            user.delete()
+            messages.success(request, 'Mess Incharge deleted successfully')
+            return redirect('manage_mess_incharge')
+        except Exception as e:
+            messages.error(request, str(e))
+            return redirect('manage_mess_incharge')
+    return redirect('manage_mess_incharge')
+
+@login_required
+@csrf_exempt
+def get_mess_incharge(request, mess_incharge_id):
+    try:
+        mess_incharge = MessIncharge.objects.select_related('user', 'hostel').get(user_id=mess_incharge_id)
+        data = {
+            'status': 'success',
+            'mess_incharge': {
+                'id': mess_incharge.user_id,
+                'name': mess_incharge.name,
+                'email': mess_incharge.user.email if hasattr(mess_incharge, 'user') else '',
+                'contact_number': mess_incharge.contact_number,
+                'gender': mess_incharge.gender,
+                'is_active': mess_incharge.user.is_active if hasattr(mess_incharge, 'user') else False,
+                'hostel_id': mess_incharge.hostel.id,
+                'hostel_name': mess_incharge.hostel.name
+            }
+        }
+        return JsonResponse(data)
+    except MessIncharge.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Mess Incharge not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

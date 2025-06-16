@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+
+{% block title %}Add Mess Incharge{% endblock %}
+
+{% block header_title %}Add Mess Incharge{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Add New Mess Incharge</h2>
+    <div class="card">
+        <div class="card-body">
+            <form method="post" action="{% url 'coustom_admin:add_mess_incharge' %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="name" class="form-label">Name</label>
+                    <input type="text" class="form-control" id="name" name="name" required>
+                </div>
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="email" name="email" required>
+                </div>
+                <div class="mb-3">
+                    <label for="password" class="form-label">Password</label>
+                    <input type="password" class="form-control" id="password" name="password" required>
+                </div>
+                <div class="mb-3">
+                    <label for="contact_number" class="form-label">Contact Number</label>
+                    <input type="text" class="form-control" id="contact_number" name="contact_number" required>
+                </div>
+                <div class="mb-3">
+                    <label for="gender" class="form-label">Gender</label>
+                    <select class="form-select" id="gender" name="gender" required>
+                        <option value="Male">Male</option>
+                        <option value="Female">Female</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="hostel" class="form-label">Hostel</label>
+                    <select class="form-select" id="hostel" name="hostel" required>
+                        {% for hostel in hostels %}
+                            <option value="{{ hostel.id }}">{{ hostel.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="is_active" name="is_active" checked>
+                    <label class="form-check-label" for="is_active">Is Active</label>
+                </div>
+                <button type="submit" class="btn btn-primary">Add Mess Incharge</button>
+                <a href="{% url 'coustom_admin:manage_mess_incharge' %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

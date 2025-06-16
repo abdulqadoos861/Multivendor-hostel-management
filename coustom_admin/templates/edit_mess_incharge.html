@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Mess Incharge{% endblock %}
+
+{% block header_title %}Edit Mess Incharge{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Edit Mess Incharge</h2>
+    <div class="card">
+        <div class="card-body">
+            <form method="post" action="{% url 'coustom_admin:edit_mess_incharge' mess_incharge.user.id %}">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="name" class="form-label">Name</label>
+                    <input type="text" class="form-control" id="name" name="name" value="{{ mess_incharge.name }}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="email" class="form-label">Email</label>
+                    <input type="email" class="form-control" id="email" name="email" value="{{ mess_incharge.email }}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="contact_number" class="form-label">Contact Number</label>
+                    <input type="text" class="form-control" id="contact_number" name="contact_number" value="{{ mess_incharge.contact_number }}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="gender" class="form-label">Gender</label>
+                    <select class="form-select" id="gender" name="gender" required>
+                        <option value="Male" {% if mess_incharge.gender == "Male" %}selected{% endif %}>Male</option>
+                        <option value="Female" {% if mess_incharge.gender == "Female" %}selected{% endif %}>Female</option>
+                        <option value="Other" {% if mess_incharge.gender == "Other" %}selected{% endif %}>Other</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label for="hostel" class="form-label">Hostel</label>
+                    <select class="form-select" id="hostel" name="hostel" required>
+                        {% for hostel in hostels %}
+                            <option value="{{ hostel.id }}" {% if mess_incharge.hostel.id == hostel.id %}selected{% endif %}>{{ hostel.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3 form-check">
+                    <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if mess_incharge.user.is_active %}checked{% endif %}>
+                    <label class="form-check-label" for="is_active">Is Active</label>
+                </div>
+                <button type="submit" class="btn btn-primary">Update Mess Incharge</button>
+                <a href="{% url 'coustom_admin:manage_mess_incharge' %}" class="btn btn-secondary">Cancel</a>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

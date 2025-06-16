@@ -324,3 +324,23 @@ class Payment(models.Model):
         ordering = ['-payment_date']
         verbose_name = 'Payment'
         verbose_name_plural = 'Payments'
+
+class MessIncharge(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='mess_incharge_profile',
+        primary_key=True
+    )
+    name = models.CharField(max_length=100)
+    contact_number = models.CharField(max_length=11)
+    gender = models.CharField(max_length=10, choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')])
+    hostel = models.ForeignKey(Hostels, on_delete=models.CASCADE, related_name='mess_incharges')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return self.name
+
+    @property
+    def email(self):
+        return self.user.email
