@@ -586,8 +586,49 @@ def hostels(request):
     return render(request, "hostels.html", {'hostels': hostels})
 
 @login_required
+@csrf_exempt
 def complaints(request):
-    return render(request, "complaints.html")
+    if request.method == 'POST':
+        # Handle form submission for updating complaint status
+        complaint_id = request.POST.get('complaint_id')
+        status = request.POST.get('status')
+        if complaint_id and status:
+            try:
+                from student.models import Complaint
+                complaint = Complaint.objects.get(complaint_id=complaint_id)
+                complaint.status = status
+                if status == 'Resolved':
+                    complaint.resolved_at = timezone.now()
+                    complaint.resolved_by = request.user
+                    complaint.resolution_notes = request.POST.get('resolution_notes', '')
+                complaint.save()
+                messages.success(request, f'Complaint #{complaint_id} status updated to {status}.')
+            except Exception as e:
+                messages.error(request, f'Error updating complaint #{complaint_id}: {str(e)}')
+            return redirect('complaints')
+    
+    # Retrieve complaints submitted to admin
+    try:
+        from student.models import Complaint
+        complaints = Complaint.objects.all().order_by('-created_at')
+    except Exception as e:
+        messages.error(request, f'Error retrieving complaints: {str(e)}')
+        complaints = []
+
+    # Retrieve bookings for admin-assigned hostel
+    bookings = []
+    try:
+        admin_hostels = HostelWardens.objects.filter(warden__user=request.user).values_list('hostel_id', flat=True)
+        if admin_hostels:
+            bookings = BookingRequest.objects.filter(hostel_id__in=admin_hostels).order_by('-request_date')
+    except Exception as e:
+        messages.error(request, f'Error retrieving bookings: {str(e)}')
+
+    context = {
+        'complaints': complaints,
+        'bookings': bookings,
+    }
+    return render(request, "complaints.html", context)
 
 @login_required
 def expenses(request):

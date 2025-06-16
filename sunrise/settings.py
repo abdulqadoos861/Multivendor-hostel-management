@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'coustom_admin',
     'frontend',
     'warden',
+    'student',
 ]
 
 MIDDLEWARE = [

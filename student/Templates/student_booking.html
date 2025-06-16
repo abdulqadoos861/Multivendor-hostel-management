@@ -1,0 +1,296 @@
+{% extends 'student_base.html' %}
+
+{% block title %}Hostel Booking{% endblock %}
+
+{% block content %}
+    <h2>Hostel Booking</h2>
+    <p>Submit a request to book a hostel room. Your request will be reviewed by the administration.</p>
+    
+    <div class="booking-container">
+        <div class="booking-form">
+            <h3>Create Booking Request</h3>
+            {% if has_active_assignment %}
+                <p class="info-message">You currently have an active room assignment. You cannot create a new booking request until your current assignment is resolved.</p>
+                <h3>Request Room Change</h3>
+                {% if has_pending_room_change %}
+                    <p class="info-message">You have a pending room change request. You cannot submit a new request until the current one is reviewed.</p>
+                {% else %}
+                    <form method="POST" action="{% url 'student_booking' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="form_type" value="room_change">
+                        <div class="form-group">
+                            <label for="change_hostel">Select New Hostel (optional):</label>
+                            <select id="change_hostel" name="change_hostel">
+                                <option value="">-- Keep Current Hostel --</option>
+                                {% for hostel in hostels %}
+                                    <option value="{{ hostel.id }}">{{ hostel.name }} ({{ hostel.gender }}) - {{ hostel.address }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="change_room_type">Preferred Room Type:</label>
+                            <select id="change_room_type" name="change_room_type" required>
+                                <option value="">-- Select Room Type --</option>
+                                <option value="Single">Single</option>
+                                <option value="Double">Double</option>
+                                <option value="Shared">Shared</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="reason">Reason for Room Change:</label>
+                            <textarea id="reason" name="reason" rows="3" required placeholder="Explain why you want to change your room"></textarea>
+                        </div>
+                        <button type="submit">Submit Room Change Request</button>
+                    </form>
+                {% endif %}
+            {% else %}
+                <form method="POST" action="{% url 'student_booking' %}">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="hostel">Select Hostel:</label>
+                        <select id="hostel" name="hostel" required>
+                            <option value="">-- Select Hostel --</option>
+                            {% for hostel in hostels %}
+                                <option value="{{ hostel.id }}">{{ hostel.name }} ({{ hostel.gender }}) - {{ hostel.address }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="room_type">Room Type:</label>
+                        <select id="room_type" name="room_type" required>
+                            <option value="">-- Select Room Type --</option>
+                            <option value="Single">Single</option>
+                            <option value="Double">Double</option>
+                            <option value="Shared">Shared</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="check_in_date">Check-in Date:</label>
+                        <input type="date" id="check_in_date" name="check_in_date" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="check_out_date">Check-out Date (Optional):</label>
+                        <input type="date" id="check_out_date" name="check_out_date">
+                    </div>
+                    <button type="submit">Submit Request</button>
+                    {% if messages %}
+                        {% for message in messages %}
+                            <p class="error-message">{{ message }}</p>
+                        {% endfor %}
+                    {% endif %}
+                </form>
+            {% endif %}
+        </div>
+        
+        <div class="booking-history">
+            <h3>Your Booking Requests</h3>
+            {% if bookings %}
+                <table class="booking-table">
+                    <thead>
+                        <tr>
+                            <th>Hostel</th>
+                            <th>Room Type</th>
+                            <th>Check-in Date</th>
+                            <th>Check-out Date</th>
+                            <th>Status</th>
+                            <th>Request Date</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for booking in bookings %}
+                            <tr>
+                                <td>{{ booking.hostel.name }}</td>
+                                <td>{{ booking.room_type }}</td>
+                                <td>{{ booking.check_in_date }}</td>
+                                <td>{{ booking.check_out_date|default:"Not Set" }}</td>
+                                <td>{{ booking.status }}</td>
+                                <td>{{ booking.request_date|date:"Y-m-d" }}</td>
+                                <td>
+                                    {% if booking.status == 'Pending' %}
+                                        <a href="#" class="cancel-link" data-id="{{ booking.id }}">Cancel</a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No booking requests found.</p>
+            {% endif %}
+            
+            <h3>Your Room Change Requests</h3>
+            {% if room_change_requests %}
+                <table class="booking-table">
+                    <thead>
+                        <tr>
+                            <th>Current Booking Hostel</th>
+                            <th>Requested Hostel</th>
+                            <th>Requested Room Type</th>
+                            <th>Reason</th>
+                            <th>Status</th>
+                            <th>Request Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for request in room_change_requests %}
+                            <tr>
+                                <td>{{ request.current_booking.hostel.name }}</td>
+                                <td>{{ request.requested_hostel.name|default:"Same Hostel" }}</td>
+                                <td>{{ request.requested_room_type }}</td>
+                                <td>{{ request.reason }}</td>
+                                <td>{{ request.status }}</td>
+                                <td>{{ request.request_date|date:"Y-m-d" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No room change requests found.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <style>
+        h2 {
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #6c757d;
+            margin-bottom: 30px;
+        }
+        .booking-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        .booking-form, .booking-history {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+        }
+        .booking-form h3, .booking-history h3 {
+            color: #343a40;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+        }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .form-group input:focus, .form-group select:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+            outline: none;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        .error-message {
+            color: #dc3545;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            background-color: #f8d7da;
+            padding: 10px;
+            border-radius: 5px;
+            display: inline-block;
+        }
+        .info-message {
+            color: #17a2b8;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            background-color: #d1ecf1;
+            padding: 10px;
+            border-radius: 5px;
+            display: inline-block;
+        }
+        .booking-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .booking-table th, .booking-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .booking-table th {
+            background-color: #e9ecef;
+            font-weight: 600;
+            color: #495057;
+        }
+        .booking-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        .cancel-link {
+            color: #dc3545;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .cancel-link:hover {
+            text-decoration: underline;
+        }
+        @media (max-width: 992px) {
+            .booking-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+        @media (max-width: 576px) {
+            .booking-form, .booking-history {
+                padding: 15px;
+            }
+            .booking-table th, .booking-table td {
+                padding: 8px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const cancelLinks = document.querySelectorAll('.cancel-link');
+            cancelLinks.forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const bookingId = this.getAttribute('data-id');
+                    if (confirm('Are you sure you want to cancel this booking request?')) {
+                        // Here you would handle the cancellation, possibly via an AJAX request or form submission
+                        alert('Cancellation functionality would be implemented here. Booking ID: ' + bookingId);
+                    }
+                });
+            });
+        });
+    </script>
+{% endblock %}

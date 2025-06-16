@@ -1,0 +1,223 @@
+{% extends 'student_base.html' %}
+
+{% block title %}Register Complaint{% endblock %}
+
+{% block content %}
+    <h2>Register Complaint</h2>
+    <p>Submit your complaint below. It will be reviewed by the administration.</p>
+    
+    <div class="complaint-container">
+        <div class="complaint-form">
+            <h3>Submit a Complaint</h3>
+            <form method="POST" action="{% url 'student_complaint' %}">
+                {% csrf_token %}
+                {% if assigned_hostel %}
+                    <div class="form-group">
+                        <label>Assigned Hostel:</label>
+                        <p style="font-weight: bold; color: #007bff;">{{ assigned_hostel.name }}</p>
+                        <input type="hidden" name="hostel" value="{{ assigned_hostel.id }}">
+                        <small style="color: #6c757d;">Your complaint will be submitted against your assigned hostel.</small>
+                    </div>
+                {% else %}
+                    <div class="form-group">
+                        <p style="color: #dc3545;">You must have an active hostel assignment to submit a complaint.</p>
+                    </div>
+                {% endif %}
+                <div class="form-group">
+                    <label for="category">Complaint Category:</label>
+                    <select id="category" name="category" required>
+                        <option value="">-- Select Category --</option>
+                        <option value="Maintenance">Maintenance</option>
+                        <option value="Cleanliness">Cleanliness</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="priority">Priority:</label>
+                    <select id="priority" name="priority" required>
+                        <option value="Low">Low</option>
+                        <option value="Medium" selected>Medium</option>
+                        <option value="High">High</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="submitted_to">Submit To:</label>
+                    <select id="submitted_to" name="submitted_to" required>
+                        <option value="Admin" selected>Admin</option>
+                        <option value="Warden">Warden</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="title">Complaint Title:</label>
+                    <input type="text" id="title" name="title" required placeholder="Briefly describe the issue">
+                </div>
+                <div class="form-group">
+                    <label for="description">Description:</label>
+                    <textarea id="description" name="description" rows="5" required placeholder="Provide detailed information about your complaint"></textarea>
+                </div>
+                <button type="submit">Submit Complaint</button>
+                {% if messages %}
+                    {% for message in messages %}
+                        <p class="error-message">{{ message }}</p>
+                    {% endfor %}
+                {% endif %}
+            </form>
+        </div>
+        
+        <div class="complaint-history">
+            <h3>Your Complaints</h3>
+            {% if complaints %}
+                <table class="complaint-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Hostel</th>
+                            <th>Category</th>
+                            <th>Title</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th>Priority</th>
+                            <th>Submitted To</th>
+                            <th>Created At</th>
+                            <th>Resolved At</th>
+                            <th>Resolved By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for complaint in complaints %}
+                            <tr>
+                                <td>{{ complaint.complaint_id }}</td>
+                                <td>{{ complaint.hostel.name|default:"N/A" }}</td>
+                                <td>{{ complaint.category }}</td>
+                                <td>{{ complaint.title }}</td>
+                                <td>{{ complaint.description }}</td>
+                                <td>{{ complaint.status }}</td>
+                                <td>{{ complaint.priority }}</td>
+                                <td>{{ complaint.submitted_to }}</td>
+                                <td>{{ complaint.created_at|date:"Y-m-d H:i" }}</td>
+                                <td>{{ complaint.resolved_at|date:"Y-m-d H:i"|default:"Not Resolved" }}</td>
+                                <td>{{ complaint.resolved_by.username|default:"N/A" }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No complaints found.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <style>
+        h2 {
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #6c757d;
+            margin-bottom: 30px;
+        }
+        .complaint-container {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        .complaint-form, .complaint-history {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+        }
+        .complaint-form h3, .complaint-history h3 {
+            color: #343a40;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+        }
+        .form-group input, .form-group select, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .form-group input:focus, .form-group select:focus, .form-group textarea:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+            outline: none;
+        }
+        .form-group textarea {
+            resize: vertical;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        .error-message {
+            color: #dc3545;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            background-color: #f8d7da;
+            padding: 10px;
+            border-radius: 5px;
+            display: inline-block;
+        }
+        .complaint-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .complaint-table th, .complaint-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .complaint-table th {
+            background-color: #e9ecef;
+            font-weight: 600;
+            color: #495057;
+        }
+        .complaint-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        @media (max-width: 992px) {
+            .complaint-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+        @media (max-width: 576px) {
+            .complaint-form, .complaint-history {
+                padding: 15px;
+            }
+            .complaint-table th, .complaint-table td {
+                padding: 8px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+{% endblock %}

@@ -1,0 +1,81 @@
+{% extends 'student_base.html' %}
+
+{% block title %}Student Dashboard{% endblock %}
+
+{% block content %}
+    <h2>Welcome to Student Dashboard</h2>
+    <p>Here you can manage your hostel bookings, view your profile, and submit complaints.</p>
+    
+    <div class="dashboard-cards">
+        <div class="card">
+            <h3>Profile</h3>
+            <p>View and update your personal information.</p>
+            <a href="#" class="card-link">Go to Profile</a>
+        </div>
+        <div class="card">
+            <h3>Bookings</h3>
+            <p>Check availability and book your hostel room.</p>
+            <a href="#" class="card-link">Manage Bookings</a>
+        </div>
+        <div class="card">
+            <h3>Complaints</h3>
+            <p>Submit and track any issues or complaints.</p>
+            <a href="#" class="card-link">Submit Complaint</a>
+        </div>
+    </div>
+    
+    <style>
+        h2 {
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #6c757d;
+            margin-bottom: 30px;
+        }
+        .dashboard-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .card {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.15);
+        }
+        .card h3 {
+            color: #343a40;
+            margin-top: 0;
+            margin-bottom: 15px;
+            font-size: 1.4rem;
+        }
+        .card p {
+            color: #6c757d;
+            margin-bottom: 20px;
+        }
+        .card-link {
+            display: inline-block;
+            background-color: #007bff;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 5px;
+            text-decoration: none;
+            font-weight: 500;
+            transition: background-color 0.3s ease;
+        }
+        .card-link:hover {
+            background-color: #0056b3;
+        }
+        @media (max-width: 576px) {
+            .dashboard-cards {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+{% endblock %}

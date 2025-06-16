@@ -1,0 +1,145 @@
+{% extends 'warden/warden_base.html' %}
+
+{% block title %}Manage Complaints{% endblock %}
+
+{% block content %}
+    <h2>Manage Complaints</h2>
+    <p>View and manage complaints submitted to you or within your hostel.</p>
+    
+    <div class="complaints-container">
+        <div class="complaints-list">
+            <h3>Submitted Complaints</h3>
+            {% if complaints %}
+                <table class="complaints-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>User</th>
+                            <th>Hostel</th>
+                            <th>Category</th>
+                            <th>Title</th>
+                            <th>Description</th>
+                            <th>Status</th>
+                            <th>Priority</th>
+                            <th>Submitted To</th>
+                            <th>Created At</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for complaint in complaints %}
+                            <tr>
+                                <td>{{ complaint.complaint_id }}</td>
+                                <td>{{ complaint.user.username }}</td>
+                                <td>{{ complaint.hostel.name|default:"N/A" }}</td>
+                                <td>{{ complaint.category }}</td>
+                                <td>{{ complaint.title }}</td>
+                                <td>{{ complaint.description }}</td>
+                                <td>{{ complaint.status }}</td>
+                                <td>{{ complaint.priority }}</td>
+                                <td>{{ complaint.submitted_to }}</td>
+                                <td>{{ complaint.created_at|date:"Y-m-d H:i" }}</td>
+                                <td>
+                                    {% if complaint.status == 'Resolved' %}
+                                        <span class="text-muted">Status Locked</span>
+                                    {% else %}
+                                        <form method="POST" action="{% url 'warden:warden_complaints' %}">
+                                            {% csrf_token %}
+                                            <input type="hidden" name="complaint_id" value="{{ complaint.complaint_id }}">
+                                            <select name="status" required>
+                                                <option value="">-- Update Status --</option>
+                                                <option value="Open">Open</option>
+                                                <option value="In Progress">In Progress</option>
+                                                <option value="Resolved">Resolved</option>
+                                            </select>
+                                            <button type="submit">Update</button>
+                                        </form>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>No complaints found.</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <style>
+        h2 {
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #6c757d;
+            margin-bottom: 30px;
+        }
+        .complaints-container {
+            margin-top: 20px;
+        }
+        .complaints-list {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+        }
+        .complaints-list h3 {
+            color: #343a40;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+        .complaints-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .complaints-table th, .complaints-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #dee2e6;
+        }
+        .complaints-table th {
+            background-color: #e9ecef;
+            font-weight: 600;
+            color: #495057;
+        }
+        .complaints-table tr:hover {
+            background-color: #f8f9fa;
+        }
+        .complaints-table form {
+            display: flex;
+            gap: 10px;
+        }
+        .complaints-table select {
+            padding: 5px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+        }
+        .complaints-table button {
+            padding: 5px 10px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: background-color 0.3s ease;
+        }
+        .complaints-table button:hover {
+            background-color: #0056b3;
+        }
+        @media (max-width: 576px) {
+            .complaints-list {
+                padding: 15px;
+            }
+            .complaints-table th, .complaints-table td {
+                padding: 8px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+{% endblock %}

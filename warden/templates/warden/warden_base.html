@@ -177,13 +177,11 @@
                                 <i class="fas fa-house-user"></i> Room Assignments
                             </a>
                         </li>
-                        <!-- Commented out complaints link until feature is implemented
                         <li class="nav-item">
-                            <a class="nav-link" href="#">
+                            <a class="nav-link {% if 'complaints' in request.path %}active{% endif %}" href="{% url 'warden:warden_complaints' %}">
                                 <i class="fas fa-comment-dots"></i> Complaints
                             </a>
                         </li>
-                        -->
                         <li class="nav-item">
                             <a class="nav-link" href="#">
                                 <i class="fas fa-calendar-alt"></i> Attendance

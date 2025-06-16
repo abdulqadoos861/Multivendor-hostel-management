@@ -20,6 +20,7 @@ urlpatterns = [
     path('room-assignments/', views.room_assignments, name='room_assignments'),
     path('rooms/', views.manage_rooms, name='manage_rooms'),
     path('search_student/', views.search_student, name='search_student'),
+    path('complaints/', views.warden_complaints, name='warden_complaints'),
     # Password reset URLs
     path('password_reset/', auth_views.PasswordResetView.as_view(template_name='warden/password_reset.html'), name='password_reset'),
     # Add more URL patterns here as needed,

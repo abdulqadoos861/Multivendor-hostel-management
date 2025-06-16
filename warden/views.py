@@ -867,3 +867,47 @@ def room_assignments(request):
 def warden_logout(request):
     logout(request)
     return redirect('warden:login')
+
+from django.views.decorators.csrf import csrf_protect
+
+from django.views.decorators.csrf import csrf_exempt
+
+@login_required
+@user_passes_test(lambda u: hasattr(u, 'warden_profile'))
+@csrf_exempt
+def warden_complaints(request):
+    warden_profile = request.user.warden_profile
+    assigned_hostel = HostelWardens.objects.filter(warden=warden_profile).first().hostel if HostelWardens.objects.filter(warden=warden_profile).exists() else None
+    
+    if not assigned_hostel:
+        messages.error(request, 'You are not assigned to any hostel.')
+        return redirect('warden:dashboard')
+    
+    from student.models import Complaint
+    complaints = Complaint.objects.filter(
+        hostel=assigned_hostel,
+        submitted_to='Warden'
+    ).order_by('-created_at')
+    
+    if request.method == 'POST':
+        complaint_id = request.POST.get('complaint_id')
+        status = request.POST.get('status')
+        if complaint_id and status:
+            try:
+                complaint = Complaint.objects.get(complaint_id=complaint_id, hostel=assigned_hostel)
+                complaint.status = status
+                if status == 'Resolved':
+                    complaint.resolved_at = timezone.now()
+                    complaint.resolved_by = request.user
+                complaint.save()
+                messages.success(request, f'Complaint #{complaint_id} status updated to {status}.')
+            except Complaint.DoesNotExist:
+                messages.error(request, f'Complaint #{complaint_id} not found or you are not authorized to update it.')
+            return redirect('warden:warden_complaints')
+    
+    context = {
+        'page_title': 'Manage Complaints',
+        'complaints': complaints,
+        'total_complaints': complaints.count(),
+    }
+    return render(request, 'warden/warden_complaints.html', context, using=None)

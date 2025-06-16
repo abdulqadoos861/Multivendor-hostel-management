@@ -1,0 +1,227 @@
+{% extends 'student_base.html' %}
+
+{% block title %}Student Profile{% endblock %}
+
+{% block content %}
+    <h2>Student Profile</h2>
+    <p>View and update your personal information below.</p>
+    
+    <div class="profile-container">
+        <div class="profile-details">
+            <h3>Personal Details</h3>
+            {% if student %}
+                <div class="detail-item">
+                    <label>Name:</label>
+                    <span>{{ student.user.first_name }} {{ student.user.last_name }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Username:</label>
+                    <span>{{ student.user.username }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Email:</label>
+                    <span>{{ student.user.email }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Contact Number:</label>
+                    <span>{{ student.contact_number }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>CNIC:</label>
+                    <span>{{ student.cnic }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Address:</label>
+                    <span>{{ student.address }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Gender:</label>
+                    <span>{{ student.gender }}</span>
+                </div>
+                <div class="detail-item">
+                    <label>Institute:</label>
+                    <span>{{ student.institute }}</span>
+                </div>
+            {% else %}
+                <p>No profile information available. Please update your details.</p>
+            {% endif %}
+        </div>
+        
+        <div class="profile-form">
+            <h3>Update Information</h3>
+            <form method="POST" action="{% url 'student_profile' %}">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="personal">
+                <div class="form-group">
+                    <label for="first_name">First Name:</label>
+                    <input type="text" id="first_name" name="first_name" value="{{ student.user.first_name }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="last_name">Last Name:</label>
+                    <input type="text" id="last_name" name="last_name" value="{{ student.user.last_name }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="email">Email:</label>
+                    <input type="email" id="email" name="email" value="{{ student.user.email }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="contact_number">Contact Number:</label>
+                    <input type="text" id="contact_number" name="contact_number" value="{{ student.contact_number }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="cnic">CNIC:</label>
+                    <input type="text" id="cnic" name="cnic" value="{{ student.cnic }}" required>
+                </div>
+                <div class="form-group">
+                    <label for="address">Address:</label>
+                    <textarea id="address" name="address" rows="3">{{ student.address }}</textarea>
+                </div>
+                <div class="form-group">
+                    <label for="gender">Gender:</label>
+                    <select id="gender" name="gender" required>
+                        <option value="Male" {% if student.gender == 'Male' %}selected{% endif %}>Male</option>
+                        <option value="Female" {% if student.gender == 'Female' %}selected{% endif %}>Female</option>
+                        <option value="Other" {% if student.gender == 'Other' %}selected{% endif %}>Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="institute">Institute:</label>
+                    <input type="text" id="institute" name="institute" value="{{ student.institute }}" required>
+                </div>
+                <button type="submit">Update Profile</button>
+            </form>
+            
+            <h3>Change Password</h3>
+            <form method="POST" action="{% url 'student_profile' %}">
+                {% csrf_token %}
+                <input type="hidden" name="form_type" value="password">
+                <div class="form-group">
+                    <label for="current_password">Current Password:</label>
+                    <input type="password" id="current_password" name="current_password" required>
+                </div>
+                <div class="form-group">
+                    <label for="new_password">New Password:</label>
+                    <input type="password" id="new_password" name="new_password" required>
+                </div>
+                <div class="form-group">
+                    <label for="confirm_password">Confirm New Password:</label>
+                    <input type="password" id="confirm_password" name="confirm_password" required>
+                </div>
+                <button type="submit">Change Password</button>
+                {% if messages %}
+                    {% for message in messages %}
+                        <p class="error-message">{{ message }}</p>
+                    {% endfor %}
+                {% endif %}
+            </form>
+        </div>
+    </div>
+    
+    <style>
+        h2 {
+            color: #007bff;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #6c757d;
+            margin-bottom: 30px;
+        }
+        .profile-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-top: 20px;
+        }
+        .profile-details, .profile-form {
+            background-color: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 25px;
+        }
+        .profile-details h3, .profile-form h3 {
+            color: #343a40;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+            border-bottom: 1px solid #e9ecef;
+            padding-bottom: 10px;
+        }
+        .detail-item {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+        }
+        .detail-item label {
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 5px;
+        }
+        .detail-item span {
+            color: #6c757d;
+            background-color: #f8f9fa;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 8px;
+        }
+        .form-group input, .form-group textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ced4da;
+            border-radius: 5px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .form-group input:focus, .form-group textarea:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+            outline: none;
+        }
+        .form-group textarea {
+            resize: vertical;
+        }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+        }
+        button:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+        .error-message {
+            color: #dc3545;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            background-color: #f8d7da;
+            padding: 10px;
+            border-radius: 5px;
+            display: inline-block;
+        }
+        @media (max-width: 768px) {
+            .profile-container {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+        }
+        @media (max-width: 576px) {
+            .profile-details, .profile-form {
+                padding: 15px;
+            }
+        }
+    </style>
+{% endblock %}
