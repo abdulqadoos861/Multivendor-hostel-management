@@ -1,0 +1,87 @@
+{% extends 'messincharge/minc_base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white d-flex align-items-center">
+            <i class="bi bi-currency-dollar me-2" style="font-size: 1.5rem;"></i>
+            <h2 class="mb-0">Add Expenses</h2>
+        </div>
+        <div class="card-body">
+            <p class="lead mb-4">Record expenses for your assigned hostel.</p>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <form method="POST" action="{% url 'messincharge:add_expenses' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <input type="text" name="description" id="description" class="form-control" placeholder="Enter expense description (e.g., Food Supplies)" required>
+                </div>
+                <div class="mb-3">
+                    <label for="amount" class="form-label">Amount (PKR)</label>
+                    <input type="number" name="amount" id="amount" class="form-control" placeholder="Enter amount spent" step="0.01" min="0" required>
+                </div>
+                <div class="mb-3">
+                    <label for="date_incurred" class="form-label">Date Incurred</label>
+                    <input type="date" name="date_incurred" id="date_incurred" class="form-control" value="{{ current_date }}" required>
+                </div>
+                <div class="mb-3">
+                    <label for="receipt" class="form-label">Receipt (Optional)</label>
+                    <input type="file" name="receipt" id="receipt" class="form-control" accept="image/*,application/pdf">
+                </div>
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-plus-circle me-2"></i>Add Expense</button>
+                </div>
+            </form>
+
+            <div class="mt-5">
+                <h4>Your Added Expenses</h4>
+                {% if expenses %}
+                    <div class="table-responsive">
+                        <table class="table table-striped table-hover align-middle">
+                            <thead class="table-dark">
+                                <tr>
+                                    <th scope="col">Description</th>
+                                    <th scope="col">Amount (PKR)</th>
+                                    <th scope="col">Date Incurred</th>
+                                    <th scope="col">Created At</th>
+                                    <th scope="col">Receipt</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for expense in expenses %}
+                                <tr>
+                                    <td>{{ expense.description }}</td>
+                                    <td>{{ expense.amount }}</td>
+                                    <td>{{ expense.date_incurred }}</td>
+                                    <td>{{ expense.created_at }}</td>
+                                    <td>
+                                        {% if expense.receipt %}
+                                            <a href="{{ expense.receipt.url }}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="bi bi-file-earmark-text me-1"></i>View</a>
+                                        {% else %}
+                                            <span class="text-muted">No Receipt</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info" role="alert">
+                        <i class="bi bi-info-circle me-2"></i>No expenses recorded yet.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

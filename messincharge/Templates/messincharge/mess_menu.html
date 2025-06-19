@@ -1,0 +1,62 @@
+{% extends 'messincharge/minc_base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white d-flex align-items-center">
+            <i class="bi bi-list-ul me-2" style="font-size: 1.5rem;"></i>
+            <h2 class="mb-0">Mess Menu Management</h2>
+        </div>
+        <div class="card-body">
+            <p class="lead mb-4">Enter the mess menu for the week for your assigned hostel.</p>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- No week selection needed as the system manages only one menu per hostel -->
+            
+            <form method="POST" action="{% url 'messincharge:mess_menu' %}">
+                {% csrf_token %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th scope="col" style="width: 10%;">Day</th>
+                                <th scope="col" style="width: 30%;">Breakfast (8:00 AM)</th>
+                                <th scope="col" style="width: 30%;">Lunch (1:00 PM)</th>
+                                <th scope="col" style="width: 30%;">Dinner (8:00 PM)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for day_data in days_with_data %}
+                            <tr>
+                                <td class="fw-bold">{{ day_data.name }}</td>
+                                <td>
+                                    <textarea name="{{ day_data.name }}_breakfast" class="form-control" rows="4" placeholder="Enter breakfast menu for {{ day_data.name }}" style="resize: vertical;">{{ day_data.breakfast }}</textarea>
+                                </td>
+                                <td>
+                                    <textarea name="{{ day_data.name }}_lunch" class="form-control" rows="4" placeholder="Enter lunch menu for {{ day_data.name }}" style="resize: vertical;">{{ day_data.lunch }}</textarea>
+                                </td>
+                                <td>
+                                    <textarea name="{{ day_data.name }}_dinner" class="form-control" rows="4" placeholder="Enter dinner menu for {{ day_data.name }}" style="resize: vertical;">{{ day_data.dinner }}</textarea>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <!-- Week start date will be set automatically by the system -->
+                <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-save me-2"></i>Save Menu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,97 @@
+{% extends 'messincharge/minc_base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow">
+        <div class="card-header bg-primary text-white d-flex align-items-center">
+            <i class="bi bi-gear me-2" style="font-size: 1.5rem;"></i>
+            <h2 class="mb-0">Settings</h2>
+        </div>
+        <div class="card-body">
+            <p class="lead mb-4">View and update all your profile information.</p>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="row">
+                <div class="col-md-6">
+                    <h4>Personal Information</h4>
+                    <form method="POST" action="{% url 'messincharge:settings' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="update_profile">
+                        <div class="mb-3">
+                            <label for="username" class="form-label">Username</label>
+                            <input type="text" name="username" id="username" class="form-control" value="{{ user.username }}" disabled>
+                        </div>
+                        <div class="mb-3">
+                            <label for="first_name" class="form-label">First Name</label>
+                            <input type="text" name="first_name" id="first_name" class="form-control" value="{{ user.first_name }}" placeholder="Enter first name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="last_name" class="form-label">Last Name</label>
+                            <input type="text" name="last_name" id="last_name" class="form-control" value="{{ user.last_name }}" placeholder="Enter last name" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" name="email" id="email" class="form-control" value="{{ user.email }}" placeholder="Enter email" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="phone_number" class="form-label">Phone Number</label>
+                            <input type="text" name="phone_number" id="phone_number" class="form-control" value="{{ mess_incharge.phone_number }}" placeholder="Enter phone number">
+                        </div>
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-save me-2"></i>Update Profile</button>
+                        </div>
+                    </form>
+                </div>
+                <div class="col-md-6">
+                    <h4>Login Information</h4>
+                    <form method="POST" action="{% url 'messincharge:settings' %}">
+                        {% csrf_token %}
+                        <input type="hidden" name="action" value="update_password">
+                        <div class="mb-3">
+                            <label for="current_password" class="form-label">Current Password</label>
+                            <input type="password" name="current_password" id="current_password" class="form-control" placeholder="Enter current password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="new_password" class="form-label">New Password</label>
+                            <input type="password" name="new_password" id="new_password" class="form-control" placeholder="Enter new password" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="confirm_password" class="form-label">Confirm New Password</label>
+                            <input type="password" name="confirm_password" id="confirm_password" class="form-control" placeholder="Confirm new password" required>
+                        </div>
+                        <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
+                            <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-lock me-2"></i>Change Password</button>
+                        </div>
+                    </form>
+                    <hr>
+                    <h4>Mess Incharge Details</h4>
+                    <div class="mb-3">
+                        <label class="form-label">Hostel Assigned</label>
+                        <input type="text" class="form-control" value="{{ mess_incharge.hostel.name }}" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Role</label>
+                        <input type="text" class="form-control" value="Mess Incharge" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Date Joined</label>
+                        <input type="text" class="form-control" value="{{ user.date_joined }}" disabled>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Last Login</label>
+                        <input type="text" class="form-control" value="{{ user.last_login }}" disabled>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
