@@ -632,7 +632,37 @@ def complaints(request):
 
 @login_required
 def expenses(request):
-    return render(request, "expenses.html")
+    """
+    View to display all expenses from the Expenses model with search and filter functionality.
+    """
+    from messincharge.models import Expenses
+    
+    # Get all expenses with related hostel data
+    expenses = Expenses.objects.select_related('hostel_id', 'created_by').all().order_by('-created_at')
+    
+    # Apply search filter if provided
+    search_query = request.GET.get('search', '')
+    if search_query:
+        expenses = expenses.filter(
+            Q(description__icontains=search_query) |
+            Q(hostel_id__name__icontains=search_query) |
+            Q(created_by__username__icontains=search_query)
+        )
+    
+    # Apply category filter if provided
+    filter_param = request.GET.get('filter', 'all')
+    if filter_param == 'food':
+        expenses = expenses.filter(description__icontains='food')
+    elif filter_param == 'utilities':
+        expenses = expenses.filter(description__icontains='utilities')
+    
+    context = {
+        'expenses': expenses,
+        'search_query': search_query,
+        'filter_param': filter_param,
+    }
+    
+    return render(request, "expenses.html", context)
 
 @login_required
 def manageStudent(request):
@@ -701,9 +731,16 @@ def manageStudent(request):
                         user=user,
                         contact_number=form.cleaned_data['contact_number'],
                         cnic=form.cleaned_data['cnic'],
-                        address=form.cleaned_data['address'],
+                        street=form.cleaned_data['street'],
+                        area=form.cleaned_data['area'],
+                        city=form.cleaned_data['city'],
+                        district=form.cleaned_data['district'],
                         gender=form.cleaned_data['gender'],
-                        institute=form.cleaned_data['institute']
+                        institute=form.cleaned_data['institute'],
+                        guardian_name=form.cleaned_data['guardian_name'],
+                        guardian_cnic=form.cleaned_data['guardian_cnic'],
+                        guardian_relation=form.cleaned_data['guardian_relation'],
+                        guardian_contact=form.cleaned_data['guardian_contact']
                     )
                     print(f"DEBUG: Student profile created with ID: {student.id}")  # Debug log
                     
@@ -780,7 +817,6 @@ def edit_student(request, user_id):
             user = get_object_or_404(User, id=user_id)
             student = get_object_or_404(Student, user=user)
             
-            # Prepare student data for the form
             student_data = {
                 'status': 'success',
                 'student': {
@@ -790,7 +826,14 @@ def edit_student(request, user_id):
                     'last_name': user.last_name,
                     'contact_number': student.contact_number,
                     'cnic': student.cnic,
-                    'address': student.address,
+                    'street': student.street or '',
+                    'area': student.area or '',
+                    'city': student.city or '',
+                    'district': student.district or '',
+                    'guardian_name': student.guardian_name or '',
+                    'guardian_cnic': student.guardian_cnic or '',
+                    'guardian_relation': student.guardian_relation or '',
+                    'guardian_contact': student.guardian_contact or '',
                     'gender': student.gender,
                     'institute': student.institute,
                     'is_active': user.is_active
@@ -871,7 +914,14 @@ def edit_student(request, user_id):
             # Update student profile
             student.contact_number = contact_number
             student.cnic = cnic
-            student.address = address
+            student.street = data.get('street', '')
+            student.area = data.get('area', '')
+            student.city = data.get('city', '')
+            student.district = data.get('district', '')
+            student.guardian_name = data.get('guardian_name', '')
+            student.guardian_cnic = data.get('guardian_cnic', '')
+            student.guardian_relation = data.get('guardian_relation', '')
+            student.guardian_contact = data.get('guardian_contact', '')
             student.gender = gender
             student.institute = institute
             student.save()
@@ -1639,6 +1689,22 @@ def manage_booking(request):
         # For admins, show all bookings
         bookings = BookingRequest.objects.all()
     
+    # Apply filters from GET parameters
+    status_filter = request.GET.get('status', '')
+    hostel_filter = request.GET.get('hostel', '')
+    search_query = request.GET.get('search', '')
+    
+    if status_filter:
+        bookings = bookings.filter(status=status_filter)
+    if hostel_filter:
+        bookings = bookings.filter(hostel_id=hostel_filter)
+    if search_query:
+        bookings = bookings.filter(
+            Q(student__first_name__icontains=search_query) |
+            Q(student__last_name__icontains=search_query) |
+            Q(student__email__icontains=search_query)
+        )
+    
     # Add status counts for summary
     status_counts = bookings.values('status').annotate(count=Count('status'))
     
@@ -1675,6 +1741,9 @@ def manage_booking(request):
         'hostels': hostels_queryset,  # Pass the QuerySet for template iteration
         'hostels_json': hostels_json,  # Pass the JSON string for JavaScript
         'today': date.today(),    # For setting min date on date picker
+        'status_filter': status_filter,
+        'hostel_filter': hostel_filter,
+        'search_query': search_query
     }
     return render(request, 'manageBookings.html', context)
 
@@ -2611,7 +2680,60 @@ def get_hostels(request):
 
 @login_required
 def mess_menu(request):
-    return render(request, "mess_menu.html")
+    """
+    View to display mess menu for all hostels from the MessMenu model with search and hostel filter functionality.
+    """
+    from messincharge.models import MessMenu
+    from coustom_admin.models import Hostels
+    
+    # Get all hostels
+    hostels = Hostels.objects.all().order_by('name')
+    
+    # Apply search filter if provided
+    search_query = request.GET.get('search', '')
+    if search_query:
+        hostels = hostels.filter(name__icontains=search_query)
+    
+    # Get selected hostel if provided
+    selected_hostel = None
+    hostel_id = request.GET.get('hostel', '')
+    if hostel_id:
+        try:
+            selected_hostel = Hostels.objects.get(id=hostel_id)
+        except Hostels.DoesNotExist:
+            selected_hostel = None
+    
+    # Get all mess menu data for the hostels
+    hostel_menus = MessMenu.objects.filter(hostel_id__in=hostels).select_related('hostel_id')
+    
+    # Define days of the week for the template
+    days_of_week = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    
+    # Structure menu data for easy access in template
+    menu_data = {}
+    for hostel in hostels:
+        menu_data[hostel.id] = {}
+        for day in days_of_week:
+            menu_data[hostel.id][day] = {
+                'Breakfast': None,
+                'Lunch': None,
+                'Dinner': None
+            }
+    
+    for menu in hostel_menus:
+        if menu.hostel_id.id in menu_data:
+            if menu.day_of_week in menu_data[menu.hostel_id.id]:
+                menu_data[menu.hostel_id.id][menu.day_of_week][menu.meal_type] = menu
+    
+    context = {
+        'hostels': hostels,
+        'selected_hostel': selected_hostel,
+        'menu_data': menu_data,
+        'days_of_week': days_of_week,
+        'search_query': search_query,
+    }
+    
+    return render(request, "mess_menu.html", context)
 
 @login_required
 def manage_mess_incharge(request):

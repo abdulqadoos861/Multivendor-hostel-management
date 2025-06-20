@@ -99,13 +99,19 @@ class Student(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE)
     contact_number = models.CharField(max_length=11)
     cnic = models.CharField(max_length=15, unique=True, help_text="Enter CNIC without dashes (e.g., 1234567890123)")
-    address = models.TextField()
     gender = models.CharField(max_length=10, choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')])
     institute = models.CharField(max_length=100)
+    guardian_name = models.CharField(max_length=100, blank=True, null=True)
+    guardian_cnic = models.CharField(max_length=13, blank=True, null=True, help_text="Enter CNIC without dashes (e.g., 1234567890123)")
+    guardian_relation = models.CharField(max_length=50, blank=True, null=True)
+    guardian_contact = models.CharField(max_length=11, blank=True, null=True)
+    street = models.CharField(max_length=100, blank=True, null=True)
+    area = models.CharField(max_length=100, blank=True, null=True)
+    city = models.CharField(max_length=50, blank=True, null=True)
+    district = models.CharField(max_length=50, blank=True, null=True)
 
     def __str__(self):
         return f"{self.user.username} - {self.user.first_name} {self.user.last_name}"
-
 class BookingRequest(models.Model):
     STATUS_CHOICES = [
         ('Pending', 'Pending'),

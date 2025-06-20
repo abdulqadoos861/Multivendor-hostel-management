@@ -32,7 +32,7 @@
                     <select class="form-select" id="filterHostel" name="hostel">
                         <option value="">All Hostels</option>
                         {% for hostel in hostels %}
-                        <option value="{{ hostel.id }}" {% if hostel_filter == hostel.id|stringformat:"i" %}selected{% endif %}>
+                        <option value="{{ hostel.id }}" {% if hostel_filter == hostel.id|stringformat:"s" %}selected{% endif %}>
                             {{ hostel.name }}
                         </option>
                         {% endfor %}
@@ -41,7 +41,7 @@
                 <div class="col-md-3 col-sm-12">
                     <label for="search" class="form-label">Search</label>
                     <input type="text" class="form-control" id="search" name="search" 
-                           placeholder="Search by student name" value="{{ search_query }}">
+                           placeholder="Search by student name" value="{{ search_query|default:'' }}">
                 </div>
                 <div class="col-12">
                     <button type="submit" class="btn btn-primary me-2" id="filterButton">
@@ -574,38 +574,60 @@ if (bookingViewModal) {
         const adminNotes = button.getAttribute('data-admin-notes');
         
         // Set basic information
-        document.getElementById('modal-booking-status').textContent = status;
-        document.getElementById('modal-booking-status').className = `badge bg-${status === 'Approved' ? 'success' : status === 'Pending' ? 'warning' : 'danger'} fs-6 p-2`;
+        const bookingStatusEl = document.getElementById('modal-booking-status');
+        if (bookingStatusEl) {
+            bookingStatusEl.textContent = status;
+            bookingStatusEl.className = `badge bg-${status === 'Approved' ? 'success' : status === 'Pending' ? 'warning' : 'danger'} fs-6 p-2`;
+        }
         
         // Set booking information
-        document.getElementById('modal-booking-id').textContent = `#${bookingId}`;
-        document.getElementById('modal-hostel-name').textContent = hostelName || '-';
-        document.getElementById('modal-room-type').textContent = roomType || '-';
-        document.getElementById('modal-request-date').textContent = formatDate(requestDate);
-        document.getElementById('modal-checkin-date').textContent = checkInDate || '-';
-        document.getElementById('modal-checkout-date').textContent = checkOutDate || '-';
+        const bookingIdEl = document.getElementById('modal-booking-id');
+        if (bookingIdEl) bookingIdEl.textContent = `#${bookingId}`;
+        const hostelNameEl = document.getElementById('modal-hostel-name');
+        if (hostelNameEl) hostelNameEl.textContent = hostelName || '-';
+        const roomTypeEl = document.getElementById('modal-room-type');
+        if (roomTypeEl) roomTypeEl.textContent = roomType || '-';
+        const requestDateEl = document.getElementById('modal-request-date');
+        if (requestDateEl) requestDateEl.textContent = formatDate(requestDate);
+        const checkInDateEl = document.getElementById('modal-checkin-date');
+        if (checkInDateEl) checkInDateEl.textContent = checkInDate || '-';
+        const checkOutDateEl = document.getElementById('modal-checkout-date');
+        if (checkOutDateEl) checkOutDateEl.textContent = checkOutDate || '-';
         
         // Set student information
-        document.getElementById('modal-student-name').textContent = studentName || '-';
-        document.getElementById('modal-student-email').textContent = studentEmail || '-';
-        document.getElementById('modal-student-phone').textContent = studentPhone || '-';
-        document.getElementById('modal-student-cnic').textContent = studentCnic || '-';
+        const studentNameEl = document.getElementById('modal-student-name');
+        if (studentNameEl) studentNameEl.textContent = studentName || '-';
+        const studentEmailEl = document.getElementById('modal-student-email');
+        if (studentEmailEl) studentEmailEl.textContent = studentEmail || '-';
+        const studentPhoneEl = document.getElementById('modal-student-phone');
+        if (studentPhoneEl) studentPhoneEl.textContent = studentPhone || '-';
+        const studentCnicEl = document.getElementById('modal-student-cnic');
+        if (studentCnicEl) studentCnicEl.textContent = studentCnic || '-';
         
         // Set payment information
-        document.getElementById('modal-room-type-rent').textContent = roomType || 'Standard';
-        document.getElementById('modal-monthly-rent').textContent = formatCurrency(monthlyRent);
-        document.getElementById('modal-security-deposit').textContent = formatCurrency(securityDeposit);
-        document.getElementById('modal-duration').textContent = `${duration} month${duration !== 1 ? 's' : ''}`;
-        document.getElementById('modal-total-amount').textContent = formatCurrency(monthlyRent * duration + securityDeposit);
+        const roomTypeRentEl = document.getElementById('modal-room-type-rent');
+        if (roomTypeRentEl) roomTypeRentEl.textContent = roomType || 'Standard';
+        const monthlyRentEl = document.getElementById('modal-monthly-rent');
+        if (monthlyRentEl) monthlyRentEl.textContent = formatCurrency(monthlyRent);
+        const securityDepositEl = document.getElementById('modal-security-deposit');
+        if (securityDepositEl) securityDepositEl.textContent = formatCurrency(securityDeposit);
+        const durationEl = document.getElementById('modal-duration');
+        if (durationEl) durationEl.textContent = `${duration} month${duration !== 1 ? 's' : ''}`;
+        const totalAmountEl = document.getElementById('modal-total-amount');
+        if (totalAmountEl) totalAmountEl.textContent = formatCurrency(monthlyRent * duration + securityDeposit);
         
         // Set payment status
         const paymentStatusBadge = document.getElementById('modal-payment-status');
-        paymentStatusBadge.textContent = paymentStatus || 'Pending';
-        paymentStatusBadge.className = `badge bg-${paymentStatus === 'Paid' ? 'success' : 'warning'}`;
+        if (paymentStatusBadge) {
+            paymentStatusBadge.textContent = paymentStatus || 'Pending';
+            paymentStatusBadge.className = `badge bg-${paymentStatus === 'Paid' ? 'success' : 'warning'}`;
+        }
         
         // Set additional information
-        document.getElementById('modal-special-requests').textContent = specialRequests || 'No special requests';
-        document.getElementById('modal-admin-notes').textContent = adminNotes || 'No admin notes';
+        const specialRequestsEl = document.getElementById('modal-special-requests');
+        if (specialRequestsEl) specialRequestsEl.textContent = specialRequests || 'No special requests';
+        const adminNotesEl = document.getElementById('modal-admin-notes');
+        if (adminNotesEl) adminNotesEl.textContent = adminNotes || 'No admin notes';
     });
 }
 
@@ -636,6 +658,29 @@ if (printButton) {
 // Initialize tooltips
 const tooltipTriggerList = document.querySelectorAll('[data-bs-toggle="tooltip"]');
 const tooltipList = [...tooltipTriggerList].map(tooltipTriggerEl => new bootstrap.Tooltip(tooltipTriggerEl));
+
+// Handle filter form submission
+const filterForm = document.getElementById('filterForm');
+if (filterForm) {
+    filterForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = this;
+        const status = form.querySelector('#status').value;
+        const hostel = form.querySelector('#filterHostel').value;
+        const search = form.querySelector('#search').value;
+        
+        const url = new URL(window.location.href);
+        if (status) url.searchParams.set('status', status);
+        else url.searchParams.delete('status');
+        if (hostel) url.searchParams.set('hostel', hostel);
+        else url.searchParams.delete('hostel');
+        if (search) url.searchParams.set('search', search);
+        else url.searchParams.delete('search');
+        
+        console.log('Filter URL:', url.toString());
+        window.location.href = url.toString();
+    });
+}
 
 // DOM Elements
 const hostelSelect = document.getElementById('hostel');

@@ -1,17 +1,243 @@
 {% extends 'base.html' %}
+{% load static %}
+{% load messincharge_tags %}
 
 {% block title %}Mess Menu{% endblock %}
 
 {% block content %}
 <div class="container mt-5">
-    <h2>Mess Menu</h2>
-    <p>Here you can manage the mess menu for the hostel.</p>
-    <!-- Add content for mess menu management here -->
+    <!-- Mess Menu Card -->
     <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Mess Menu for Hostels</h4>
+            <div class="d-flex">
+                <div class="input-group me-2" style="max-width: 300px;">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Search hostels..." value="{{ request.GET.search|default:'' }}">
+                    <button class="btn btn-outline-light" type="button" id="searchButton">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <div class="input-group" style="max-width: 300px;">
+                    <select id="hostelFilter" class="form-select" onchange="filterHostelMenu()">
+                        <option value="">Select Hostel</option>
+                        {% for hostel in hostels %}
+                            <option value="{{ hostel.id }}" {% if request.GET.hostel == hostel.id|stringformat:"s" %}selected{% endif %}>{{ hostel.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            </div>
+        </div>
         <div class="card-body">
-            <h5 class="card-title">Weekly Menu</h5>
-            <p class="card-text">Placeholder for mess menu details. This section will be updated with actual menu data.</p>
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% if hostels %}
+                <!-- Hostel List and Menu Display -->
+                <div id="hostelMenuContent">
+                    {% if selected_hostel %}
+                        {% for hostel in hostels %}
+                            {% if hostel.id == selected_hostel.id %}
+                                <h5 class="mt-3">{{ hostel.name }} - Weekly Mess Menu</h5>
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Day</th>
+                                                <th>Breakfast</th>
+                                                <th>Lunch</th>
+                                                <th>Dinner</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for day in days_of_week %}
+                                                <tr>
+                                                    <td>{{ day }}</td>
+                                                    <td>
+                                                        {% with breakfast=menu_data|get_item:hostel.id|get_item:day|get_item:"Breakfast" %}
+                                                            {% if breakfast %}
+                                                                {{ breakfast.items|join:", " }}
+                                                            {% else %}
+                                                                Not Set
+                                                            {% endif %}
+                                                        {% endwith %}
+                                                    </td>
+                                                    <td>
+                                                        {% with lunch=menu_data|get_item:hostel.id|get_item:day|get_item:"Lunch" %}
+                                                            {% if lunch %}
+                                                                {{ lunch.items|join:", " }}
+                                                            {% else %}
+                                                                Not Set
+                                                            {% endif %}
+                                                        {% endwith %}
+                                                    </td>
+                                                    <td>
+                                                        {% with dinner=menu_data|get_item:hostel.id|get_item:day|get_item:"Dinner" %}
+                                                            {% if dinner %}
+                                                                {{ dinner.items|join:", " }}
+                                                            {% else %}
+                                                                Not Set
+                                                            {% endif %}
+                                                        {% endwith %}
+                                                    </td>
+                                                </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            {% endif %}
+                        {% endfor %}
+                    {% else %}
+                        <p class="text-muted">Please select a hostel from the dropdown to view its menu.</p>
+                    {% endif %}
+                </div>
+            {% else %}
+                <p class="text-muted">No hostels found.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Success/Error Toast -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto" id="toast-title">Success</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toast-message"></div>
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Initialize popovers
+    var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+    var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+        return new bootstrap.Popover(popoverTriggerEl);
+    });
+
+    // Initialize search functionality
+    const searchInput = document.getElementById('searchInput');
+    const searchButton = document.getElementById('searchButton');
+
+    if (searchButton) {
+        searchButton.addEventListener('click', performSearch);
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+    }
+});
+
+// Handle search
+function performSearch() {
+    const searchInput = document.getElementById('searchInput');
+    if (!searchInput) return;
+    
+    const searchTerm = searchInput.value.trim();
+    const currentUrl = new URL(window.location.href);
+    
+    if (searchTerm) {
+        currentUrl.searchParams.set('search', searchTerm);
+    } else {
+        currentUrl.searchParams.delete('search');
+    }
+    
+    window.location.href = currentUrl.toString();
+}
+
+// Handle hostel filter
+function filterHostelMenu() {
+    const hostelFilter = document.getElementById('hostelFilter');
+    if (!hostelFilter) return;
+    
+    const hostelId = hostelFilter.value;
+    const currentUrl = new URL(window.location.href);
+    
+    if (hostelId) {
+        currentUrl.searchParams.set('hostel', hostelId);
+    } else {
+        currentUrl.searchParams.delete('hostel');
+    }
+    
+    window.location.href = currentUrl.toString();
+}
+</script>
+
+<style>
+.card {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.card-header {
+    background: linear-gradient(90deg, #2563eb, #4f46e5);
+    padding: 1rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+.card-body {
+    padding: 1.5rem;
+}
+.btn-primary {
+    background: #2563eb;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 0.3rem;
+    transition: background 0.3s ease;
+}
+.btn-primary:hover {
+    background: #1e40af;
+}
+.form-label {
+    font-weight: 500;
+    color: #495057;
+}
+.form-control, .form-select {
+    border-radius: 0.3rem;
+    border-color: #ced4da;
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
+}
+.form-control:focus, .form-select:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+.table-responsive {
+    overflow-x: auto;
+}
+.vertical-align-middle {
+    vertical-align: middle;
+}
+.table th {
+    background: #f1f5f9;
+}
+.alert {
+    margin-bottom: 1rem;
+}
+.nav-tabs {
+    margin-bottom: 1rem;
+}
+.nav-tabs .nav-link {
+    color: #495057;
+}
+.nav-tabs .nav-link.active {
+    color: #2563eb;
+    border-color: #2563eb;
+}
+</style>
 {% endblock %}

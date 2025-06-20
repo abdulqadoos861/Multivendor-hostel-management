@@ -18,9 +18,16 @@ class StudentRegistrationForm(forms.Form):
     last_name = forms.CharField(max_length=30, required=True)
     contact_number = forms.CharField(max_length=11, required=True)
     cnic = forms.CharField(max_length=15, required=True, help_text="Enter CNIC without dashes (e.g., 1234567890123)")
-    address = forms.CharField(widget=forms.Textarea(attrs={'rows': 4}), required=True)
+    street = forms.CharField(max_length=100, required=False, label="Street")
+    area = forms.CharField(max_length=100, required=False, label="Area")
+    city = forms.CharField(max_length=50, required=False, label="City")
+    district = forms.CharField(max_length=50, required=False, label="District")
     gender = forms.ChoiceField(choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')], required=True)
     institute = forms.CharField(max_length=100, required=True)
+    guardian_name = forms.CharField(max_length=100, required=False, label="Guardian Name")
+    guardian_cnic = forms.CharField(max_length=13, required=False, help_text="Enter CNIC without dashes (e.g., 1234567890123)", label="Guardian CNIC")
+    guardian_relation = forms.CharField(max_length=50, required=False, label="Guardian Relation")
+    guardian_contact = forms.CharField(max_length=11, required=False, label="Guardian Contact")
     
     # Booking Details
     apply_for_booking = forms.BooleanField(
