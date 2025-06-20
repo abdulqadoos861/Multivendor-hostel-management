@@ -1,0 +1,355 @@
+{% extends 'febase.html' %}
+
+{% block title %}Register - Sunrise Hostel{% endblock %}
+
+{% block hero %}
+<section class="hero-section">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-8 mx-auto text-center">
+                <h1 class="display-3 fw-bold mb-4 animate-up">Student Registration</h1>
+                <p class="lead mb-0 animate-up delay-1">Create an account to apply for hostel accommodation</p>
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block content %}
+<section class="registration-form py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card border-0 shadow">
+                    <div class="card-body p-5">
+                        <h2 class="h4 fw-bold mb-4 text-center">Register for Sunrise Hostel</h2>
+                        <form method="POST" id="registrationForm">
+                            {% csrf_token %}
+                            <!-- Personal Information -->
+                            <div class="mb-4 border-left-primary">
+                                <h5 class="section-title mb-3">Personal Information</h5>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="first_name" name="first_name" placeholder="First Name" required>
+                                            <label for="first_name">First Name</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="last_name" name="last_name" placeholder="Last Name" required>
+                                            <label for="last_name">Last Name</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="contact_number" name="contact_number" placeholder="Contact Number" required>
+                                            <label for="contact_number">Contact Number</label>
+                                            <div id="contact_number_error" class="invalid-feedback">Must be 11 digits.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="cnic" name="cnic" placeholder="CNIC" required>
+                                            <label for="cnic">CNIC (without dashes)</label>
+                                            <div id="cnic_error" class="invalid-feedback">Must be 13 digits.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <select class="form-select" id="gender" name="gender" required>
+                                                <option value="">Select Gender</option>
+                                                <option value="Male">Male</option>
+                                                <option value="Female">Female</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                            <label for="gender">Gender</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="institute" name="institute" placeholder="Institute" required>
+                                            <label for="institute">Institute</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Address Information -->
+                            <div class="mb-4 border-left-primary">
+                                <h5 class="section-title mb-3">Address Information</h5>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="street" name="street" placeholder="Street">
+                                            <label for="street">Street</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="area" name="area" placeholder="Area">
+                                            <label for="area">Area</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="city" name="city" placeholder="City">
+                                            <label for="city">City</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="district" name="district" placeholder="District">
+                                            <label for="district">District</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Guardian Information -->
+                            <div class="mb-4 border-left-primary">
+                                <h5 class="section-title mb-3">Guardian Information</h5>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="guardian_name" name="guardian_name" placeholder="Guardian Name">
+                                            <label for="guardian_name">Guardian Name</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="guardian_contact" name="guardian_contact" placeholder="Guardian Contact">
+                                            <label for="guardian_contact">Guardian Contact</label>
+                                            <div id="guardian_contact_error" class="invalid-feedback">Must be 11 digits.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="guardian_cnic" name="guardian_cnic" placeholder="Guardian CNIC">
+                                            <label for="guardian_cnic">Guardian CNIC (without dashes)</label>
+                                            <div id="guardian_cnic_error" class="invalid-feedback">Must be 13 digits.</div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="guardian_relation" name="guardian_relation" placeholder="Guardian Relation">
+                                            <label for="guardian_relation">Guardian Relation</label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <!-- Login Information -->
+                            <div class="mb-4 border-left-primary">
+                                <h5 class="section-title mb-3">Login Information</h5>
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="email" class="form-control" id="email" name="email" placeholder="Email" required>
+                                            <label for="email">Email</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="text" class="form-control" id="username" name="username" placeholder="Username" required>
+                                            <label for="username">Username</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="password" class="form-control" id="password" name="password" placeholder="Password" required>
+                                            <label for="password">Password</label>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <div class="form-floating">
+                                            <input type="password" class="form-control" id="confirm_password" name="confirm_password" placeholder="Confirm Password" required>
+                                            <label for="confirm_password">Confirm Password</label>
+                                            <div id="confirm_password_error" class="invalid-feedback">Passwords do not match.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12 text-center mt-4">
+                                <button type="submit" class="btn btn-primary btn-lg px-5">Register</button>
+                            </div>
+                        </form>
+                        <div class="text-center mt-4">
+                            <p class="text-muted mb-0">Already have an account? <a href="{% url 'student_login' %}" class="text-primary fw-bold">Login here</a></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<style>
+    .form-control:focus, .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 0.25rem rgba(37, 99, 235, 0.25);
+    }
+
+    .card {
+        border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+        background: linear-gradient(145deg, #ffffff, #f8f9fa);
+    }
+
+    .card-body {
+        padding: 2rem;
+    }
+
+    .btn-primary {
+        background: linear-gradient(90deg, #2563eb, #4f46e5);
+        border: none;
+        padding: 0.75rem 2rem;
+        border-radius: 8px;
+        transition: background 0.3s ease;
+    }
+
+    .btn-primary:hover {
+        background: linear-gradient(90deg, #1e40af, #4338ca);
+    }
+
+    .form-label {
+        font-weight: 500;
+        color: #495057;
+    }
+
+    .form-control, .form-select {
+        border-radius: 8px;
+        border-color: #ced4da;
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.075);
+        height: calc(2.5rem + 2px);
+    }
+
+    .border-left-primary {
+        border-left: 0.3rem solid #4e73df;
+        padding-left: 1.2rem;
+        border-radius: 4px;
+    }
+
+    .section-title {
+        color: #4e73df;
+        margin-bottom: 1rem;
+        padding-bottom: 0.5rem;
+        border-bottom: 1px solid #e3e6f0;
+        font-size: 1.2rem;
+    }
+
+    .invalid-feedback {
+        font-size: 0.875rem;
+        margin-top: 0.25rem;
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('registrationForm');
+    const contactNumberInput = document.getElementById('contact_number');
+    const cnicInput = document.getElementById('cnic');
+    const guardianContactInput = document.getElementById('guardian_contact');
+    const guardianCnicInput = document.getElementById('guardian_cnic');
+    const passwordInput = document.getElementById('password');
+    const confirmPasswordInput = document.getElementById('confirm_password');
+    const contactNumberError = document.getElementById('contact_number_error');
+    const cnicError = document.getElementById('cnic_error');
+    const guardianContactError = document.getElementById('guardian_contact_error');
+    const guardianCnicError = document.getElementById('guardian_cnic_error');
+    const confirmPasswordError = document.getElementById('confirm_password_error');
+
+    contactNumberInput.addEventListener('input', function() {
+        const value = this.value;
+        if (value && !/^\d{11}$/.test(value)) {
+            this.classList.add('is-invalid');
+            contactNumberError.style.display = 'block';
+        } else {
+            this.classList.remove('is-invalid');
+            contactNumberError.style.display = 'none';
+        }
+    });
+
+    cnicInput.addEventListener('input', function() {
+        const value = this.value;
+        if (value && !/^\d{13}$/.test(value)) {
+            this.classList.add('is-invalid');
+            cnicError.style.display = 'block';
+        } else {
+            this.classList.remove('is-invalid');
+            cnicError.style.display = 'none';
+        }
+    });
+
+    guardianContactInput.addEventListener('input', function() {
+        const value = this.value;
+        if (value && !/^\d{11}$/.test(value)) {
+            this.classList.add('is-invalid');
+            guardianContactError.style.display = 'block';
+        } else {
+            this.classList.remove('is-invalid');
+            guardianContactError.style.display = 'none';
+        }
+    });
+
+    guardianCnicInput.addEventListener('input', function() {
+        const value = this.value;
+        if (value && !/^\d{13}$/.test(value)) {
+            this.classList.add('is-invalid');
+            guardianCnicError.style.display = 'block';
+        } else {
+            this.classList.remove('is-invalid');
+            guardianCnicError.style.display = 'none';
+        }
+    });
+
+    confirmPasswordInput.addEventListener('input', function() {
+        const password = passwordInput.value;
+        const confirmPassword = this.value;
+        if (confirmPassword && password !== confirmPassword) {
+            this.classList.add('is-invalid');
+            confirmPasswordError.style.display = 'block';
+        } else {
+            this.classList.remove('is-invalid');
+            confirmPasswordError.style.display = 'none';
+        }
+    });
+
+    form.addEventListener('submit', function(e) {
+        let isValid = true;
+
+        if (contactNumberInput.value && !/^\d{11}$/.test(contactNumberInput.value)) {
+            contactNumberInput.classList.add('is-invalid');
+            contactNumberError.style.display = 'block';
+            isValid = false;
+        }
+
+        if (cnicInput.value && !/^\d{13}$/.test(cnicInput.value)) {
+            cnicInput.classList.add('is-invalid');
+            cnicError.style.display = 'block';
+            isValid = false;
+        }
+
+        if (guardianContactInput.value && !/^\d{11}$/.test(guardianContactInput.value)) {
+            guardianContactInput.classList.add('is-invalid');
+            guardianContactError.style.display = 'block';
+            isValid = false;
+        }
+
+        if (guardianCnicInput.value && !/^\d{13}$/.test(guardianCnicInput.value)) {
+            guardianCnicInput.classList.add('is-invalid');
+            guardianCnicError.style.display = 'block';
+            isValid = false;
+        }
+
+        if (passwordInput.value !== confirmPasswordInput.value) {
+            confirmPasswordInput.classList.add('is-invalid');
+            confirmPasswordError.style.display = 'block';
+            isValid = false;
+        }
+
+        if (!isValid) {
+            e.preventDefault();
+            alert('Please correct the errors in the form before submitting.');
+        }
+    });
+});
+</script>
+{% endblock %}

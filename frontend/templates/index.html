@@ -11,8 +11,8 @@
                 <h1 class="display-3 fw-bold mb-4 animate-up">Find Your Perfect Student Home</h1>
                 <p class="lead mb-4 animate-up delay-1">Experience comfortable living with modern amenities, 24/7 security, and a supportive community at Sunrise Hostel.</p>
                 <div class="d-flex gap-3 animate-up delay-2">
-                    <a href="#" class="btn btn-primary btn-lg px-4">View Hostels</a>
-                    <a href="#" class="btn btn-outline-light btn-lg px-4">Contact Us</a>
+                    <a href="{% url 'ourhostels' %}" class="btn btn-primary btn-lg px-4">View Hostels</a>
+                    <a href="{% url 'contactus' %}" class="btn btn-outline-light btn-lg px-4">Contact Us</a>
                 </div>
             </div>
         </div>
@@ -104,72 +104,34 @@
             <p class="lead text-muted">Choose from our selection of modern, well-maintained hostels</p>
         </div>
         <div class="row g-4">
-            <div class="col-md-4">
-                <div class="hostel-card rounded-3 overflow-hidden shadow-sm">
-                    <div class="position-relative">
-                        <img src="https://images.unsplash.com/photo-1560185127-6ed189bf02f4?ixlib=rb-4.0.3" 
-                             class="w-100" style="height: 250px; object-fit: cover;" alt="Girls Hostel">
-                        <div class="position-absolute top-0 end-0 m-3">
-                            <span class="badge bg-primary">Girls Only</span>
-                        </div>
-                    </div>
-                    <div class="p-4">
-                        <h3 class="h5 fw-bold mb-2">Sunrise Girls Hostel</h3>
-                        <p class="text-muted mb-3">Modern amenities with a focus on comfort and security.</p>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="d-flex align-items-center">
-                                <i class="bi bi-star-fill text-warning me-1"></i>
-                                <span class="fw-bold">4.9</span>
-                            </div>
-                            <a href="#" class="btn btn-outline-primary">View Details</a>
-                        </div>
-                    </div>
-                </div>
-            </div>
+            {% for data in top_hostels %}
             <div class="col-md-4">
                 <div class="hostel-card rounded-3 overflow-hidden shadow-sm">
                     <div class="position-relative">
                         <img src="https://images.unsplash.com/photo-1560185007-5f0bb1866cab?ixlib=rb-4.0.3" 
-                             class="w-100" style="height: 250px; object-fit: cover;" alt="Boys Hostel">
+                             class="w-100" style="height: 250px; object-fit: cover;" alt="{{ data.hostel.name }}">
                         <div class="position-absolute top-0 end-0 m-3">
-                            <span class="badge bg-primary">Boys Only</span>
+                            <span class="badge {% if data.hostel.gender == 'Male' %}bg-primary{% else %}bg-danger{% endif %}">{{ data.hostel.gender }} Only</span>
                         </div>
                     </div>
                     <div class="p-4">
-                        <h3 class="h5 fw-bold mb-2">Sunrise Boys Hostel</h3>
-                        <p class="text-muted mb-3">Spacious rooms with study areas and recreational facilities.</p>
+                        <h3 class="h5 fw-bold mb-2">{{ data.hostel.name }}</h3>
+                        <p class="text-muted mb-3">{{ data.hostel.description|default:"Modern amenities with a focus on comfort and security."|truncatewords:10 }}</p>
                         <div class="d-flex justify-content-between align-items-center">
                             <div class="d-flex align-items-center">
                                 <i class="bi bi-star-fill text-warning me-1"></i>
-                                <span class="fw-bold">4.8</span>
+                                <span class="fw-bold">4.8+</span>
                             </div>
-                            <a href="@" class="btn btn-outline-primary">View Details</a>
+                            <a href="{% url 'ourhostels' %}" class="btn btn-outline-primary">View Details</a>
                         </div>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="hostel-card rounded-3 overflow-hidden shadow-sm">
-                    <div class="position-relative">
-                        <img src="https://images.unsplash.com/photo-1560185893-a55cbc8c57e8?ixlib=rb-4.0.3" 
-                             class="w-100" style="height: 250px; object-fit: cover;" alt="Premium Hostel">
-                        <div class="position-absolute top-0 end-0 m-3">
-                            <span class="badge bg-primary">Premium</span>
-                        </div>
-                    </div>
-                    <div class="p-4">
-                        <h3 class="h5 fw-bold mb-2">Sunrise Premium Hostel</h3>
-                        <p class="text-muted mb-3">Luxury accommodation with premium facilities and services.</p>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div class="d-flex align-items-center">
-                                <i class="bi bi-star-fill text-warning me-1"></i>
-                                <span class="fw-bold">4.9</span>
-                            </div>
-                            <a href="#" class="btn btn-outline-primary">View Details</a>
-                        </div>
-                    </div>
-                </div>
+            {% empty %}
+            <div class="col-12 text-center">
+                <p class="text-muted">No hostels available at the moment. Please check back later.</p>
             </div>
+            {% endfor %}
         </div>
     </div>
 </section>
@@ -270,7 +232,7 @@
                 <p class="lead mb-0">Book your stay now and experience the best student accommodation in town.</p>
             </div>
             <div class="col-lg-4 text-center text-lg-end mt-4 mt-lg-0">
-                <a href="#" class="btn btn-light btn-lg px-5">Book Now</a>
+                <a href="{% url 'ourhostels' %}" class="btn btn-light btn-lg px-5">View Hostels</a>
             </div>
         </div>
     </div>
