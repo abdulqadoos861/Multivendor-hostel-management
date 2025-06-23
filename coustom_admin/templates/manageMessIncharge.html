@@ -3,144 +3,75 @@
 {% block title %}Manage Mess Incharge{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>Manage Mess Incharge</h2>
-    <div class="card">
-        <div class="card-header d-flex justify-content-between align-items-center">
+<div class="container mt-5">
+    <h2 class="mb-4 text-center">Manage Mess Incharge</h2>
+    <div class="card shadow-sm">
+        <div class="card-header d-flex justify-content-between align-items-center bg-primary text-white">
             <h5 class="mb-0">Mess Incharge List</h5>
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addMessInchargeModal">Add New Mess Incharge</button>
+            <a href="{% url 'add_mess_incharge' %}" class="btn btn-light">Add New Mess Incharge</a>
         </div>
         <div class="card-body">
             {% if mess_incharges %}
-                <table class="table table-striped">
-                    <thead>
-                        <tr>
-                            <th>Name</th>
-                            <th>Email</th>
-                            <th>Contact Number</th>
-                            <th>Gender</th>
-                            <th>Hostel</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for incharge in mess_incharges %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead class="bg-light">
                             <tr>
-                                <td>{{ incharge.name }}</td>
-                                <td>{{ incharge.email }}</td>
-                                <td>{{ incharge.contact_number }}</td>
-                                <td>{{ incharge.gender }}</td>
-                                <td>{{ incharge.hostel.name }}</td>
-                                <td>
-                                    <a href="{% url 'edit_mess_incharge' incharge.user.id %}" class="btn btn-sm btn-warning">Edit</a>
-                                    <a href="{% url 'delete_mess_incharge' incharge.user.id %}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this mess incharge?');">Delete</a>
-                                </td>
+                                <th scope="col">Name</th>
+                                <th scope="col">Email</th>
+                                <th scope="col">Contact Number</th>
+                                <th scope="col">Gender</th>
+                                <th scope="col">CNIC</th>
+                                <th scope="col">Hostel</th>
+                                <th scope="col">Address</th>
+                                <th scope="col">Actions</th>
                             </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
+                        </thead>
+                        <tbody>
+                            {% for incharge in mess_incharges %}
+                                <tr>
+                                    <td>{{ incharge.name }}</td>
+                                    <td>{{ incharge.user.email }}</td>
+                                    <td>{{ incharge.contact_number }}</td>
+                                    <td>{{ incharge.gender }}</td>
+                                    <td>{{ incharge.cnic }}</td>
+                                    <td>{{ incharge.hostel.name }}</td>
+                                    <td>
+                                        {% if incharge.street %}{{ incharge.street }}, {% endif %}
+                                        {% if incharge.area %}{{ incharge.area }}, {% endif %}
+                                        {% if incharge.city %}{{ incharge.city }}, {% endif %}
+                                        {% if incharge.district %}{{ incharge.district }}{% endif %}
+                                    </td>
+                                    <td>
+                                        <a href="{% url 'edit_mess_incharge' incharge.user.id %}" class="btn btn-sm btn-warning me-1" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a href="{% url 'delete_mess_incharge' incharge.user.id %}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this mess incharge?');" title="Delete">
+                                            <i class="bi bi-trash"></i>
+                                        </a>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             {% else %}
-                <p>No mess incharge found.</p>
+                <div class="alert alert-info text-center" role="alert">
+                    No mess incharge found.
+                </div>
             {% endif %}
         </div>
     </div>
 </div>
 
-<!-- Modal for Adding New Mess Incharge -->
-<div class="modal fade" id="addMessInchargeModal" tabindex="-1" aria-labelledby="addMessInchargeModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="addMessInchargeModalLabel">Add New Mess Incharge</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form id="addMessInchargeForm">
-                    <div class="mb-3">
-                        <label for="name" class="form-label">Name</label>
-                        <input type="text" class="form-control" id="name" name="name" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="email" class="form-label">Email</label>
-                        <input type="email" class="form-control" id="email" name="email" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="phone" class="form-label">Contact Number</label>
-                        <input type="text" class="form-control" id="phone" name="phone" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="gender" class="form-label">Gender</label>
-                        <select class="form-select" id="gender" name="gender" required>
-                            <option value="">Select Gender</option>
-                            <option value="Male">Male</option>
-                            <option value="Female">Female</option>
-                            <option value="Other">Other</option>
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="hostel" class="form-label">Hostel</label>
-                        <select class="form-select" id="hostel" name="hostel" required>
-                            <option value="">Select Hostel</option>
-                            {% for hostel in hostels %}
-                                <option value="{{ hostel.id }}">{{ hostel.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="password" class="form-label">Password</label>
-                        <input type="password" class="form-control" id="password" name="password" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="confirm_password" class="form-label">Confirm Password</label>
-                        <input type="password" class="form-control" id="confirm_password" name="confirm_password" required>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Save</button>
-                </form>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('addMessInchargeForm');
-    form.addEventListener('submit', function(e) {
-        e.preventDefault();
-        const formData = new FormData(form);
-        fetch('/admin/add_mess_incharge/', {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'X-CSRFToken': getCsrfToken()
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                alert('Mess Incharge added successfully!');
-                document.getElementById('addMessInchargeModal').classList.remove('show');
-                document.getElementById('addMessInchargeModal').setAttribute('aria-hidden', 'true');
-                document.querySelector('.modal-backdrop').remove();
-                location.reload();
-            } else {
-                alert('Error: ' + data.message);
-            }
-        })
-        .catch(error => {
-            alert('An error occurred while adding the Mess Incharge.');
-            console.error('Error:', error);
-        });
-    });
-
-    function getCsrfToken() {
-        const value = `; ${document.cookie}`;
-        const parts = value.split(`; csrftoken=`);
-        if (parts.length === 2) return parts.pop().split(';').shift();
-    }
-});
-</script>
+<style>
+/* Custom styling for the table */
+.table-hover tbody tr:hover {
+    background-color: rgba(0, 123, 255, 0.1);
+}
+.btn-sm i {
+    font-size: 0.9rem;
+}
+</style>
+<!-- Include Bootstrap Icons for action buttons -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css">
 {% endblock %}

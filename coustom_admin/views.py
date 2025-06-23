@@ -22,7 +22,7 @@ from django.contrib.auth import get_user_model
 # Get the User model
 User = get_user_model()
 
-from .forms import StudentRegistrationForm, BookingRequestForm
+from .forms import StudentRegistrationForm, BookingRequestForm, MessInchargeForm
 from .payment_forms import PaymentForm
 from .models import Payment, Hostels, RoomTypeRate, Rooms, BookingRequest, Student, RoomAssignment, Wardens, HostelWardens, MessIncharge
 from django.urls import reverse
@@ -2895,33 +2895,25 @@ def manage_mess_incharge(request):
 @csrf_exempt
 def add_mess_incharge(request):
     if request.method == 'POST':
-        try:
-            name = request.POST.get('name')
-            email = request.POST.get('email')
-            phone = request.POST.get('phone')
-            gender = request.POST.get('gender')
-            hostel_id = request.POST.get('hostel')
-            password = request.POST.get('password')
-            confirm_password = request.POST.get('confirm_password')
-
-            if not all([name, email, phone, gender, hostel_id, password, confirm_password]):
-                return JsonResponse({'status': 'error', 'message': 'All fields are required'}, status=400)
-
-            if password != confirm_password:
-                return JsonResponse({'status': 'error', 'message': 'Passwords do not match'}, status=400)
-
-            if User.objects.filter(email=email).exists():
-                return JsonResponse({'status': 'error', 'message': 'Email already registered'}, status=400)
-
-            username = email.split('@')[0]
-            if User.objects.filter(username=username).exists():
-                base_username = username
-                counter = 1
-                while User.objects.filter(username=username).exists():
-                    username = f"{base_username}{counter}"
-                    counter += 1
-
+        form = MessInchargeForm(request.POST)
+        if form.is_valid():
             try:
+                name = form.cleaned_data['name']
+                email = request.POST.get('email')
+                password = form.cleaned_data.get('password')
+                
+                if User.objects.filter(email=email).exists():
+                    messages.error(request, 'Email already registered')
+                    return redirect('add_mess_incharge')
+
+                username = email.split('@')[0]
+                if User.objects.filter(username=username).exists():
+                    base_username = username
+                    counter = 1
+                    while User.objects.filter(username=username).exists():
+                        username = f"{base_username}{counter}"
+                        counter += 1
+
                 user = User(
                     username=username,
                     email=email,
@@ -2929,84 +2921,62 @@ def add_mess_incharge(request):
                     last_name=' '.join(name.split()[1:]) if len(name.split()) > 1 else '',
                     is_staff=True
                 )
-                user.set_password(password)
+                if password:
+                    user.set_password(password)
                 user.save()
 
-                hostel = Hostels.objects.get(id=hostel_id)
-                mess_incharge = MessIncharge(
-                    user=user,
-                    name=name,
-                    contact_number=phone,
-                    gender=gender,
-                    hostel=hostel,
-                    created_at=timezone.now()
-                )
+                mess_incharge = form.save(commit=False)
+                mess_incharge.user = user
+                mess_incharge.created_at = timezone.now()
                 mess_incharge.save()
 
-                return JsonResponse({
-                    'status': 'success', 
-                    'message': 'Mess Incharge registered successfully',
-                    'mess_incharge': {
-                        'id': user.id,
-                        'name': mess_incharge.name,
-                        'email': email,
-                        'phone': phone,
-                        'gender': gender,
-                        'hostel': hostel.name
-                    }
-                })
+                messages.success(request, 'Mess Incharge registered successfully')
+                return redirect('manage_mess_incharge')
             except Exception as e:
                 if 'user' in locals():
                     user.delete()
-                return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+                messages.error(request, f'Error registering Mess Incharge: {str(e)}')
+                return redirect('add_mess_incharge')
+        else:
+            messages.error(request, 'Form validation failed. Please correct the errors below.')
+            return redirect('add_mess_incharge')
     
+    form = MessInchargeForm()
     hostels = Hostels.objects.all()
-    return render(request, "manageMessIncharge.html", {"hostels": hostels})
+    return render(request, "add_mess_incharge.html", {"form": form, "hostels": hostels})
 
 @login_required
 @csrf_exempt
 def edit_mess_incharge(request, mess_incharge_id):
+    mess_incharge = get_object_or_404(MessIncharge, user_id=mess_incharge_id)
     if request.method == 'POST':
-        try:
-            mess_incharge = MessIncharge.objects.select_related('user').get(user_id=mess_incharge_id)
-            name = request.POST.get('name')
-            email = request.POST.get('email')
-            phone = request.POST.get('phone')
-            gender = request.POST.get('gender')
-            hostel_id = request.POST.get('hostel')
-            is_active = request.POST.get('is_active') == 'on'
+        form = MessInchargeForm(request.POST, instance=mess_incharge)
+        if form.is_valid():
+            try:
+                email = request.POST.get('email')
+                password = form.cleaned_data.get('password')
+                is_active = request.POST.get('is_active') == 'on'
 
-            mess_incharge.name = name
-            mess_incharge.contact_number = phone
-            mess_incharge.gender = gender
-            mess_incharge.hostel = Hostels.objects.get(id=hostel_id)
+                if hasattr(mess_incharge, 'user') and mess_incharge.user:
+                    user = mess_incharge.user
+                    user.email = email
+                    user.is_active = is_active
+                    if password:
+                        user.set_password(password)
+                    user.save()
 
-            if hasattr(mess_incharge, 'user') and mess_incharge.user:
-                user = mess_incharge.user
-                user.email = email
-                user.is_active = is_active
-                password = request.POST.get('password')
-                if password and password.strip() != '':
-                    user.set_password(password)
-                user.save()
-
-            mess_incharge.save()
-            return JsonResponse({
-                'status': 'success', 
-                'message': 'Mess Incharge updated successfully',
-                'redirect_url': reverse('manage_mess_incharge')
-            })
-        except MessIncharge.DoesNotExist:
-            return JsonResponse({'status': 'error', 'message': 'Mess Incharge not found'}, status=404)
-        except Exception as e:
-            return JsonResponse({'status': 'error', 'message': f'Failed to update Mess Incharge: {str(e)}'}, status=500)
+                form.save()
+                messages.success(request, 'Mess Incharge updated successfully')
+                return redirect('manage_mess_incharge')
+            except Exception as e:
+                messages.error(request, f'Failed to update Mess Incharge: {str(e)}')
+                return redirect('manage_mess_incharge')
+        else:
+            messages.error(request, 'Form validation failed. Please correct the errors below.')
     else:
-        mess_incharge = get_object_or_404(MessIncharge, user_id=mess_incharge_id)
+        form = MessInchargeForm(instance=mess_incharge)
         hostels = Hostels.objects.all()
-        return render(request, "manageMessIncharge.html", {"mess_incharge": mess_incharge, "hostels": hostels})
+        return render(request, "edit_mess_incharge.html", {"form": form, "mess_incharge": mess_incharge, "hostels": hostels})
 
 @login_required
 @csrf_exempt

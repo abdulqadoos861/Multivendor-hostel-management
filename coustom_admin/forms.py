@@ -4,7 +4,7 @@ from django.utils import timezone
 from django.db.models import F
 import re
 import logging
-from .models import Student, Hostels, BookingRequest, RoomAssignment, Rooms
+from .models import Student, Hostels, BookingRequest, RoomAssignment, Rooms, MessIncharge
 
 logger = logging.getLogger(__name__)
 
@@ -235,3 +235,56 @@ class RoomAssignmentForm(forms.ModelForm):
                 instance.room.save(update_fields=['current_occupants'])
         
         return instance
+
+class MessInchargeForm(forms.ModelForm):
+    password = forms.CharField(widget=forms.PasswordInput, required=False)
+    confirm_password = forms.CharField(widget=forms.PasswordInput, required=False)
+    
+    class Meta:
+        model = MessIncharge
+        fields = ['name', 'contact_number', 'cnic', 'street', 'area', 'city', 'district', 'gender', 'hostel']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'contact_number': forms.TextInput(attrs={'class': 'form-control'}),
+            'cnic': forms.TextInput(attrs={'class': 'form-control'}),
+            'street': forms.TextInput(attrs={'class': 'form-control'}),
+            'area': forms.TextInput(attrs={'class': 'form-control'}),
+            'city': forms.TextInput(attrs={'class': 'form-control'}),
+            'district': forms.TextInput(attrs={'class': 'form-control'}),
+            'gender': forms.Select(attrs={'class': 'form-control'}),
+            'hostel': forms.Select(attrs={'class': 'form-control'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for field_name, field in self.fields.items():
+            if field.required:
+                field.widget.attrs['required'] = 'required'
+    
+    def clean_contact_number(self):
+        contact_number = self.cleaned_data['contact_number']
+        if not re.match(r'^\d{11}$', contact_number):
+            raise forms.ValidationError("Contact number must be 11 digits.")
+        return contact_number
+    
+    def clean_cnic(self):
+        cnic = self.cleaned_data['cnic']
+        if not re.match(r'^\d{13}$', cnic):
+            raise forms.ValidationError("CNIC must be 13 digits without dashes.")
+        if self.instance and hasattr(self.instance, 'user'):
+            # Exclude current instance based on user ID if it exists
+            if MessIncharge.objects.filter(cnic=cnic).exclude(user=self.instance.user).exists():
+                raise forms.ValidationError("This CNIC is already registered.")
+        else:
+            if MessIncharge.objects.filter(cnic=cnic).exists():
+                raise forms.ValidationError("This CNIC is already registered.")
+        return cnic
+    
+    def clean(self):
+        cleaned_data = super().clean()
+        password = cleaned_data.get('password')
+        confirm_password = cleaned_data.get('confirm_password')
+        
+        if password and confirm_password and password != confirm_password:
+            self.add_error('confirm_password', "Passwords do not match.")
+        return cleaned_data

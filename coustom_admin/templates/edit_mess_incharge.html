@@ -5,46 +5,97 @@
 {% block header_title %}Edit Mess Incharge{% endblock %}
 
 {% block content %}
-<div class="container mt-4">
-    <h2>Edit Mess Incharge</h2>
-    <div class="card">
+<div class="container mt-5">
+    <h2 class="mb-4 text-center">Edit Mess Incharge</h2>
+    <div class="card shadow-sm">
+        <div class="card-header bg-primary text-white">
+            <h5 class="mb-0">Mess Incharge Details</h5>
+        </div>
         <div class="card-body">
-            <form method="post" action="{% url 'coustom_admin:edit_mess_incharge' mess_incharge.user.id %}">
+            <form method="post" action="{% url 'edit_mess_incharge' mess_incharge.user.id %}">
                 {% csrf_token %}
-                <div class="mb-3">
-                    <label for="name" class="form-label">Name</label>
-                    <input type="text" class="form-control" id="name" name="name" value="{{ mess_incharge.name }}" required>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="id_name" class="form-label">Name <span class="text-danger">*</span></label>
+                            {{ form.name }}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="id_email" class="form-label">Email <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="id_email" name="email" value="{{ mess_incharge.user.email }}" required>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="id_contact_number" class="form-label">Contact Number <span class="text-danger">*</span></label>
+                            {{ form.contact_number }}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="id_cnic" class="form-label">CNIC (without dashes) <span class="text-danger">*</span></label>
+                            {{ form.cnic }}
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="id_gender" class="form-label">Gender <span class="text-danger">*</span></label>
+                            {{ form.gender }}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="id_hostel" class="form-label">Hostel <span class="text-danger">*</span></label>
+                            {{ form.hostel }}
+                        </div>
+                    </div>
                 </div>
                 <div class="mb-3">
-                    <label for="email" class="form-label">Email</label>
-                    <input type="email" class="form-control" id="email" name="email" value="{{ mess_incharge.email }}" required>
+                    <h6 class="text-muted">Address Details</h6>
+                    <hr>
                 </div>
-                <div class="mb-3">
-                    <label for="contact_number" class="form-label">Contact Number</label>
-                    <input type="text" class="form-control" id="contact_number" name="contact_number" value="{{ mess_incharge.contact_number }}" required>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="id_street" class="form-label">Street</label>
+                            {{ form.street }}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="id_area" class="form-label">Area</label>
+                            {{ form.area }}
+                        </div>
+                    </div>
                 </div>
-                <div class="mb-3">
-                    <label for="gender" class="form-label">Gender</label>
-                    <select class="form-select" id="gender" name="gender" required>
-                        <option value="Male" {% if mess_incharge.gender == "Male" %}selected{% endif %}>Male</option>
-                        <option value="Female" {% if mess_incharge.gender == "Female" %}selected{% endif %}>Female</option>
-                        <option value="Other" {% if mess_incharge.gender == "Other" %}selected{% endif %}>Other</option>
-                    </select>
-                </div>
-                <div class="mb-3">
-                    <label for="hostel" class="form-label">Hostel</label>
-                    <select class="form-select" id="hostel" name="hostel" required>
-                        {% for hostel in hostels %}
-                            <option value="{{ hostel.id }}" {% if mess_incharge.hostel.id == hostel.id %}selected{% endif %}>{{ hostel.name }}</option>
-                        {% endfor %}
-                    </select>
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="id_city" class="form-label">City</label>
+                            {{ form.city }}
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="mb-3">
+                            <label for="id_district" class="form-label">District</label>
+                            {{ form.district }}
+                        </div>
+                    </div>
                 </div>
                 <div class="mb-3 form-check">
-                    <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if mess_incharge.user.is_active %}checked{% endif %}>
-                    <label class="form-check-label" for="is_active">Is Active</label>
+                    <input type="checkbox" class="form-check-input" id="id_is_active" name="is_active" {% if mess_incharge.user.is_active %}checked{% endif %}>
+                    <label class="form-check-label" for="id_is_active">Is Active</label>
                 </div>
-                <button type="submit" class="btn btn-primary">Update Mess Incharge</button>
-                <a href="{% url 'coustom_admin:manage_mess_incharge' %}" class="btn btn-secondary">Cancel</a>
+                <div class="d-flex justify-content-end">
+                    <a href="{% url 'manage_mess_incharge' %}" class="btn btn-outline-secondary me-2">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Update Mess Incharge</button>
+                </div>
             </form>
         </div>
     </div>
