@@ -9,29 +9,317 @@
 </div>
 
 <div class="row">
-    <div class="col-md-4 mb-4">
-        <div class="card">
+    <div class="col-md-3 mb-4">
+        <div class="card" style="border-left: 5px solid var(--primary-color); box-shadow: var(--card-shadow);">
             <div class="card-body">
-                <h5 class="card-title">Total Hostels</h5>
-                <p class="card-text display-4">{{ total_hostels }}</p>
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="card-title mb-2">Total Hostels</h5>
+                        <p class="card-text display-4" id="total-hostels">{{ total_hostels }}</p>
+                    </div>
+                    <div class="icon-circle" style="background: rgba(79, 70, 229, 0.15); color: var(--primary-color); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-building-fill" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-4 mb-4">
-        <div class="card">
+    <div class="col-md-3 mb-4">
+        <div class="card" style="border-left: 5px solid var(--secondary-color); box-shadow: var(--card-shadow);">
             <div class="card-body">
-                <h5 class="card-title">Active Bookings</h5>
-                <p class="card-text display-4">0</p>
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="card-title mb-2">Total Rooms</h5>
+                        <p class="card-text display-4" id="total-rooms">{{ total_rooms }}</p>
+                    </div>
+                    <div class="icon-circle" style="background: rgba(124, 58, 237, 0.15); color: var(--secondary-color); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-door-closed-fill" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-    <div class="col-md-4 mb-4">
-        <div class="card">
+    <div class="col-md-3 mb-4">
+        <div class="card" style="border-left: 5px solid var(--accent-color); box-shadow: var(--card-shadow);">
             <div class="card-body">
-                <h5 class="card-title">System Status</h5>
-                <p class="card-text text-success">Online</p>
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="card-title mb-2">Active Bookings</h5>
+                        <p class="card-text display-4" id="active-bookings">{{ active_bookings }}</p>
+                    </div>
+                    <div class="icon-circle" style="background: rgba(96, 165, 250, 0.15); color: var(--accent-color); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-calendar-check-fill" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card" style="border-left: 5px solid var(--success-color); box-shadow: var(--card-shadow);">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="card-title mb-2">Total Students</h5>
+                        <p class="card-text display-4" id="total-students">{{ total_students }}</p>
+                    </div>
+                    <div class="icon-circle" style="background: rgba(34, 197, 94, 0.15); color: var(--success-color); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-mortarboard-fill" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card" style="border-left: 5px solid var(--warning-color); box-shadow: var(--card-shadow);">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="card-title mb-2">Total Complaints</h5>
+                        <p class="card-text display-4" id="total-complaints">{{ total_complaints }}</p>
+                    </div>
+                    <div class="icon-circle" style="background: rgba(245, 158, 11, 0.15); color: var(--warning-color); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-exclamation-circle-fill" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card" style="border-left: 5px solid var(--danger-color); box-shadow: var(--card-shadow);">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="card-title mb-2">Total Expenses</h5>
+                        <p class="card-text display-4" id="total-expenses">{{ total_expenses }}</p>
+                    </div>
+                    <div class="icon-circle" style="background: rgba(239, 68, 68, 0.15); color: var(--danger-color); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-cash-stack" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card" style="border-left: 5px solid var(--primary-color); box-shadow: var(--card-shadow);">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="card-title mb-2">Total Wardens</h5>
+                        <p class="card-text display-4" id="total-wardens">{{ total_wardens }}</p>
+                    </div>
+                    <div class="icon-circle" style="background: rgba(79, 70, 229, 0.15); color: var(--primary-color); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-person-badge-fill" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3 mb-4">
+        <div class="card" style="border-left: 5px solid var(--secondary-color); box-shadow: var(--card-shadow);">
+            <div class="card-body">
+                <div class="d-flex align-items-center justify-content-between">
+                    <div>
+                        <h5 class="card-title mb-2">Feedback Received</h5>
+                        <p class="card-text display-4" id="total-feedback">{{ total_feedback }}</p>
+                    </div>
+                    <div class="icon-circle" style="background: rgba(124, 58, 237, 0.15); color: var(--secondary-color); width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <i class="bi bi-chat-square-text-fill" style="font-size: 1.5rem;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row mt-4">
+    <div class="col-md-6 mb-4">
+        <div class="card" style="box-shadow: var(--card-shadow);">
+            <div class="card-header" style="background: rgba(79, 70, 229, 0.05); border-bottom: none;">
+                <h5 class="card-title mb-0">Recent Bookings</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_bookings %}
+                <div class="table-responsive">
+                    <table class="table table-hover" id="recent-bookings-table">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Hostel</th>
+                                <th>Room Type</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for booking in recent_bookings %}
+                            <tr>
+                                <td>{{ booking.student.get_full_name }}</td>
+                                <td>{{ booking.hostel.name }}</td>
+                                <td>{{ booking.room_type }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if booking.status == 'Approved' %}bg-success
+                                        {% elif booking.status == 'Pending' %}bg-warning text-dark
+                                        {% else %}bg-danger{% endif %}">
+                                        {{ booking.status }}
+                                    </span>
+                                </td>
+                                <td>{{ booking.request_date|date:"M d, Y" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No recent bookings found.</p>
+                {% endif %}
+                <a href="{% url 'manage_booking' %}" class="btn btn-outline-primary btn-sm mt-3">View All Bookings</a>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card" style="box-shadow: var(--card-shadow);">
+            <div class="card-header" style="background: rgba(79, 70, 229, 0.05); border-bottom: none;">
+                <h5 class="card-title mb-0">Recent Complaints</h5>
+            </div>
+            <div class="card-body">
+                {% if recent_complaints %}
+                <div class="table-responsive">
+                    <table class="table table-hover" id="recent-complaints-table">
+                        <thead>
+                            <tr>
+                                <th>Student</th>
+                                <th>Title</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for complaint in recent_complaints %}
+                            <tr>
+                                <td>{{ complaint.student.get_full_name }}</td>
+                                <td>{{ complaint.title }}</td>
+                                <td>
+                                    <span class="badge 
+                                        {% if complaint.status == 'Resolved' %}bg-success
+                                        {% elif complaint.status == 'Pending' %}bg-warning text-dark
+                                        {% else %}bg-danger{% endif %}">
+                                        {{ complaint.status }}
+                                    </span>
+                                </td>
+                                <td>{{ complaint.submission_date|date:"M d, Y" }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <p class="text-muted">No recent complaints found.</p>
+                {% endif %}
+                <a href="{% url 'complaints' %}" class="btn btn-outline-primary btn-sm mt-3">View All Complaints</a>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="row mt-4">
+    <div class="col-md-6 mb-4">
+        <div class="card" style="box-shadow: var(--card-shadow);">
+            <div class="card-header" style="background: rgba(79, 70, 229, 0.05); border-bottom: none;">
+                <h5 class="card-title mb-0">System Status</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="status-indicator" style="width: 16px; height: 16px; background: var(--success-color); border-radius: 50%; margin-right: 10px; box-shadow: 0 0 8px rgba(34, 197, 94, 0.5);"></div>
+                    <span class="text-success">System Online</span>
+                </div>
+                <p class="text-muted mb-4">All services are running normally.</p>
+                <div class="row text-center">
+                    <div class="col-md-6 mb-3">
+                        <div class="status-card" style="background: rgba(34, 197, 94, 0.1); padding: 1rem; border-radius: 10px;">
+                            <h6 class="mb-1">Database</h6>
+                            <p class="mb-0 text-success">Connected</p>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="status-card" style="background: rgba(34, 197, 94, 0.1); padding: 1rem; border-radius: 10px;">
+                            <h6 class="mb-1">Server Uptime</h6>
+                            <p class="mb-0 text-success">Operational</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <p class="text-muted small">Last updated: <span id="last-updated">{{ last_updated }}</span></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6 mb-4">
+        <div class="card" style="box-shadow: var(--card-shadow);">
+            <div class="card-header" style="background: rgba(79, 70, 229, 0.05); border-bottom: none;">
+                <h5 class="card-title mb-0">Quick Actions</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <a href="{% url 'create_booking' %}" class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center" style="height: 100%;">
+                            <i class="bi bi-calendar-plus me-2"></i> Create Booking
+                        </a>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <a href="{% url 'add_room' %}" class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center" style="height: 100%;">
+                            <i class="bi bi-door-closed me-2"></i> Add Room
+                        </a>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <a href="{% url 'add_mess_incharge' %}" class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center" style="height: 100%;">
+                            <i class="bi bi-person-plus me-2"></i> Add Mess Incharge
+                        </a>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <a href="{% url 'add_security_guard' %}" class="btn btn-outline-primary w-100 d-flex align-items-center justify-content-center" style="height: 100%;">
+                            <i class="bi bi-shield-lock me-2"></i> Add Security Guard
+                        </a>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
 </div>
 {% endblock %}
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    function fetchDashboardStats() {
+        fetch('/api/dashboard-stats/')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success' && data.stats) {
+                    document.getElementById('total-hostels').textContent = data.stats.total_hostels;
+                    document.getElementById('total-rooms').textContent = data.stats.total_rooms;
+                    document.getElementById('active-bookings').textContent = data.stats.active_bookings;
+                    document.getElementById('total-students').textContent = data.stats.total_students;
+                    document.getElementById('total-complaints').textContent = data.stats.total_complaints;
+                    document.getElementById('total-expenses').textContent = data.stats.total_expenses;
+                    document.getElementById('total-wardens').textContent = data.stats.total_wardens;
+                    document.getElementById('total-feedback').textContent = data.stats.total_feedback;
+                    document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+                } else {
+                    console.error('Invalid data format:', data);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching stats:', error);
+            });
+    }
+
+    // Initial fetch
+    fetchDashboardStats();
+
+    // Set interval to update stats every 10 seconds
+    setInterval(fetchDashboardStats, 10000);
+});
+</script>

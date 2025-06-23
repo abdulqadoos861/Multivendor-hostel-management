@@ -30,8 +30,32 @@ def student_dashboard(request):
         return redirect('student_login')
     # Additional check to ensure the user is a student using user_id
     try:
-        Student.objects.get(user_id=request.user.id)
-        return render(request, 'student_dashboard.html')
+        student = Student.objects.get(user_id=request.user.id)
+        from coustom_admin.models import BookingRequest, RoomAssignment
+        
+        # Get active booking and room assignment information
+        active_booking = BookingRequest.objects.filter(
+            student=request.user,
+            status='Approved'
+        ).first()
+        
+        room_info = None
+        if active_booking:
+            assignment = RoomAssignment.objects.filter(
+                booking=active_booking,
+                is_active=True
+            ).select_related('room__hostel').first()
+            if assignment and assignment.room:
+                room_info = {
+                    'hostel': assignment.room.hostel.name if assignment.room.hostel else 'N/A',
+                    'room_number': assignment.room.room_number if assignment.room.room_number else 'N/A',
+                    'floor': getattr(assignment.room, 'floor_number', 'N/A')
+                }
+        
+        return render(request, 'student_dashboard.html', {
+            'student': student,
+            'room_info': room_info
+        })
     except Student.DoesNotExist:
         logout(request)
         messages.error(request, "Access denied. This portal is for students only.")
@@ -264,6 +288,63 @@ def student_complaint(request):
         return render(request, 'student_complaint.html', {
             'student': student,
             'complaints': complaints,
+            'assigned_hostel': assigned_hostel
+        })
+    except Student.DoesNotExist:
+        logout(request)
+        messages.error(request, "Access denied. This portal is for students only.")
+        return redirect('student_login')
+
+def student_feedback(request):
+    if not request.user.is_authenticated:
+        return redirect('student_login')
+    try:
+        student = Student.objects.get(user_id=request.user.id)
+        from coustom_admin.models import BookingRequest, RoomAssignment
+        from student.models import Feedback
+        
+        # Get the student's assigned hostel from active booking
+        assigned_hostel = None
+        active_booking = BookingRequest.objects.filter(
+            student=request.user,
+            status='Approved'
+        ).first()
+        if active_booking:
+            try:
+                assignment = RoomAssignment.objects.get(
+                    booking=active_booking,
+                    is_active=True
+                )
+                assigned_hostel = active_booking.hostel
+            except RoomAssignment.DoesNotExist:
+                pass
+        
+        # Retrieve previous feedback for the current user
+        feedback_list = Feedback.objects.filter(user=request.user).order_by('-created_at')
+        
+        if request.method == 'POST':
+            feedback_text = request.POST.get('feedback_text')
+            rating = request.POST.get('rating')
+            
+            try:
+                if not assigned_hostel:
+                    messages.error(request, "You must have an active hostel assignment to submit feedback.")
+                else:
+                    feedback = Feedback(
+                        user=request.user,
+                        hostel=assigned_hostel,
+                        feedback_text=feedback_text,
+                        rating=int(rating) if rating else 3
+                    )
+                    feedback.save()
+                    messages.success(request, "Feedback submitted successfully. Thank you for your input.")
+                    return redirect('student_feedback')
+            except Exception as e:
+                messages.error(request, f"Error submitting feedback: {str(e)}")
+        
+        return render(request, 'student_feedback.html', {
+            'student': student,
+            'feedback_list': feedback_list,
             'assigned_hostel': assigned_hostel
         })
     except Student.DoesNotExist:

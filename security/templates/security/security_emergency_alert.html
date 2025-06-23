@@ -1,0 +1,190 @@
+{% extends 'security/security_base.html' %}
+
+{% block title %}Emergency Alert - Hostel Management{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card mt-5 shadow-sm">
+                <div class="card-header bg-danger text-white text-center py-3">
+                    <h3 class="mb-0">Emergency Alert System</h3>
+                </div>
+                <div class="card-body p-4">
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    {% if error_message %}
+                        <div class="alert alert-danger" role="alert">
+                            {{ error_message }}
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning" role="alert">
+                            <strong>Important:</strong> Use this system to send emergency alerts to hostel management and security personnel in case of critical incidents.
+                        </div>
+                        
+                        <form id="emergencyAlertForm" method="post" action="{% url 'security:emergency_alert' %}">
+                            {% csrf_token %}
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="alert_type" class="fw-bold">Alert Type</label>
+                                        <select class="form-control rounded" id="alert_type" name="alert_type" required>
+                                            <option value="">-- Select Alert Type --</option>
+                                            <option value="fire">Fire Emergency</option>
+                                            <option value="medical">Medical Emergency</option>
+                                            <option value="security_breach">Security Breach</option>
+                                            <option value="natural_disaster">Natural Disaster</option>
+                                            <option value="other">Other Emergency</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="form-group">
+                                        <label for="location" class="fw-bold">Location</label>
+                                        <input type="text" class="form-control rounded" id="location" name="location" placeholder="Enter location of emergency" required>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="description" class="fw-bold">Description of Emergency</label>
+                                        <textarea class="form-control rounded" id="description" name="description" rows="5" placeholder="Provide detailed information about the emergency" required></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="row mb-3">
+                                <div class="col-md-6">
+                                    <div class="form-group form-check">
+                                        <input type="checkbox" class="form-check-input" id="notify_all" name="notify_all" checked>
+                                        <label class="form-check-label fw-bold" for="notify_all">Notify All Personnel</label>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 d-flex justify-content-end align-items-center">
+                                    <button type="submit" id="sendAlertButton" class="btn btn-danger btn-lg rounded-pill px-5 py-2">Send Emergency Alert</button>
+                                </div>
+                            </div>
+                        </form>
+                        
+                        <hr>
+                        
+                        <h5 class="mt-4 mb-3 fw-bold">Recent Emergency Alerts {% if hostel %} at {{ hostel.name }}{% endif %}</h5>
+                        {% if alerts %}
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover border rounded" id="alerts_table">
+                                    <thead class="bg-light">
+                                        <tr>
+                                            <th class="py-2">Alert Type</th>
+                                            <th class="py-2">Location</th>
+                                            <th class="py-2">Description</th>
+                                            <th class="py-2">Timestamp</th>
+                                            <th class="py-2">Reported By</th>
+                                            <th class="py-2">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for alert in alerts %}
+                                            <tr>
+                                                <td class="align-middle">{{ alert.alert_type|title }}</td>
+                                                <td class="align-middle">{{ alert.location }}</td>
+                                                <td class="align-middle">{{ alert.description|truncatewords:20 }}</td>
+                                                <td class="align-middle">{{ alert.timestamp|date:"Y-m-d H:i:s" }}</td>
+                                                <td class="align-middle">{{ alert.security_guard.name }}</td>
+                                                <td class="align-middle">{{ alert.status|title }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">No recent emergency alerts recorded.</p>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                <div class="card-footer text-center bg-light py-3">
+                    <small class="text-muted">Sunrise Hostel Management System</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Form submission via AJAX for emergency alert
+    const emergencyAlertForm = document.getElementById('emergencyAlertForm');
+    if (emergencyAlertForm) {
+        emergencyAlertForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            console.log('Form data before submission:', Object.fromEntries(formData));
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.text().then(text => {
+                    let data;
+                    try {
+                        data = JSON.parse(text);
+                    } catch (e) {
+                        throw new Error(`Invalid JSON response: ${text}`);
+                    }
+                    if (!response.ok) {
+                        throw { status: response.status, data: data };
+                    }
+                    return data;
+                });
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                if (data.status === 'success') {
+                    alert(data.message);
+                    // Optionally, prepend the new alert to the table
+                    const tableBody = document.querySelector('#alerts_table tbody');
+                    if (tableBody) {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${data.alert.alert_type}</td>
+                            <td>${data.alert.location}</td>
+                            <td>${data.alert.description.substring(0, 100)}...</td>
+                            <td>${data.alert.timestamp}</td>
+                            <td>${data.alert.reported_by}</td>
+                            <td>${data.alert.status}</td>
+                        `;
+                        tableBody.insertBefore(row, tableBody.firstChild);
+                    }
+                    this.reset();
+                    document.getElementById('notify_all').checked = true;
+                } else {
+                    alert('Error: ' + (data.message || 'Unknown server error'));
+                }
+            })
+            .catch(error => {
+                console.error('Submission error:', error);
+                if (error.status && error.data) {
+                    alert(`Server error: ${error.data.message || 'Unknown server error'}`);
+                } else {
+                    alert(`An error occurred while submitting the form: ${error.message}. Please try again.`);
+                }
+            });
+        });
+    }
+});
+</script>
+{% endblock %}

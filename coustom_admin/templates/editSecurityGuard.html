@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+
+{% block title %}Edit Security Guard{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Edit Security Guard</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="name" class="form-label">Name</label>
+                            <input type="text" class="form-control" id="name" name="name" value="{{ security_guard.name }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="email" class="form-label">Email</label>
+                            <input type="email" class="form-control" id="email" name="email" value="{{ security_guard.user.email }}" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="contact_number" class="form-label">Contact Number</label>
+                            <input type="text" class="form-control" id="contact_number" name="contact_number" value="{{ security_guard.contact_number }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="cnic" class="form-label">CNIC (without dashes)</label>
+                            <input type="text" class="form-control" id="cnic" name="cnic" value="{{ security_guard.cnic }}" placeholder="1234567890123">
+                        </div>
+                        <div class="mb-3">
+                            <label for="street" class="form-label">Street</label>
+                            <input type="text" class="form-control" id="street" name="street" value="{{ security_guard.street }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="area" class="form-label">Area</label>
+                            <input type="text" class="form-control" id="area" name="area" value="{{ security_guard.area }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="city" class="form-label">City</label>
+                            <input type="text" class="form-control" id="city" name="city" value="{{ security_guard.city }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="district" class="form-label">District</label>
+                            <input type="text" class="form-control" id="district" name="district" value="{{ security_guard.district }}">
+                        </div>
+                        <div class="mb-3">
+                            <label for="gender" class="form-label">Gender</label>
+                            <select class="form-select" id="gender" name="gender" required>
+                                <option value="">Select Gender</option>
+                                <option value="Male" {% if security_guard.gender == "Male" %}selected{% endif %}>Male</option>
+                                <option value="Female" {% if security_guard.gender == "Female" %}selected{% endif %}>Female</option>
+                                <option value="Other" {% if security_guard.gender == "Other" %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="hostel" class="form-label">Hostel</label>
+                            <select class="form-select" id="hostel" name="hostel" required>
+                                <option value="">Select Hostel</option>
+                                {% for hostel in hostels %}
+                                    <option value="{{ hostel.id }}" {% if security_guard.hostel.id == hostel.id %}selected{% endif %}>{{ hostel.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="shift" class="form-label">Shift</label>
+                            <select class="form-select" id="shift" name="shift" required>
+                                <option value="">Select Shift</option>
+                                <option value="Morning" {% if security_guard.shift == "Morning" %}selected{% endif %}>Morning</option>
+                                <option value="Evening" {% if security_guard.shift == "Evening" %}selected{% endif %}>Evening</option>
+                                <option value="Night" {% if security_guard.shift == "Night" %}selected{% endif %}>Night</option>
+                            </select>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="is_active" name="is_active" {% if security_guard.user.is_active %}checked{% endif %}>
+                            <label class="form-check-label" for="is_active">Active</label>
+                        </div>
+                        <button type="submit" class="btn btn-primary">Update</button>
+                        <a href="{% url 'manage_security_guards' %}" class="btn btn-secondary">Cancel</a>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

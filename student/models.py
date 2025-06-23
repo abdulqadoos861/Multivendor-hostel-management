@@ -68,3 +68,17 @@ class Complaint(models.Model):
     
     class Meta:
         ordering = ['-created_at']
+
+class Feedback(models.Model):
+    feedback_id = models.AutoField(primary_key=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='feedbacks')
+    hostel = models.ForeignKey(Hostels, on_delete=models.CASCADE, related_name='feedbacks', null=True, blank=True)
+    feedback_text = models.TextField()
+    rating = models.IntegerField(choices=[(i, str(i)) for i in range(1, 6)], default=3)
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    def __str__(self):
+        return f"Feedback #{self.feedback_id} by {self.user.username} - Rating: {self.rating} on {self.created_at.strftime('%Y-%m-%d')}"
+    
+    class Meta:
+        ordering = ['-created_at']

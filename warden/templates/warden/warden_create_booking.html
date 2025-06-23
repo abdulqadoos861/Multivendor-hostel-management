@@ -1,0 +1,114 @@
+{% extends "warden/warden_base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Create Booking Request</h2>
+    <form id="bookingForm" method="post" action="{% url 'warden:create_booking' %}">
+        {% csrf_token %}
+        
+        {% if is_staff %}
+        <div class="form-group">
+            <label for="student_id">Select Student:</label>
+            <input type="text" id="studentSearch" class="form-control" placeholder="Search by name or CNIC...">
+            <input type="hidden" id="student_id" name="student_id" required>
+            <input type="hidden" id="is_staff" value="true">
+            <div id="studentSuggestions" class="dropdown-menu" style="width: 100%;"></div>
+        </div>
+        {% else %}
+        <input type="hidden" id="is_staff" value="false">
+        {% endif %}
+        
+        <div class="form-group">
+            {{ form.check_in_date.label_tag }}
+            {{ form.check_in_date }}
+            <input type="hidden" id="min_date" data-min-date="{{ min_date }}">
+            {% if form.check_in_date.errors %}
+                <div class="text-danger">{{ form.check_in_date.errors }}</div>
+            {% endif %}
+        </div>
+        
+        <div class="form-group">
+            <label for="duration">Duration (months):</label>
+            <select name="duration" id="duration" class="form-control">
+                <option value="1">1 month</option>
+                <option value="3">3 months</option>
+                <option value="6">6 months</option>
+                <option value="12">12 months</option>
+            </select>
+        </div>
+        
+        <div class="form-group">
+            {{ form.room_type.label_tag }}
+            {{ form.room_type }}
+            {% if form.room_type.errors %}
+                <div class="text-danger">{{ form.room_type.errors }}</div>
+            {% endif %}
+        </div>
+        <!-- Explicitly exclude hostel field -->
+        {{ form.student.as_hidden }}
+        {{ form.hostel.as_hidden }}
+        
+        <button type="submit" class="btn btn-primary">Submit Booking Request</button>
+    </form>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Student search functionality for staff
+        const isStaffElement = document.getElementById('is_staff');
+        const isStaff = isStaffElement && isStaffElement.value === 'true';
+        if (isStaff) {
+            const studentSearch = document.getElementById('studentSearch');
+            const studentSuggestions = document.getElementById('studentSuggestions');
+            const studentIdInput = document.getElementById('student_id');
+            
+            if (studentSearch) {
+                studentSearch.addEventListener('input', function(e) {
+                    const query = e.target.value;
+                    if (query.length < 3) {
+                        studentSuggestions.innerHTML = '';
+                        studentSuggestions.classList.remove('show');
+                        return;
+                    }
+                    
+                    fetch(`/warden/search-student/?q=${encodeURIComponent(query)}`)
+                        .then(response => response.json())
+                        .then(data => {
+                            studentSuggestions.innerHTML = '';
+                            if (data.students.length > 0) {
+                                data.students.forEach(student => {
+                                    const suggestion = document.createElement('a');
+                                    suggestion.classList.add('dropdown-item');
+                                    suggestion.href = '#';
+                                    suggestion.textContent = `${student.name} (CNIC: ${student.cnic})`;
+                                    suggestion.onclick = function(e) {
+                                        e.preventDefault();
+                                        studentSearch.value = student.name;
+                                        studentIdInput.value = student.id;
+                                        studentSuggestions.innerHTML = '';
+                                        studentSuggestions.classList.remove('show');
+                                    };
+                                    studentSuggestions.appendChild(suggestion);
+                                });
+                                studentSuggestions.classList.add('show');
+                            } else {
+                                studentSuggestions.classList.remove('show');
+                            }
+                        })
+                        .catch(error => console.error('Error searching students:', error));
+                });
+            }
+        }
+        
+        // Set minimum date for check-in
+        const checkInDate = document.querySelector('#id_check_in_date');
+        const minDateElement = document.querySelector('#min_date');
+        if (checkInDate && minDateElement) {
+            const minDate = minDateElement.getAttribute('data-min-date');
+            if (minDate) {
+                checkInDate.setAttribute('min', minDate);
+            }
+        }
+    });
+</script>
+{% endblock %}

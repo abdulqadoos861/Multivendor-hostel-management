@@ -112,7 +112,7 @@
                                     {% if assignment.is_active %}
                                     <button type="button" class="btn btn-sm btn-outline-danger"
                                             data-bs-toggle="tooltip" title="Check Out"
-                                            onclick="checkOutAssignment('{{ assignment.id }}')">
+                                            onclick="checkOutAssignmentInline('{{ assignment.id }}')">
                                         <i class="bi bi-door-open"></i>
                                     </button>
                                     {% endif %}
@@ -135,6 +135,125 @@
         </div>
     </div>
 </div>
+<script>
+// Inline script for checkout functionality
+function checkOutAssignmentInline(assignmentId) {
+    assignmentId = parseInt(assignmentId, 10);
+    if (confirm('Are you sure you want to check out this student?')) {
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+        const csrftoken = getCookie('csrftoken');
+        fetch(`/admin/api/assignments/${assignmentId}/checkout/`, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrftoken,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({})
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('Student checked out successfully!');
+                location.reload();
+            } else {
+                throw new Error(data.message || 'Failed to check out student');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert(`Error: ${error.message}`);
+        });
+    }
+}
+
+// Define viewAssignmentDetails globally to ensure it's accessible
+function viewAssignmentDetails(assignmentId) {
+    assignmentId = parseInt(assignmentId, 10);
+    const modal = new bootstrap.Modal(document.getElementById('assignmentModal'));
+    const modalBody = document.getElementById('assignmentDetails');
+    
+    // Show loading state
+    modalBody.innerHTML = `
+        <div class="text-center my-5">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>`;
+    
+    // Show modal
+    modal.show();
+    
+    // Load assignment details via AJAX
+    fetch(`/admin/api/assignments/${assignmentId}/`, {
+        headers: {
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        // Format the assignment details
+        modalBody.innerHTML = `
+            <div class="row mb-4">
+                <div class="col-md-6">
+                    <h6 class="text-muted">Student Information</h6>
+                    <p class="mb-1"><strong>Name:</strong> ${data.student_name}</p>
+                    <p class="mb-1"><strong>Email:</strong> ${data.student_email}</p>
+                    <p class="mb-1"><strong>Contact:</strong> ${data.student_contact || 'N/A'}</p>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="text-muted">Room Information</h6>
+                    <p class="mb-1"><strong>Hostel:</strong> ${data.hostel_name}</p>
+                    <p class="mb-1"><strong>Room:</strong> ${data.room_number} (${data.room_type})</p>
+                    <p class="mb-1"><strong>Floor:</strong> ${data.floor_number}</p>
+                </div>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <h6 class="text-muted">Assignment Details</h6>
+                    <p class="mb-1"><strong>Assigned On:</strong> ${new Date(data.assigned_date).toLocaleDateString()}</p>
+                    <p class="mb-1"><strong>Assigned By:</strong> ${data.assigned_by}</p>
+                    <p class="mb-1"><strong>Status:</strong> 
+                        <span class="badge bg-${data.is_active ? 'success' : 'secondary'}">
+                            ${data.is_active ? 'Active' : 'Inactive'}
+                        </span>
+                    </p>
+                </div>
+                <div class="col-md-6">
+                    <h6 class="text-muted">Booking Information</h6>
+                    <p class="mb-1"><strong>Check-in:</strong> ${new Date(data.check_in_date).toLocaleDateString()}</p>
+                    <p class="mb-1"><strong>Check-out:</strong> ${data.check_out_date ? new Date(data.check_out_date).toLocaleDateString() : 'Not set'}</p>
+                    <p class="mb-1"><strong>Duration:</strong> ${data.duration || 'N/A'}</p>
+                </div>
+            </div>`;
+    })
+    .catch(error => {
+        console.error('Error fetching assignment details:', error);
+        modalBody.innerHTML = `
+            <div class="alert alert-danger">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                Failed to load assignment details. Error: ${error.message}. Please check the console for more details or try again later.
+            </div>`;
+    });
+}
+</script>
 
 <!-- Assignment Details Modal -->
 <div class="modal fade" id="assignmentModal" tabindex="-1" aria-hidden="true">
@@ -161,107 +280,9 @@
 
 {% endblock %}
 
+// Ensure scripts are loaded after DOM is ready
 {% block extra_js %}
 <script>
-// View assignment details
-function viewAssignmentDetails(assignmentId) {
-    // Ensure assignmentId is properly parsed as an integer
-    assignmentId = parseInt(assignmentId, 10);
-    const modal = new bootstrap.Modal(document.getElementById('assignmentModal'));
-    const modalBody = document.getElementById('assignmentDetails');
-    
-    // Show loading state
-    modalBody.innerHTML = `
-        <div class="text-center my-5">
-            <div class="spinner-border text-primary" role="status">
-                <span class="visually-hidden">Loading...</span>
-            </div>
-        </div>`;
-    
-    // Show modal
-    modal.show();
-    
-    // Load assignment details via AJAX
-    fetch(`/api/assignments/${assignmentId}/`)
-        .then(response => response.json())
-        .then(data => {
-            // Format the assignment details
-            modalBody.innerHTML = `
-                <div class="row mb-4">
-                    <div class="col-md-6">
-                        <h6 class="text-muted">Student Information</h6>
-                        <p class="mb-1"><strong>Name:</strong> ${data.student_name}</p>
-                        <p class="mb-1"><strong>Email:</strong> ${data.student_email}</p>
-                        <p class="mb-1"><strong>Contact:</strong> ${data.student_contact || 'N/A'}</p>
-                    </div>
-                    <div class="col-md-6">
-                        <h6 class="text-muted">Room Information</h6>
-                        <p class="mb-1"><strong>Hostel:</strong> ${data.hostel_name}</p>
-                        <p class="mb-1"><strong>Room:</strong> ${data.room_number} (${data.room_type})</p>
-                        <p class="mb-1"><strong>Floor:</strong> ${data.floor_number}</p>
-                    </div>
-                </div>
-                <div class="row">
-                    <div class="col-md-6">
-                        <h6 class="text-muted">Assignment Details</h6>
-                        <p class="mb-1"><strong>Assigned On:</strong> ${new Date(data.assigned_date).toLocaleDateString()}</p>
-                        <p class="mb-1"><strong>Assigned By:</strong> ${data.assigned_by}</p>
-                        <p class="mb-1"><strong>Status:</strong> 
-                            <span class="badge bg-${data.is_active ? 'success' : 'secondary'}">
-                                ${data.is_active ? 'Active' : 'Inactive'}
-                            </span>
-                        </p>
-                    </div>
-                    <div class="col-md-6">
-                        <h6 class="text-muted">Booking Information</h6>
-                        <p class="mb-1"><strong>Check-in:</strong> ${new Date(data.check_in_date).toLocaleDateString()}</p>
-                        <p class="mb-1"><strong>Check-out:</strong> ${data.check_out_date ? new Date(data.check_out_date).toLocaleDateString() : 'Not set'}</p>
-                        <p class="mb-1"><strong>Duration:</strong> ${data.duration || 'N/A'}</p>
-                    </div>
-                </div>`;
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            modalBody.innerHTML = `
-                <div class="alert alert-danger">
-                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                    Failed to load assignment details. Please try again.
-                </div>`;
-        });
-}
-
-// Check out assignment
-function checkOutAssignment(assignmentId) {
-    // Ensure assignmentId is properly parsed as an integer
-    assignmentId = parseInt(assignmentId, 10);
-    
-    if (confirm('Are you sure you want to check out this student?')) {
-        fetch(`/api/assignments/${assignmentId}/checkout/`, {
-            method: 'POST',
-            headers: {
-                'X-CSRF-TOKEN': '{{ csrf_token }}',
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({})
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                // Show success message and reload the page
-                alert('Student checked out successfully!');
-                location.reload();
-            } else {
-                throw new Error(data.message || 'Failed to check out student');
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            alert(`Error: ${error.message}`);
-        });
-    }
-}
-
-// Initialize tooltips
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize Bootstrap tooltips
     var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));

@@ -6,21 +6,40 @@
     <h2>Welcome to Student Dashboard</h2>
     <p>Here you can manage your hostel bookings, view your profile, and submit complaints.</p>
     
+    {% if room_info %}
+    <div class="room-info">
+        <h3>Your Current Room Assignment</h3>
+        <p><strong>Hostel:</strong> {{ room_info.hostel }}</p>
+        <p><strong>Floor:</strong> {{ room_info.floor }}</p>
+        <p><strong>Room Number:</strong> {{ room_info.room_number }}</p>
+    </div>
+    {% else %}
+    <div class="room-info">
+        <h3>Your Current Room Assignment</h3>
+        <p>You currently do not have an active room assignment.</p>
+    </div>
+    {% endif %}
+    
     <div class="dashboard-cards">
         <div class="card">
             <h3>Profile</h3>
             <p>View and update your personal information.</p>
-            <a href="#" class="card-link">Go to Profile</a>
+            <a href="{% url 'student_profile' %}" class="card-link">Go to Profile</a>
         </div>
         <div class="card">
             <h3>Bookings</h3>
             <p>Check availability and book your hostel room.</p>
-            <a href="#" class="card-link">Manage Bookings</a>
+            <a href="{% url 'student_booking' %}" class="card-link">Manage Bookings</a>
         </div>
         <div class="card">
             <h3>Complaints</h3>
             <p>Submit and track any issues or complaints.</p>
-            <a href="#" class="card-link">Submit Complaint</a>
+            <a href="{% url 'student_complaint' %}" class="card-link">Submit Complaint</a>
+        </div>
+        <div class="card">
+            <h3>Feedback</h3>
+            <p>Provide feedback about hostel facilities and services.</p>
+            <a href="{% url 'student_feedback' %}" class="card-link">Give Feedback</a>
         </div>
     </div>
     
@@ -77,5 +96,22 @@
                 grid-template-columns: 1fr;
             }
         }
+    .room-info {
+        background-color: white;
+        border-radius: 10px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        padding: 20px;
+        margin-bottom: 20px;
+    }
+    .room-info h3 {
+        color: #343a40;
+        margin-top: 0;
+        margin-bottom: 15px;
+        font-size: 1.4rem;
+    }
+    .room-info p {
+        color: #6c757d;
+        margin-bottom: 10px;
+    }
     </style>
 {% endblock %}

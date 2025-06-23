@@ -1,0 +1,103 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Security Guards{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Manage Security Guards</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addSecurityGuardModal">Add New Security Guard</button>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12">
+                            <table class="table table-bordered table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Name</th>
+                                        <th>Contact</th>
+                                        <th>Shift</th>
+                                        <th>Hostel</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for guard in security_guards %}
+                                    <tr>
+                                        <td>{{ guard.id }}</td>
+                                        <td>{{ guard.name }}</td>
+                                        <td>{{ guard.contact }}</td>
+                                        <td>{{ guard.shift }}</td>
+                                        <td>{{ guard.hostel.name }}</td>
+                                        <td>
+                                            <a href="{% url 'edit_security_guard' guard.user_id %}" class="btn btn-sm btn-warning">Edit</a>
+                                            <a href="{% url 'delete_security_guard' guard.user_id %}" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure you want to delete this security guard?')">Delete</a>
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="6" class="text-center">No security guards found.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% include "addSecurityGuardModal.html" %}
+
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Handle delete button clicks
+    document.querySelectorAll('.btn-danger').forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            if (confirm('Are you sure you want to delete this security guard?')) {
+                const url = this.getAttribute('href');
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'X-CSRFToken': getCsrfToken()
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(data.message);
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('An error occurred: ' + error.message);
+                });
+            }
+        });
+    });
+
+
+    // Function to get CSRF token from cookie
+    function getCsrfToken() {
+        const name = 'csrftoken';
+        const cookieValue = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+        return cookieValue ? cookieValue.pop() : '';
+    }
+});
+</script>
+
+{% endblock %}

@@ -1,0 +1,318 @@
+{% extends 'student_base.html' %}
+
+{% block title %}Hostel Feedback{% endblock %}
+
+{% block content %}
+    <h2>Hostel Feedback</h2>
+    <p>Your feedback helps us improve. Share your thoughts about the hostel facilities and services.</p>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert {% if message.tags %}alert-{{ message.tags }}{% endif %}" role="alert">
+                <span class="alert-icon">ℹ️</span> {{ message }}
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    {% if assigned_hostel %}
+        <div class="card feedback-card">
+            <div class="card-header">
+                <h3>Submit Your Feedback</h3>
+            </div>
+            <div class="card-body">
+                <form method="POST">
+                    {% csrf_token %}
+                    <div class="form-group">
+                        <label for="feedback_text"><span class="form-icon">💬</span> Feedback:</label>
+                        <textarea class="form-control" id="feedback_text" name="feedback_text" rows="6" required placeholder="Share your experience with the hostel facilities, staff, or services..."></textarea>
+                    </div>
+                    <div class="form-group rating-group">
+                        <label for="rating"><span class="form-icon">⭐</span> Rating:</label>
+                        <div class="rating-container">
+                            <select class="form-control" id="rating" name="rating" required>
+                                <option value="">Select Rating</option>
+                                <option value="5">5 - Excellent</option>
+                                <option value="4">4 - Good</option>
+                                <option value="3">3 - Average</option>
+                                <option value="2">2 - Poor</option>
+                                <option value="1">1 - Very Poor</option>
+                            </select>
+                            <div class="rating-visual">
+                                <span class="star" data-value="1">★</span>
+                                <span class="star" data-value="2">★</span>
+                                <span class="star" data-value="3">★</span>
+                                <span class="star" data-value="4">★</span>
+                                <span class="star" data-value="5">★</span>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary submit-btn"><span class="btn-icon">✓</span> Submit Feedback</button>
+                </form>
+            </div>
+        </div>
+    {% else %}
+        <div class="alert alert-warning" role="alert">
+            <span class="alert-icon">⚠️</span> You must have an active hostel assignment to submit feedback.
+        </div>
+    {% endif %}
+    
+    <div class="card feedback-history-card mt-4">
+        <div class="card-header">
+            <h3>Previous Feedback</h3>
+        </div>
+        <div class="card-body">
+            {% if feedback_list %}
+                <ul class="list-group feedback-list">
+                    {% for feedback in feedback_list %}
+                        <li class="list-group-item feedback-item">
+                            <div class="feedback-rating">
+                                <strong>Rating:</strong> 
+                                <span class="rating-stars">
+                                    {% for i in "12345" %}
+                                        {% if forloop.counter <= feedback.rating %}
+                                            <span class="star filled">★</span>
+                                        {% else %}
+                                            <span class="star">★</span>
+                                        {% endif %}
+                                    {% endfor %}
+                                </span>
+                            </div>
+                            <div class="feedback-text">
+                                <strong>Feedback:</strong> {{ feedback.feedback_text }}
+                            </div>
+                            <div class="feedback-details">
+                                <small>Submitted by: {{ feedback.user.username }}</small>
+                                {% if feedback.hostel %}
+                                    <small> | Hostel: {{ feedback.hostel.name }}</small>
+                                {% endif %}
+                                <small> | On: {{ feedback.created_at }}</small>
+                            </div>
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p class="no-feedback">No feedback submitted yet. Be the first to share your thoughts!</p>
+            {% endif %}
+        </div>
+    </div>
+    
+    <style>
+        h2 {
+            color: #007bff;
+            margin-bottom: 15px;
+            font-size: 2rem;
+            text-align: center;
+        }
+        p {
+            color: #6c757d;
+            margin-bottom: 25px;
+            text-align: center;
+            font-size: 1.1rem;
+        }
+        .card {
+            background-color: white;
+            border-radius: 12px;
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.1);
+            margin-bottom: 25px;
+            overflow: hidden;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+        }
+        .feedback-card, .feedback-history-card {
+            max-width: 800px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .card-header {
+            background-color: #f1f8ff;
+            padding: 15px 20px;
+            border-bottom: 1px solid #e9ecef;
+        }
+        .card-header h3 {
+            color: #007bff;
+            margin: 0;
+            font-size: 1.5rem;
+        }
+        .card-body {
+            padding: 25px;
+        }
+        .card h3 {
+            color: #343a40;
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.4rem;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-group label {
+            font-weight: 600;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+        .form-icon {
+            margin-right: 8px;
+            font-size: 1.2rem;
+        }
+        .form-control {
+            border-radius: 8px;
+            border: 1px solid #ced4da;
+            padding: 12px 15px;
+            font-size: 1rem;
+            transition: border-color 0.3s ease, box-shadow 0.3s ease;
+        }
+        .form-control:focus {
+            border-color: #007bff;
+            box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+            outline: none;
+        }
+        .rating-group {
+            display: flex;
+            flex-direction: column;
+        }
+        .rating-container {
+            display: flex;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .rating-container .form-control {
+            flex-grow: 1;
+            margin-right: 15px;
+        }
+        .rating-visual {
+            display: flex;
+            align-items: center;
+        }
+        .star {
+            color: #ced4da;
+            font-size: 1.5rem;
+            margin: 0 2px;
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+        .star:hover, .star.filled {
+            color: #ffc107;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            border: none;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s ease, transform 0.2s ease;
+            margin: 0 auto;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+            transform: scale(1.05);
+        }
+        .btn-icon {
+            margin-right: 5px;
+        }
+        .alert {
+            border-radius: 8px;
+            margin-bottom: 25px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            font-size: 1rem;
+        }
+        .alert-icon {
+            font-size: 1.3rem;
+            margin-right: 10px;
+        }
+        .alert-success {
+            background-color: #e6f3e6;
+            border-left: 4px solid #28a745;
+            color: #155724;
+        }
+        .alert-warning {
+            background-color: #fff8e6;
+            border-left: 4px solid #ffc107;
+            color: #856404;
+        }
+        .feedback-list {
+            margin-top: 15px;
+        }
+        .feedback-item {
+            border-radius: 8px;
+            margin-bottom: 15px;
+            padding: 15px;
+            background-color: #f9f9f9;
+            transition: background-color 0.3s ease;
+        }
+        .feedback-item:hover {
+            background-color: #f1f1f1;
+        }
+        .feedback-rating {
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+        }
+        .rating-stars {
+            margin-left: 10px;
+        }
+        .feedback-text {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+        .feedback-details {
+            color: #6c757d;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+        .no-feedback {
+            color: #6c757d;
+            text-align: center;
+            font-style: italic;
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const stars = document.querySelectorAll('.rating-visual .star');
+            const ratingSelect = document.getElementById('rating');
+            
+            if (stars.length > 0 && ratingSelect) {
+                stars.forEach(star => {
+                    star.addEventListener('click', function() {
+                        const value = this.getAttribute('data-value');
+                        ratingSelect.value = value;
+                        updateStars(value);
+                    });
+                    star.addEventListener('mouseover', function() {
+                        const value = this.getAttribute('data-value');
+                        updateStars(value);
+                    });
+                    star.addEventListener('mouseout', function() {
+                        const value = ratingSelect.value;
+                        updateStars(value);
+                    });
+                });
+                
+                ratingSelect.addEventListener('change', function() {
+                    const value = this.value;
+                    updateStars(value);
+                });
+                
+                function updateStars(value) {
+                    stars.forEach(s => {
+                        if (s.getAttribute('data-value') <= value) {
+                            s.classList.add('filled');
+                        } else {
+                            s.classList.remove('filled');
+                        }
+                    });
+                }
+            }
+        });
+    </script>
+{% endblock %}

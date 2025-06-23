@@ -1,0 +1,417 @@
+{% extends 'security/security_base.html' %}
+
+{% block title %}Student Movement Record - Hostel Management{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-10">
+            <div class="card mt-5 shadow-sm">
+                <div class="card-header bg-primary text-white text-center py-3">
+                    <h3 class="mb-0">Student Movement Record</h3>
+                </div>
+                <div class="card-body p-4">
+                    <script type="application/json" id="student-data">
+                        [
+                            {% if students %}
+                            {% for student in students %}
+                            {"id": "{{ student.id }}", "name": "{{ student.user.first_name }} {{ student.user.last_name }}", "email": "{{ student.user.email }}"}
+                            {% if not forloop.last %},{% endif %}
+                            {% endfor %}
+                            {% endif %}
+                        ]
+                    </script>
+                    {% if messages %}
+                        {% for message in messages %}
+                            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                                {{ message }}
+                                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                                    <span aria-hidden="true">&times;</span>
+                                </button>
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                    
+                    {% if error_message %}
+                        <div class="alert alert-danger" role="alert">
+                            {{ error_message }}
+                        </div>
+                    {% else %}
+                        <form id="movementForm" method="post" action="{% url 'security:student_movement' %}">
+                            {% csrf_token %}
+                            <div class="row mb-3">
+                                <div class="col-md-4">
+                                    <div class="form-group">
+                                        <label for="student_id" class="fw-bold">Select Student</label>
+                                        <div class="input-group">
+                                            <input type="text" class="form-control rounded" id="student_search" placeholder="Search by name..." autocomplete="off">
+                                            <button class="btn btn-outline-secondary rounded" type="button" id="clear_search">Clear</button>
+                                        </div>
+                                        <div id="student_dropdown" class="dropdown-menu border shadow-sm" style="width: 100%; max-height: 200px; overflow-y: auto; display: none; z-index: 1000;"></div>
+                                        <input type="hidden" id="student_id" name="student_id">
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="movement_type" class="fw-bold">Movement Type</label>
+                                        <select class="form-control rounded" id="movement_type" name="movement_type" required>
+                                            <option value="">-- Select Type --</option>
+                                            <option value="IN">In</option>
+                                            <option value="OUT">Out</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                {% if not hostel %}
+                                    <div class="col-md-3">
+                                        <div class="form-group">
+                                            <label for="hostel_id" class="fw-bold">Select Hostel</label>
+                                            <select class="form-control rounded" id="hostel_id" name="hostel_id" required>
+                                                <option value="">-- Select Hostel --</option>
+                                                {% for h in hostels %}
+                                                    <option value="{{ h.id }}">{{ h.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <button type="submit" id="recordButton" class="btn btn-primary btn-block rounded-pill px-4 py-2" disabled>Record</button>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <div class="form-group">
+                                        <label for="notes" class="fw-bold">Notes (Optional)</label>
+                                        <textarea class="form-control rounded" id="notes" name="notes" rows="3" placeholder="Any additional notes about this movement"></textarea>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                        
+                        <hr>
+                        
+                        <h5 class="mt-4 mb-3 fw-bold">Recent Movements {% if hostel %} at {{ hostel.name }}{% endif %}</h5>
+                        {% if movements %}
+                            <div class="row mb-3">
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="filter_student" class="fw-bold">Filter by Student</label>
+                                        <select class="form-control rounded" id="filter_student">
+                                            <option value="">-- All Students --</option>
+                                            {% for student in students %}
+                                                <option value="{{ student.user.first_name }} {{ student.user.last_name }}">{{ student.user.first_name }} {{ student.user.last_name }}</option>
+                                            {% endfor %}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="form-group">
+                                        <label for="filter_movement_type" class="fw-bold">Filter by Movement Type</label>
+                                        <select class="form-control rounded" id="filter_movement_type">
+                                            <option value="">-- All Types --</option>
+                                            <option value="IN">In</option>
+                                            <option value="OUT">Out</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="col-md-2 d-flex align-items-end">
+                                    <button id="clear_filters" class="btn btn-outline-secondary rounded-pill px-4 py-2">Clear Filters</button>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover border rounded" id="movements_table">
+                                    <thead class="bg-light">
+                                        <tr>
+                                            <th class="py-2">Student</th>
+                                            <th class="py-2">Type</th>
+                                            <th class="py-2">Timestamp</th>
+                                            <th class="py-2">Recorded By</th>
+                                            <th class="py-2">Notes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for movement in movements %}
+                                            <tr data-student="{{ movement.student.user.first_name }} {{ movement.student.user.last_name }}" data-type="{{ movement.movement_type }}">
+                                                <td class="align-middle">{{ movement.student.user.first_name }} {{ movement.student.user.last_name }}</td>
+                                                <td class="align-middle">{{ movement.movement_type }}</td>
+                                                <td class="align-middle">{{ movement.timestamp|date:"Y-m-d H:i:s" }}</td>
+                                                <td class="align-middle">{{ movement.security_guard.name }}</td>
+                                                <td class="align-middle">{{ movement.notes|default:"-" }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted">No recent movements recorded.</p>
+                        {% endif %}
+                    {% endif %}
+                </div>
+                <div class="card-footer text-center bg-light py-3">
+                    <small class="text-muted">Sunrise Hostel Management System</small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Store student data in a JavaScript array for easy access
+    const students = [{ id: '', name: '-- Select Student --', email: '' }];
+    // Data will be populated from a hidden element
+    function populateStudents(attempt = 0) {
+        const dataElement = document.getElementById('student-data');
+        if (dataElement) {
+            try {
+                const textContent = (dataElement.textContent || dataElement.innerText || '').trim();
+                console.log('Student data content:', textContent);
+                if (textContent) {
+                    const studentData = JSON.parse(textContent);
+                    console.log('Parsed student data:', studentData);
+                    students.push(...studentData);
+                    console.log('Students array after push:', students);
+                } else {
+                    console.warn('Student data element is empty');
+                }
+            } catch (e) {
+                console.error('Error parsing student data:', e);
+            }
+        } else if (attempt < 20) {
+            console.warn('Student data element not found, retrying... Attempt:', attempt + 1);
+            setTimeout(() => populateStudents(attempt + 1), 2000);
+        } else {
+            console.error('Student data element not found after multiple attempts');
+            alert('Unable to load student data. Please refresh the page or contact support.');
+            // Add a retry button for manual retry
+            const searchContainer = document.querySelector('.input-group');
+            if (searchContainer) {
+                const retryButton = document.createElement('button');
+                retryButton.className = 'btn btn-outline-warning rounded';
+                retryButton.textContent = 'Retry Loading Data';
+                retryButton.onclick = () => {
+                    console.log('Manual retry triggered');
+                    populateStudents(0);
+                };
+                searchContainer.appendChild(retryButton);
+            }
+        }
+    }
+    // Ensure DOM is fully loaded before populating students
+    // Use a single listener to avoid multiple triggers
+    if (!window.studentDataLoaded) {
+        window.studentDataLoaded = true;
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', () => {
+                setTimeout(() => populateStudents(0), 2000); // Further increase initial delay to ensure rendering
+            });
+        } else {
+            setTimeout(() => populateStudents(0), 2000); // Call immediately with delay if DOM is already loaded
+        }
+    }
+    
+    const searchInput = document.getElementById('student_search');
+    const dropdown = document.getElementById('student_dropdown');
+    const hiddenInput = document.getElementById('student_id');
+    
+    // Enable/disable Record button based on form completion
+    function updateRecordButton() {
+        const studentId = hiddenInput.value;
+        const movementType = document.getElementById('movement_type').value;
+        const recordButton = document.getElementById('recordButton');
+        if (studentId && movementType) {
+            recordButton.disabled = false;
+        } else {
+            recordButton.disabled = true;
+        }
+    }
+    
+    // Form submission via AJAX
+    const movementForm = document.getElementById('movementForm');
+    if (movementForm) {
+        movementForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            if (!hiddenInput.value) {
+                alert('Please select a student before recording movement.');
+                return;
+            }
+            
+            const movementTypeElement = document.getElementById('movement_type');
+            if (!movementTypeElement || !movementTypeElement.value) {
+                alert('Please select a movement type before recording movement.');
+                return;
+            }
+            
+            const formData = new FormData(this);
+            console.log('Form data before submission:', Object.fromEntries(formData));
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.text().then(text => {
+                    try {
+                        return JSON.parse(text);
+                    } catch (e) {
+                        throw new Error(`Invalid JSON response: ${text}`);
+                    }
+                });
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                if (data.status === 'success') {
+                    alert(data.message);
+                    // Optionally, prepend the new movement to the table
+                    const tableBody = document.querySelector('table tbody');
+                    if (tableBody) {
+                        // Use the security guard name from the server response if available, otherwise fallback to 'Unknown Guard'
+                        const securityGuardName = data.movement.security_guard_name || 'Unknown Guard';
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${data.movement.student_name}</td>
+                            <td>${data.movement.movement_type}</td>
+                            <td>${data.movement.timestamp}</td>
+                            <td>${securityGuardName}</td>
+                            <td>${data.movement.notes || '-'}</td>
+                        `;
+                        tableBody.insertBefore(row, tableBody.firstChild);
+                    }
+                    this.reset();
+                    searchInput.value = '';
+                    hiddenInput.value = '';
+                    dropdown.style.display = 'none';
+                    updateRecordButton();
+                } else {
+                    alert('Error: ' + (data.message || 'Unknown server error'));
+                }
+            })
+            .catch(error => {
+                alert(`An error occurred while submitting the form: ${error.message}. Please try again.`);
+                console.error('Submission error:', error);
+            });
+        });
+    }
+    
+    // Student search functionality with dropdown simulation
+    searchInput.addEventListener('input', function(e) {
+        const searchTerm = e.target.value.toLowerCase();
+        console.log('Search term:', searchTerm, 'Students available:', students.length);
+        
+        if (students.length <= 1) { // Only the default empty student
+            dropdown.innerHTML = '<a class="dropdown-item disabled" href="#">Student data not loaded yet. Please wait...</a>';
+            dropdown.style.display = 'block';
+            hiddenInput.value = '';
+            updateRecordButton();
+            return;
+        }
+        
+        const filteredStudents = students.filter(student => student.id !== '' && student.name.toLowerCase().includes(searchTerm));
+        
+        if (searchTerm.length < 2) {
+            dropdown.innerHTML = '';
+            dropdown.style.display = 'none';
+            hiddenInput.value = '';
+            updateRecordButton();
+            return;
+        }
+        
+        if (filteredStudents.length > 0) {
+            dropdown.innerHTML = filteredStudents.map(student => 
+                `<a class="dropdown-item" href="#" data-id="${student.id}">${student.name} (${student.email})</a>`
+            ).join('');
+            dropdown.style.display = 'block';
+        } else {
+            dropdown.innerHTML = '<a class="dropdown-item disabled" href="#">No matching students found</a>';
+            dropdown.style.display = 'block';
+            hiddenInput.value = '';
+            updateRecordButton();
+        }
+    });
+    
+    // Handle dropdown item selection
+    dropdown.addEventListener('click', function(e) {
+        if (e.target.tagName === 'A' && e.target.getAttribute('data-id')) {
+            const studentId = e.target.getAttribute('data-id');
+            const studentName = e.target.textContent.split(' (')[0];
+            hiddenInput.value = studentId;
+            searchInput.value = studentName;
+            dropdown.style.display = 'none';
+            updateRecordButton();
+        }
+    });
+    
+    // Hide dropdown when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+            dropdown.style.display = 'none';
+        }
+    });
+    
+    // Clear search input
+    document.getElementById('clear_search').addEventListener('click', function() {
+        searchInput.value = '';
+        hiddenInput.value = '';
+        dropdown.innerHTML = '';
+        dropdown.style.display = 'none';
+        updateRecordButton();
+    });
+    
+    // Update record button state on movement type change
+    document.getElementById('movement_type').addEventListener('change', function() {
+        updateRecordButton();
+    });
+    
+    // Initial state update
+    updateRecordButton();
+
+    // Filter functionality for movements table
+    const filterStudent = document.getElementById('filter_student');
+    const filterMovementType = document.getElementById('filter_movement_type');
+    const clearFiltersButton = document.getElementById('clear_filters');
+    const movementsTable = document.getElementById('movements_table');
+
+    function applyFilters() {
+        const studentFilter = filterStudent.value;
+        const typeFilter = filterMovementType.value;
+        const rows = movementsTable.querySelectorAll('tbody tr');
+
+        rows.forEach(row => {
+            const studentMatch = studentFilter === '' || row.getAttribute('data-student') === studentFilter;
+            const typeMatch = typeFilter === '' || row.getAttribute('data-type') === typeFilter;
+            if (studentMatch && typeMatch) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    }
+
+    if (filterStudent && filterMovementType) {
+        filterStudent.addEventListener('change', applyFilters);
+        filterMovementType.addEventListener('change', applyFilters);
+    }
+
+    if (clearFiltersButton) {
+        clearFiltersButton.addEventListener('click', function() {
+            if (filterStudent) filterStudent.value = '';
+            if (filterMovementType) filterMovementType.value = '';
+            applyFilters();
+        });
+    }
+
+    // Apply filters initially if data exists
+    if (movementsTable) {
+        applyFilters();
+    }
+});
+</script>
+{% endblock %}

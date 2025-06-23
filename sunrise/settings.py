@@ -41,7 +41,8 @@ INSTALLED_APPS = [
     'frontend',
     'warden',
     'student',
-    'messincharge'
+    'messincharge',
+    'security'
 ]
 
 MIDDLEWARE = [

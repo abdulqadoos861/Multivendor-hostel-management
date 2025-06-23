@@ -14,6 +14,7 @@ urlpatterns = [
     # Dashboard
     path('dashboard/', views.dashboard, name='dashboard'),
     path('warden_dashboard/', views.warden_dashboard, name='warden_dashboard'),
+    path('api/dashboard-stats/', views.dashboard_stats_api, name='dashboard_stats_api'),
     
     # Hostel Management
     path('hostels/', views.hostels, name='hostels'),
@@ -24,6 +25,11 @@ urlpatterns = [
 
     # Room Management
     path('room_assignments/', views.room_assignments, name='room_assignments'),
+    path('api/assignments/<int:assignment_id>/checkout/', views.checkout_assignment, name='checkout_assignment'),
+    path('api/assignments/<int:assignment_id>/', views.get_assignment_details, name='get_assignment_details'),
+    path('admin/api/assignments/<int:assignment_id>/', views.get_assignment_details, name='admin_get_assignment_details'),
+    path('coustom_admin/api/assignments/<int:assignment_id>/', views.get_assignment_details, name='coustom_admin_get_assignment_details'),
+    path('assignments/<int:assignment_id>/', views.get_assignment_details, name='simple_get_assignment_details'),
     path('add_room/', views.add_room, name='add_room'),
     path('update_room/<int:room_id>/', views.update_room, name='update_room'),
     path('delete_room/<int:room_id>/', views.delete_room, name='delete_room'),
@@ -47,7 +53,7 @@ urlpatterns = [
     path('add_warden/', views.addWarden, name='addWarden'),
     path('get_available_hostels/<int:warden_id>/', views.getAvailableHostels, name='getAvailableHostels'),
     path('assign_hostel/', views.assignHostel, name='assignHostel'),
-    path('delete_warden/<int:warden_id>/', views.deleteWarden, name='deleteWarden'),
+    path('deleteWarden/<int:warden_id>/', views.deleteWarden, name='deleteWarden'),
     path('update_warden/<int:warden_id>/', views.updateWarden, name='updateWarden'),
     path('get_warden/<int:warden_id>/', views.getWarden, name='getWarden'),
     path('remove-warden/<int:hostel_id>/', views.removeWardenFromHostel, name='removeWardenFromHostel'),
@@ -87,4 +93,12 @@ urlpatterns = [
     path('profile/', views.profile, name='profile'),
     path('manageBooking/', views.manage_booking, name='manage_booking_camel'),
     path('mess_menu/', views.mess_menu, name='mess_menu'),
+    path('feedbacks/', views.student_feedbacks, name='student_feedbacks'),
+    
+    # Security Guard Management
+    path('manageSecurityGuards/', views.manage_security_guards, name='manage_security_guards'),
+    path('add_security_guard/', views.add_security_guard, name='add_security_guard'),
+    path('edit_security_guard/<int:guard_id>/', views.edit_security_guard, name='edit_security_guard'),
+    path('delete_security_guard/<int:guard_id>/', views.delete_security_guard, name='delete_security_guard'),
+    path('get_security_guards_data/', views.get_security_guards_data, name='get_security_guards_data'),
 ]

@@ -118,7 +118,61 @@ def admin_login(request):
 
 @login_required
 def dashboard(request):
-    return render(request, "dashboard.html")
+    # Fetch statistics for the dashboard
+    from .models import Hostels, Rooms, BookingRequest, Student
+    from student.models import Complaint, Feedback
+    from messincharge.models import Expenses
+    from django.db.models import Sum, Count
+
+    total_hostels = Hostels.objects.count()
+    total_rooms = Rooms.objects.count()
+    active_bookings = BookingRequest.objects.filter(status='Approved').count()
+    total_students = Student.objects.count()
+    total_complaints = Complaint.objects.count()
+    total_expenses = Expenses.objects.aggregate(Sum('amount'))['amount__sum'] or 0
+    total_wardens = Wardens.objects.count()
+    total_feedback = Feedback.objects.count()
+    recent_bookings = BookingRequest.objects.all().order_by('-request_date')[:5]
+    recent_complaints = Complaint.objects.all().order_by('-created_at')[:5]
+    last_updated = timezone.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    context = {
+        'total_hostels': total_hostels,
+        'total_rooms': total_rooms,
+        'active_bookings': active_bookings,
+        'total_students': total_students,
+        'total_complaints': total_complaints,
+        'total_expenses': total_expenses,
+        'total_wardens': total_wardens,
+        'total_feedback': total_feedback,
+        'recent_bookings': recent_bookings,
+        'recent_complaints': recent_complaints,
+        'last_updated': last_updated,
+    }
+    return render(request, "dashboard.html", context)
+
+@login_required
+def dashboard_stats_api(request):
+    """
+    API endpoint to fetch real-time dashboard statistics.
+    """
+    from .models import Hostels, Rooms, BookingRequest, Student, Wardens
+    from student.models import Complaint, Feedback
+    from messincharge.models import Expenses
+    from django.db.models import Sum
+
+    stats = {
+        'total_hostels': Hostels.objects.count(),
+        'total_rooms': Rooms.objects.count(),
+        'active_bookings': BookingRequest.objects.filter(status='Approved').count(),
+        'total_students': Student.objects.count(),
+        'total_complaints': Complaint.objects.count(),
+        'total_expenses': Expenses.objects.aggregate(Sum('amount'))['amount__sum'] or 0,
+        'total_wardens': Wardens.objects.count(),
+        'total_feedback': Feedback.objects.count(),
+        'last_updated': timezone.now().strftime('%Y-%m-%d %H:%M:%S'),
+    }
+    return JsonResponse({'status': 'success', 'stats': stats})
 
 @login_required
 def warden_dashboard(request):
@@ -550,7 +604,7 @@ def room_assignments(request):
         'room',
         'room__hostel',
         'assigned_by'
-    ).order_by('-assigned_date')
+    ).order_by('-is_active', 'room__room_number')
     
     # Apply filters
     if hostel_id:
@@ -579,6 +633,53 @@ def room_assignments(request):
     }
     
     return render(request, 'room_assignments.html', context)
+
+@login_required
+@require_http_methods(["POST"])
+def checkout_assignment(request, assignment_id):
+    """
+    Handle checkout of a student from a room assignment.
+    """
+    try:
+        assignment = RoomAssignment.objects.get(id=assignment_id, is_active=True)
+        room = assignment.room
+        
+        with transaction.atomic():
+            # Mark assignment as inactive and set checkout date
+            assignment.is_active = False
+            assignment.check_out_date = timezone.now().date()
+            assignment.save()
+            
+            # Update booking status if needed
+            booking = assignment.booking
+            booking.status = 'Completed'
+            booking.save()
+            
+            # Decrement current occupants for the room
+            if room.current_occupants > 0:
+                room.current_occupants = F('current_occupants') - 1
+                room.save()
+            
+            # Update room status if needed
+            if room.current_occupants == 0:
+                room.status = 'Available'
+                room.save(update_fields=['status'])
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': f'Student checked out from room {room.room_number} successfully.'
+        })
+    except RoomAssignment.DoesNotExist:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Room assignment not found or already checked out.'
+        }, status=404)
+    except Exception as e:
+        logger.error(f"Error during checkout: {str(e)}")
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Error during checkout: {str(e)}'
+        }, status=500)
 
 @login_required
 def hostels(request):
@@ -1221,10 +1322,16 @@ def deleteWarden(request, warden_id):
             warden.delete()
             user.delete()
             
-            messages.success(request, 'Warden deleted successfully')
+            response_data = {'status': 'success', 'message': 'Warden deleted successfully'}
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse(response_data)
+            messages.success(request, response_data['message'])
             return redirect('manageWardens')
         except Exception as e:
-            messages.error(request, str(e))
+            response_data = {'status': 'error', 'message': str(e)}
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse(response_data, status=500)
+            messages.error(request, response_data['message'])
             return redirect('manageWardens')
     return redirect('manageWardens')
 
@@ -1684,10 +1791,10 @@ def profile(request):
 def manage_booking(request):
     if is_student(request.user):
         # For students, show only their bookings
-        bookings = BookingRequest.objects.filter(student=request.user.student)
+        bookings = BookingRequest.objects.filter(student=request.user.student).select_related('student', 'hostel')
     else:
         # For admins, show all bookings
-        bookings = BookingRequest.objects.all()
+        bookings = BookingRequest.objects.all().select_related('student', 'hostel')
     
     # Apply filters from GET parameters
     status_filter = request.GET.get('status', '')
@@ -2108,10 +2215,11 @@ def approve_booking(request, booking_id):
             
             # Get the booking
             try:
-                booking = BookingRequest.objects.select_related('hostel').get(id=booking_id)
+                booking = BookingRequest.objects.select_related('hostel', 'student').get(id=booking_id)
                 logger.info(f"Found booking: {booking.id}, status={booking.status}, hostel={booking.hostel}")
             except BookingRequest.DoesNotExist:
                 logger.error(f"Booking not found: {booking_id}")
+                messages.error(request, 'Booking not found.')
                 return JsonResponse({
                     'status': 'error',
                     'message': 'Booking not found.'
@@ -2124,25 +2232,59 @@ def approve_booking(request, booking_id):
             
             if not room_id:
                 logger.warning("No room_id provided in request")
+                messages.error(request, 'Please select a room to assign.')
                 return JsonResponse({
                     'status': 'error',
                     'message': 'Please select a room to assign.'
                 }, status=400)
             
-            # Get the room
+            # Get the room with detailed error checking
             try:
-                room = Rooms.objects.get(id=room_id, hostel_id=booking.hostel.id, room_type=booking.room_type)
+                room = Rooms.objects.get(id=room_id)
+                if room.hostel_id != booking.hostel.id:
+                    logger.error(f"Room {room_id} found but hostel mismatch: expected {booking.hostel.id}, got {room.hostel_id}")
+                    messages.error(request, f'Selected room {room_id} does not belong to the booked hostel {booking.hostel.name}.')
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': f'Selected room does not belong to the booked hostel {booking.hostel.name}.',
+                        'debug': {
+                            'room_id': room_id,
+                            'expected_hostel_id': booking.hostel.id,
+                            'actual_hostel_id': room.hostel_id,
+                            'room_type': room.room_type
+                        }
+                    }, status=400)
+                if room.room_type != booking.room_type:
+                    logger.error(f"Room {room_id} found but room type mismatch: expected {booking.room_type}, got {room.room_type}")
+                    messages.error(request, f'Selected room {room_id} is of type {room.room_type}, but booking requires {booking.room_type}.')
+                    return JsonResponse({
+                        'status': 'error',
+                        'message': f'Selected room is of type {room.room_type}, but booking requires {booking.room_type}.',
+                        'debug': {
+                            'room_id': room_id,
+                            'hostel_id': booking.hostel.id,
+                            'expected_room_type': booking.room_type,
+                            'actual_room_type': room.room_type
+                        }
+                    }, status=400)
                 logger.info(f"Found room: {room.id}, type={room.room_type}, capacity={room.capacity}, current_occupants={room.current_occupants}")
             except Rooms.DoesNotExist:
-                logger.error(f"Room not found: id={room_id}, hostel_id={booking.hostel.id}, room_type={booking.room_type}")
+                logger.error(f"Room not found: id={room_id}")
+                messages.error(request, f'Selected room ID {room_id} does not exist in the system.')
                 return JsonResponse({
                     'status': 'error',
-                    'message': 'Selected room not found or does not match booking criteria.'
+                    'message': f'Selected room ID {room_id} does not exist in the system.',
+                    'debug': {
+                        'room_id': room_id,
+                        'hostel_id': booking.hostel.id,
+                        'room_type': booking.room_type
+                    }
                 }, status=404)
             
             # Check if room has available beds
             if room.current_occupants >= room.capacity:
                 logger.warning(f"Room {room.id} is full: {room.current_occupants}/{room.capacity}")
+                messages.error(request, 'Selected room is already full. Please choose another room.')
                 return JsonResponse({
                     'status': 'error',
                     'message': 'Selected room is already full. Please choose another room.'
@@ -2185,7 +2327,8 @@ def approve_booking(request, booking_id):
                             raise Exception('Room is now full. Please select another room.')
                             
                         # Update room status if needed
-                        if room.current_occupants + 1 >= room.capacity:
+                        room.refresh_from_db()
+                        if room.current_occupants >= room.capacity:
                             room.status = 'Occupied'
                             room.save(update_fields=['status'])
                             
@@ -2204,7 +2347,8 @@ def approve_booking(request, booking_id):
                 
                 return JsonResponse({
                     'status': 'success',
-                    'message': 'Booking approved successfully.'
+                    'message': 'Booking approved successfully.',
+                    'redirect_url': '/manage_booking/'
                 })
                 
             except Exception as e:
@@ -2217,6 +2361,7 @@ def approve_booking(request, booking_id):
                 else:
                     user_msg = f'A database error occurred: {error_msg}'
                 
+                messages.error(request, user_msg)
                 return JsonResponse({
                     'status': 'error',
                     'message': user_msg
@@ -2224,6 +2369,7 @@ def approve_booking(request, booking_id):
             
         except Exception as e:
             logger.exception(f"Unexpected error in approve_booking: {str(e)}")
+            messages.error(request, f'An unexpected error occurred: {str(e)}')
             return JsonResponse({
                 'status': 'error',
                 'message': f'An unexpected error occurred: {str(e)}'
@@ -2237,6 +2383,7 @@ def approve_booking(request, booking_id):
             'message': 'Invalid request method. Use POST to approve a booking.'
         }, status=405)
     except BookingRequest.DoesNotExist:
+        messages.error(request, 'Booking not found.')
         return JsonResponse({
             'status': 'error',
             'message': 'Booking not found.'
@@ -2900,3 +3047,374 @@ def get_mess_incharge(request, mess_incharge_id):
         return JsonResponse({'status': 'error', 'message': 'Mess Incharge not found'}, status=404)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+def manage_security_guards(request):
+    """
+    View to display all security guards
+    """
+    from security.models import SecurityGuard
+    security_guards = SecurityGuard.objects.select_related('user', 'hostel').all().order_by('-created_at')
+    hostels = Hostels.objects.all()
+    return render(request, "manageSecurityGuards.html", {"security_guards": security_guards, "hostels": hostels})
+
+@login_required
+@csrf_exempt
+def add_security_guard(request):
+    if request.method == 'POST':
+        try:
+            name = request.POST.get('name')
+            email = request.POST.get('email')
+            username = request.POST.get('username')
+            password = request.POST.get('password')
+            contact_number = request.POST.get('contact_number')
+            cnic = request.POST.get('cnic')
+            street = request.POST.get('street')
+            area = request.POST.get('area')
+            city = request.POST.get('city')
+            district = request.POST.get('district')
+            gender = request.POST.get('gender')
+            hostel_id = request.POST.get('hostel')
+            shift = request.POST.get('shift')
+
+            required_fields = {
+                'name': name,
+                'username': username,
+                'email': email,
+                'password': password,
+                'gender': gender,
+                'hostel': hostel_id,
+                'shift': shift
+            }
+            missing_fields = [field for field, value in required_fields.items() if not value]
+            if missing_fields:
+                return JsonResponse({'status': 'error', 'message': f'Missing required fields: {", ".join(missing_fields)}'}, status=400)
+
+            if User.objects.filter(username=username).exists():
+                return JsonResponse({'status': 'error', 'message': 'Username already registered'}, status=400)
+
+            if User.objects.filter(email=email).exists():
+                return JsonResponse({'status': 'error', 'message': 'Email already registered'}, status=400)
+
+            try:
+                user = User(
+                    username=username,
+                    email=email if email else '',
+                    first_name=name.split()[0] if name else '',
+                    last_name=' '.join(name.split()[1:]) if name and len(name.split()) > 1 else '',
+                    is_staff=True
+                )
+                user.set_password(password)
+                user.save()
+                
+                # Add user to Security group
+                from django.contrib.auth.models import Group
+                security_group, _ = Group.objects.get_or_create(name='Security')
+                user.groups.add(security_group)
+
+                hostel = Hostels.objects.get(id=hostel_id)
+                from security.models import SecurityGuard
+                security_guard = SecurityGuard(
+                    user=user,
+                    name=name,
+                    contact_number=contact_number if contact_number else '',
+                    cnic=cnic if cnic else '',
+                    street=street if street else '',
+                    area=area if area else '',
+                    city=city if city else '',
+                    district=district if district else '',
+                    gender=gender,
+                    hostel=hostel,
+                    shift=shift,
+                    created_at=timezone.now()
+                )
+                security_guard.save()
+
+                messages.success(request, 'Security Guard registered successfully')
+                return redirect('manage_security_guards')
+            except Exception as e:
+                if 'user' in locals():
+                    user.delete()
+                return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+    
+    hostels = Hostels.objects.all()
+    return render(request, "manageSecurityGuards.html", {"hostels": hostels})
+
+@login_required
+@csrf_exempt
+def delete_security_guard(request, guard_id):
+    if request.method == 'POST':
+        try:
+            from security.models import SecurityGuard
+            security_guard = get_object_or_404(SecurityGuard, user_id=guard_id)
+            user = security_guard.user
+            security_guard.delete()
+            user.delete()
+            response_data = {'status': 'success', 'message': 'Security Guard deleted successfully'}
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse(response_data)
+            messages.success(request, response_data['message'])
+            return redirect('manage_security_guards')
+        except Exception as e:
+            response_data = {'status': 'error', 'message': str(e)}
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse(response_data, status=500)
+            messages.error(request, response_data['message'])
+            return redirect('manage_security_guards')
+    return redirect('manage_security_guards')
+
+@login_required
+@csrf_exempt
+def edit_security_guard(request, guard_id):
+    if request.method == 'POST':
+        try:
+            from security.models import SecurityGuard
+            security_guard = SecurityGuard.objects.select_related('user', 'hostel').get(user_id=guard_id)
+            name = request.POST.get('name')
+            email = request.POST.get('email')
+            contact_number = request.POST.get('contact_number')
+            cnic = request.POST.get('cnic')
+            street = request.POST.get('street')
+            area = request.POST.get('area')
+            city = request.POST.get('city')
+            district = request.POST.get('district')
+            gender = request.POST.get('gender')
+            hostel_id = request.POST.get('hostel')
+            shift = request.POST.get('shift')
+            is_active = request.POST.get('is_active') == 'on'
+
+            security_guard.name = name
+            security_guard.contact_number = contact_number
+            security_guard.cnic = cnic
+            security_guard.street = street
+            security_guard.area = area
+            security_guard.city = city
+            security_guard.district = district
+            security_guard.gender = gender
+            security_guard.hostel = Hostels.objects.get(id=hostel_id)
+            security_guard.shift = shift
+
+            if hasattr(security_guard, 'user') and security_guard.user:
+                user = security_guard.user
+                user.email = email
+                user.is_active = is_active
+                user.save()
+
+            security_guard.save()
+            response_data = {
+                'status': 'success', 
+                'message': 'Security Guard updated successfully',
+                'redirect_url': reverse('manage_security_guards')
+            }
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse(response_data)
+            messages.success(request, response_data['message'])
+            return redirect('manage_security_guards')
+        except SecurityGuard.DoesNotExist:
+            response_data = {'status': 'error', 'message': 'Security Guard not found'}
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse(response_data, status=404)
+            messages.error(request, response_data['message'])
+            return redirect('manage_security_guards')
+        except Exception as e:
+            response_data = {'status': 'error', 'message': f'Failed to update Security Guard: {str(e)}'}
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse(response_data, status=500)
+            messages.error(request, response_data['message'])
+            return redirect('manage_security_guards')
+    else:
+        from security.models import SecurityGuard
+        security_guard = get_object_or_404(SecurityGuard, user_id=guard_id)
+        hostels = Hostels.objects.all()
+        return render(request, "editSecurityGuard.html", {"security_guard": security_guard, "hostels": hostels})
+
+@login_required
+def get_security_guards_data(request):
+    """
+    Retrieve all security guard data from the database in JSON format.
+    """
+    from security.models import SecurityGuard
+    security_guards = SecurityGuard.objects.select_related('user', 'hostel').all().order_by('-created_at')
+    guards_data = [
+        {
+            'id': guard.user_id,
+            'name': guard.name,
+            'email': guard.user.email if hasattr(guard, 'user') else '',
+            'contact_number': guard.contact_number,
+            'cnic': guard.cnic,
+            'street': guard.street,
+            'area': guard.area,
+            'city': guard.city,
+            'district': guard.district,
+            'gender': guard.gender,
+            'hostel': guard.hostel.name if guard.hostel else '',
+            'shift': guard.shift,
+            'created_at': guard.created_at.strftime('%Y-%m-%d %H:%M:%S') if guard.created_at else '',
+            'is_active': guard.user.is_active if hasattr(guard, 'user') else False
+        }
+        for guard in security_guards
+    ]
+    return JsonResponse({
+        'status': 'success',
+        'security_guards': guards_data
+    })
+
+@login_required
+def student_feedbacks(request):
+    """
+    View to display all feedbacks submitted by students.
+    """
+    from student.models import Feedback
+    from coustom_admin.models import Hostels
+    
+    # Get all feedbacks with related user and hostel data
+    feedbacks = Feedback.objects.select_related('user', 'hostel').all().order_by('-created_at')
+    
+    # Apply search filter if provided
+    search_query = request.GET.get('search', '')
+    if search_query:
+        feedbacks = feedbacks.filter(
+            Q(feedback_text__icontains=search_query) |
+            Q(user__username__icontains=search_query) |
+            Q(user__first_name__icontains=search_query) |
+            Q(user__last_name__icontains=search_query) |
+            Q(hostel__name__icontains=search_query)
+        )
+    
+    # Apply hostel filter if provided
+    hostel_filter = request.GET.get('hostel', '')
+    if hostel_filter:
+        feedbacks = feedbacks.filter(hostel_id=hostel_filter)
+    
+    # Apply rating filter if provided
+    rating_filter = request.GET.get('rating', '')
+    if rating_filter:
+        feedbacks = feedbacks.filter(rating=rating_filter)
+    
+    # Get all hostels for filter dropdown
+    hostels = Hostels.objects.all().order_by('name')
+    
+    context = {
+        'feedbacks': feedbacks,
+        'hostels': hostels,
+        'search_query': search_query,
+        'hostel_filter': hostel_filter,
+        'rating_filter': rating_filter,
+    }
+    
+    return render(request, "student_feedbacks.html", context)
+
+@login_required
+def get_assignment_details(request, assignment_id):
+    """
+    API endpoint to get details of a specific room assignment.
+    Returns JSON data for use in the room assignment details modal.
+    """
+    try:
+        assignment = get_object_or_404(RoomAssignment, id=assignment_id)
+        booking = getattr(assignment, 'booking', None)
+        if not booking:
+            raise ValueError("Booking not found for this assignment")
+        student = getattr(booking, 'student', None)
+        if not student:
+            raise ValueError("Student not found for this booking")
+        room = getattr(assignment, 'room', None)
+        if not room:
+            raise ValueError("Room not found for this assignment")
+        hostel = getattr(room, 'hostel', None)
+        if not hostel:
+            raise ValueError("Hostel not found for this room")
+        
+        # Safely access student name
+        student_name = 'N/A'
+        try:
+            student_name = student.get_full_name() if hasattr(student, 'get_full_name') else student.username
+        except Exception as e:
+            logger.warning(f"Error getting student name for id {assignment_id}: {str(e)}")
+            student_name = getattr(student, 'username', 'N/A')
+
+        # Safely access student email
+        student_email = getattr(student, 'email', 'N/A')
+
+        # Safely access student contact
+        student_contact = getattr(student, 'phone', 'N/A')
+
+        # Safely access hostel name
+        hostel_name = getattr(hostel, 'name', 'N/A')
+
+        # Safely access room details
+        room_number = getattr(room, 'room_number', 'N/A')
+        room_type = 'N/A'
+        try:
+            room_type = room.get_room_type_display() if hasattr(room, 'get_room_type_display') else getattr(room, 'room_type', 'N/A')
+        except Exception as e:
+            logger.warning(f"Error getting room type for id {assignment_id}: {str(e)}")
+            room_type = getattr(room, 'room_type', 'N/A')
+
+        floor_number = getattr(room, 'floor_number', 'N/A')
+
+        # Safely access dates
+        assigned_date = ''
+        try:
+            assigned_date = assignment.assigned_date.isoformat() if hasattr(assignment, 'assigned_date') and assignment.assigned_date else ''
+        except Exception as e:
+            logger.warning(f"Error formatting assigned_date for id {assignment_id}: {str(e)}")
+
+        check_in_date = ''
+        try:
+            check_in_date = booking.check_in_date.isoformat() if hasattr(booking, 'check_in_date') and booking.check_in_date else ''
+        except Exception as e:
+            logger.warning(f"Error formatting check_in_date for id {assignment_id}: {str(e)}")
+
+        check_out_date = ''
+        try:
+            check_out_date = assignment.check_out_date.isoformat() if hasattr(assignment, 'check_out_date') and assignment.check_out_date else ''
+        except Exception as e:
+            logger.warning(f"Error formatting check_out_date for id {assignment_id}: {str(e)}")
+
+        # Safely access assigned_by
+        assigned_by = 'N/A'
+        try:
+            if hasattr(assignment, 'assigned_by') and assignment.assigned_by:
+                assigned_by = assignment.assigned_by.get_full_name() if hasattr(assignment.assigned_by, 'get_full_name') else assignment.assigned_by.username
+        except Exception as e:
+            logger.warning(f"Error getting assigned_by for id {assignment_id}: {str(e)}")
+
+        # Safely access duration
+        duration = 'N/A'
+        try:
+            duration = f"{booking.duration_months} month(s)" if hasattr(booking, 'duration_months') and booking.duration_months else 'N/A'
+        except Exception as e:
+            logger.warning(f"Error getting duration for id {assignment_id}: {str(e)}")
+
+        data = {
+            'student_name': student_name,
+            'student_email': student_email,
+            'student_contact': student_contact,
+            'hostel_name': hostel_name,
+            'room_number': room_number,
+            'room_type': room_type,
+            'floor_number': floor_number,
+            'assigned_date': assigned_date,
+            'assigned_by': assigned_by,
+            'is_active': getattr(assignment, 'is_active', False),
+            'check_in_date': check_in_date,
+            'check_out_date': check_out_date,
+            'duration': duration
+        }
+        return JsonResponse(data)
+    except RoomAssignment.DoesNotExist:
+        logger.error(f"RoomAssignment not found for id: {assignment_id}")
+        return JsonResponse({'error': 'Assignment not found'}, status=404)
+    except ValueError as ve:
+        logger.error(f"Data integrity error in get_assignment_details for id {assignment_id}: {str(ve)}")
+        return JsonResponse({'error': f'Missing data: {str(ve)}'}, status=500)
+    except AttributeError as ae:
+        logger.error(f"Attribute error in get_assignment_details for id {assignment_id}: {str(ae)}")
+        return JsonResponse({'error': f'Invalid data structure: {str(ae)}'}, status=500)
+    except Exception as e:
+        logger.error(f"Unexpected error in get_assignment_details for id {assignment_id}: {str(e)}", exc_info=True)
+        return JsonResponse({'error': f'Failed to load assignment details: {str(e)}'}, status=500)

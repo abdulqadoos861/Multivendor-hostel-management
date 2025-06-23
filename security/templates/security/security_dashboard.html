@@ -1,0 +1,234 @@
+{% extends 'security/security_base.html' %}
+{% load static %}
+
+{% block title %}Security Dashboard - Hostel Management{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1 class="h3 mb-2 text-gray-800">Security Dashboard</h1>
+    <p class="mb-4">Welcome, {% if security_guard.user.get_full_name %}{{ security_guard.user.get_full_name }}{% else %}{{ security_guard.user.username }}{% endif %}!</p>
+    
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="close" data-dismiss="alert" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        {% endfor %}
+    {% endif %}
+    
+    {% if error_message %}
+        <div class="alert alert-danger" role="alert">
+            {{ error_message }}
+        </div>
+    {% else %}
+        <!-- Profile and Quick Stats -->
+        <div class="row">
+            <div class="col-xl-4 col-lg-5">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3">
+                        <h6 class="m-0 font-weight-bold text-primary">Profile Information</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="text-center">
+                            <img class="img-fluid rounded-circle mb-2" src="{% static 'img/security-avatar.png' %}" alt="Security Guard Avatar" style="width: 120px; height: 120px;">
+                            <h5 class="card-title">{{ security_guard.name }}</h5>
+                            <p class="text-muted mb-1">Security Guard</p>
+                        </div>
+                        <hr>
+                        <div class="row">
+                            <div class="col-sm-3">
+                                <p class="mb-0">Email</p>
+                            </div>
+                            <div class="col-sm-9">
+                                <p class="text-muted mb-0">{{ security_guard.user.email }}</p>
+                            </div>
+                        </div>
+                        <hr>
+                        {% if security_guard.hostel %}
+                            <div class="row">
+                                <div class="col-sm-3">
+                                    <p class="mb-0">Hostel</p>
+                                </div>
+                                <div class="col-sm-9">
+                                    <p class="text-muted mb-0">{{ security_guard.hostel.name }}</p>
+                                </div>
+                            </div>
+                            <hr>
+                            <div class="row">
+                                <div class="col-sm-3">
+                                    <p class="mb-0">Shift</p>
+                                </div>
+                                <div class="col-sm-9">
+                                    <p class="text-muted mb-0">{{ security_guard.shift }}</p>
+                                </div>
+                            </div>
+                        {% else %}
+                            <div class="row">
+                                <div class="col-sm-12">
+                                    <p class="text-warning mb-0">No hostel assigned. Please contact an administrator.</p>
+                                </div>
+                            </div>
+                        {% endif %}
+                        <div class="mt-4 text-center">
+                            <a href="{% url 'security:student_movement' %}" class="btn btn-primary btn-icon-split">
+                                <span class="icon text-white-50">
+                                    <i class="fas fa-running"></i>
+                                </span>
+                                <span class="text">Record Student Movement</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-xl-8 col-lg-7">
+                <div class="row">
+                    <div class="col-xl-4 col-md-6 mb-4">
+                        <div class="card border-left-primary shadow h-100 py-2">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-primary text-uppercase mb-1">Student Movements (Today)</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ today_movements|default:0 }}</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-running fa-2x text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-4 col-md-6 mb-4">
+                        <div class="card border-left-info shadow h-100 py-2">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-info text-uppercase mb-1">Visitors Today</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ visitors_today|default:0 }}</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-users fa-2x text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xl-4 col-md-6 mb-4">
+                        <div class="card border-left-warning shadow h-100 py-2">
+                            <div class="card-body">
+                                <div class="row no-gutters align-items-center">
+                                    <div class="col mr-2">
+                                        <div class="text-xs font-weight-bold text-warning text-uppercase mb-1">Active Alerts</div>
+                                        <div class="h5 mb-0 font-weight-bold text-gray-800">{{ active_alerts|default:0 }}</div>
+                                    </div>
+                                    <div class="col-auto">
+                                        <i class="fas fa-bell fa-2x text-gray-300"></i>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-12 mb-4">
+                        <div class="card shadow">
+                            <div class="card-header py-3">
+                                <h6 class="m-0 font-weight-bold text-primary">Quick Actions</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6 mb-3">
+                                        <a href="{% url 'security:visitor' %}" class="btn btn-primary btn-block py-3 btn-icon-split">
+                                            <span class="icon text-white-50">
+                                                <i class="fas fa-user-plus"></i>
+                                            </span>
+                                            <span class="text">Register Visitor</span>
+                                        </a>
+                                    </div>
+                                    <div class="col-md-6 mb-3">
+                                        <a href="{% url 'security:emergency_alert' %}" class="btn btn-warning btn-block py-3 btn-icon-split">
+                                            <span class="icon text-white-50">
+                                                <i class="fas fa-bell"></i>
+                                            </span>
+                                            <span class="text">Security Alert</span>
+                                        </a>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Recent Activities and Announcements -->
+        <div class="row">
+            <!-- Recent Activities -->
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                        <h6 class="m-0 font-weight-bold text-primary">Recent Student Movements</h6>
+                        <a href="{% url 'security:student_movement' %}" class="btn btn-sm btn-primary">View All</a>
+                    </div>
+                    <div class="card-body">
+                        {% if recent_movements %}
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Student</th>
+                                            <th>Type</th>
+                                            <th>Time</th>
+                                            <th>Notes</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% for movement in recent_movements %}
+                                            <tr>
+                                                <td>{{ movement.student.user.first_name }} {{ movement.student.user.last_name }}</td>
+                                                <td>
+                                                    <span class="badge {% if movement.movement_type == 'IN' %}badge-success{% else %}badge-danger{% endif %}">
+                                                        {{ movement.movement_type }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ movement.timestamp|date:"H:i, d M Y" }}</td>
+                                                <td>{{ movement.notes|default:"-" }}</td>
+                                            </tr>
+                                        {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        {% else %}
+                            <p class="text-muted text-center my-4">No recent student movements recorded.</p>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Announcements or Alerts (Removed static content, placeholder for future dynamic alerts) -->
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow mb-4">
+                    <div class="card-header py-3 d-flex flex-row align-items-center justify-content-between">
+                        <h6 class="m-0 font-weight-bold text-primary">Recent Alerts</h6>
+                        <a href="{% url 'security:emergency_alert' %}" class="btn btn-sm btn-primary">Send Alert</a>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted text-center my-4">Emergency alert summaries will appear here.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add any dashboard-specific JavaScript here if needed
+    });
+</script>
+{% endblock %}

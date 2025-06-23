@@ -178,7 +178,7 @@
                         {% for booking in bookings %}
                         <tr>
                             <td>#{{ booking.id }}</td>
-                            <td>{{ booking.student.user.get_full_name }}</td>
+                            <td>{{ booking.student.get_full_name }}</td>
                             <td>{{ booking.hostel.name }}</td>
                             <td>{{ booking.room_type }}</td>
                             <td>{{ booking.request_date|date:"Y-m-d H:i" }}</td>
@@ -208,7 +208,7 @@
                                     <button class="btn btn-sm btn-secondary" data-bs-toggle="modal" 
                                             data-bs-target="#viewModal" 
                                             data-booking-id="{{ booking.id }}"
-                                            data-student-name="{{ booking.student.user.get_full_name }}"
+                                            data-student-name="{{ booking.student.get_full_name }}"
                                             data-student-email="{{ booking.student.user.email }}"
                                             data-hostel-name="{{ booking.hostel.name }}"
                                             data-room-type="{{ booking.room_type }}"

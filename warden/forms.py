@@ -43,9 +43,25 @@ class StudentRegistrationForm(forms.Form):
         help_text="Enter CNIC without dashes (e.g., 1234567890123)",
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
-    address = forms.CharField(
-        widget=forms.Textarea(attrs={'rows': 4, 'class': 'form-control'}),
-        required=True
+    street = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    area = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    city = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    district = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
     )
     gender = forms.ChoiceField(
         choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')],
@@ -55,6 +71,27 @@ class StudentRegistrationForm(forms.Form):
     institute = forms.CharField(
         max_length=100,
         required=True,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    guardian_name = forms.CharField(
+        max_length=100,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    guardian_contact = forms.CharField(
+        max_length=11,
+        required=False,
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    guardian_cnic = forms.CharField(
+        max_length=15,
+        required=False,
+        help_text="Enter Guardian CNIC without dashes (e.g., 1234567890123)",
+        widget=forms.TextInput(attrs={'class': 'form-control'})
+    )
+    guardian_relation = forms.CharField(
+        max_length=50,
+        required=False,
         widget=forms.TextInput(attrs={'class': 'form-control'})
     )
 
@@ -83,6 +120,18 @@ class StudentRegistrationForm(forms.Form):
         if Student.objects.filter(cnic=cnic).exists():
             raise forms.ValidationError("This CNIC is already registered.")
         return cnic
+
+    def clean_guardian_contact(self):
+        guardian_contact = self.cleaned_data['guardian_contact']
+        if guardian_contact and not re.match(r'^\d{11}$', guardian_contact):
+            raise forms.ValidationError("Guardian contact number must be 11 digits.")
+        return guardian_contact
+
+    def clean_guardian_cnic(self):
+        guardian_cnic = self.cleaned_data['guardian_cnic']
+        if guardian_cnic and not re.match(r'^\d{13}$', guardian_cnic):
+            raise forms.ValidationError("Guardian CNIC must be 13 digits without dashes.")
+        return guardian_cnic
 
     def clean(self):
         cleaned_data = super().clean()

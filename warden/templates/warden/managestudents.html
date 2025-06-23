@@ -19,95 +19,203 @@
                     </div>
                 {% endfor %}
             {% endif %}
-            <form id="studentForm" method="POST" action="{% url 'warden:manage_students' %}">
+            <form id="studentForm" method="POST" action="{% url 'warden:manage_students' %}" class="p-3">
                 {% csrf_token %}
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="id_username" class="form-label">Username</label>
-                        {{ form.username }}
-                        {% if form.username.errors %}
-                            <div class="text-danger">{{ form.username.errors }}</div>
-                        {% endif %}
+                <!-- Personal Information -->
+                <div class="mb-4 border-left-primary">
+                    <h5 class="section-title mb-3">Personal Information</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.first_name }}
+                                <label for="id_first_name">First Name</label>
+                                {% if form.first_name.errors %}
+                                    <div class="invalid-feedback">{{ form.first_name.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.last_name }}
+                                <label for="id_last_name">Last Name</label>
+                                {% if form.last_name.errors %}
+                                    <div class="invalid-feedback">{{ form.last_name.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.contact_number }}
+                                <label for="id_contact_number">Contact Number</label>
+                                {% if form.contact_number.errors %}
+                                    <div class="invalid-feedback">{{ form.contact_number.errors }}</div>
+                                {% endif %}
+                                <div id="contact_number_error" class="invalid-feedback">Must be 11 digits.</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.cnic }}
+                                <label for="id_cnic">CNIC (without dashes)</label>
+                                {% if form.cnic.errors %}
+                                    <div class="invalid-feedback">{{ form.cnic.errors }}</div>
+                                {% endif %}
+                                <div class="form-text">{{ form.cnic.help_text }}</div>
+                                <div id="cnic_error" class="invalid-feedback">Must be 13 digits.</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.gender }}
+                                <label for="id_gender">Gender</label>
+                                {% if form.gender.errors %}
+                                    <div class="invalid-feedback">{{ form.gender.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.institute }}
+                                <label for="id_institute">Institute</label>
+                                {% if form.institute.errors %}
+                                    <div class="invalid-feedback">{{ form.institute.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label for="id_email" class="form-label">Email</label>
-                        {{ form.email }}
-                        {% if form.email.errors %}
-                            <div class="text-danger">{{ form.email.errors }}</div>
-                        {% endif %}
+                </div>
+                <!-- Address Information -->
+                <div class="mb-4 border-left-primary">
+                    <h5 class="section-title mb-3">Address Information</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.street }}
+                                <label for="id_street">Street</label>
+                                {% if form.street.errors %}
+                                    <div class="invalid-feedback">{{ form.street.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.area }}
+                                <label for="id_area">Area</label>
+                                {% if form.area.errors %}
+                                    <div class="invalid-feedback">{{ form.area.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.city }}
+                                <label for="id_city">City</label>
+                                {% if form.city.errors %}
+                                    <div class="invalid-feedback">{{ form.city.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.district }}
+                                <label for="id_district">District</label>
+                                {% if form.district.errors %}
+                                    <div class="invalid-feedback">{{ form.district.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="id_password" class="form-label">Password</label>
-                        {{ form.password }}
-                        {% if form.password.errors %}
-                            <div class="text-danger">{{ form.password.errors }}</div>
-                        {% endif %}
+                <!-- Guardian Information -->
+                <div class="mb-4 border-left-primary">
+                    <h5 class="section-title mb-3">Guardian Information</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.guardian_name }}
+                                <label for="id_guardian_name">Guardian Name</label>
+                                {% if form.guardian_name.errors %}
+                                    <div class="invalid-feedback">{{ form.guardian_name.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.guardian_contact }}
+                                <label for="id_guardian_contact">Guardian Contact</label>
+                                {% if form.guardian_contact.errors %}
+                                    <div class="invalid-feedback">{{ form.guardian_contact.errors }}</div>
+                                {% endif %}
+                                <div id="guardian_contact_error" class="invalid-feedback">Must be 11 digits.</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.guardian_cnic }}
+                                <label for="id_guardian_cnic">Guardian CNIC (without dashes)</label>
+                                {% if form.guardian_cnic.errors %}
+                                    <div class="invalid-feedback">{{ form.guardian_cnic.errors }}</div>
+                                {% endif %}
+                                <div id="guardian_cnic_error" class="invalid-feedback">Must be 13 digits.</div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.guardian_relation }}
+                                <label for="id_guardian_relation">Guardian Relation</label>
+                                {% if form.guardian_relation.errors %}
+                                    <div class="invalid-feedback">{{ form.guardian_relation.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
                     </div>
-                    <div class="col-md-6 mb-3">
-                        <label for="id_confirm_password" class="form-label">Confirm Password</label>
-                        {{ form.confirm_password }}
-                        {% if form.confirm_password.errors %}
-                            <div class="text-danger">{{ form.confirm_password.errors }}</div>
-                        {% endif %}
+                </div>
+                <!-- Login Information -->
+                <div class="mb-4 border-left-primary">
+                    <h5 class="section-title mb-3">Login Information</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.email }}
+                                <label for="id_email">Email</label>
+                                {% if form.email.errors %}
+                                    <div class="invalid-feedback">{{ form.email.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.username }}
+                                <label for="id_username">Username</label>
+                                {% if form.username.errors %}
+                                    <div class="invalid-feedback">{{ form.username.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.password }}
+                                <label for="id_password">Password</label>
+                                {% if form.password.errors %}
+                                    <div class="invalid-feedback">{{ form.password.errors }}</div>
+                                {% endif %}
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="form-floating">
+                                {{ form.confirm_password }}
+                                <label for="id_confirm_password">Confirm Password</label>
+                                {% if form.confirm_password.errors %}
+                                    <div class="invalid-feedback">{{ form.confirm_password.errors }}</div>
+                                {% endif %}
+                                <div id="confirm_password_error" class="invalid-feedback">Passwords do not match.</div>
+                            </div>
+                        </div>
                     </div>
                 </div>
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <label for="id_first_name" class="form-label">First Name</label>
-                        {{ form.first_name }}
-                        {% if form.first_name.errors %}
-                            <div class="text-danger">{{ form.first_name.errors }}</div>
-                        {% endif %}
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <label for="id_last_name" class="form-label">Last Name</label>
-                        {{ form.last_name }}
-                        {% if form.last_name.errors %}
-                            <div class="text-danger">{{ form.last_name.errors }}</div>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="mb-3">
-                    <label for="id_contact_number" class="form-label">Contact Number</label>
-                    {{ form.contact_number }}
-                    {% if form.contact_number.errors %}
-                        <div class="text-danger">{{ form.contact_number.errors }}</div>
-                    {% endif %}
-                </div>
-                <div class="mb-3">
-                    <label for="id_cnic" class="form-label">CNIC</label>
-                    {{ form.cnic }}
-                    {% if form.cnic.errors %}
-                        <div class="text-danger">{{ form.cnic.errors }}</div>
-                    {% endif %}
-                    <div class="form-text">{{ form.cnic.help_text }}</div>
-                </div>
-                <div class="mb-3">
-                    <label for="id_address" class="form-label">Address</label>
-                    {{ form.address }}
-                    {% if form.address.errors %}
-                        <div class="text-danger">{{ form.address.errors }}</div>
-                    {% endif %}
-                </div>
-                <div class="mb-3">
-                    <label for="id_gender" class="form-label">Gender</label>
-                    {{ form.gender }}
-                    {% if form.gender.errors %}
-                        <div class="text-danger">{{ form.gender.errors }}</div>
-                    {% endif %}
-                </div>
-                <div class="mb-3">
-                    <label for="id_institute" class="form-label">Institute</label>
-                    {{ form.institute }}
-                    {% if form.institute.errors %}
-                        <div class="text-danger">{{ form.institute.errors }}</div>
-                    {% endif %}
-                </div>
-                <div class="mt-4">
-                    <button type="submit" class="btn btn-primary" id="submitBtn">Add Student</button>
-                    <button type="reset" class="btn btn-secondary">Reset</button>
+                <div class="col-12 text-center mt-4">
+                    <button type="submit" class="btn btn-primary btn-lg px-5" id="submitBtn">Add Student</button>
+                    <button type="reset" class="btn btn-secondary btn-lg px-5">Reset</button>
                 </div>
             </form>
         </div>
@@ -246,6 +354,66 @@
     </div>
 
     {% block extra_js %}
+    <style>
+        .form-control:focus, .form-select:focus {
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 0.25rem rgba(37, 99, 235, 0.25);
+        }
+
+        .card {
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            background: linear-gradient(145deg, #ffffff, #f8f9fa);
+        }
+
+        .card-body {
+            padding: 2rem;
+        }
+
+        .btn-primary {
+            background: linear-gradient(90deg, #2563eb, #4f46e5);
+            border: none;
+            padding: 0.75rem 2rem;
+            border-radius: 8px;
+            transition: background 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(90deg, #1e40af, #4338ca);
+        }
+
+        .form-label {
+            font-weight: 500;
+            color: #495057;
+        }
+
+        .form-control, .form-select {
+            border-radius: 8px;
+            border-color: #ced4da;
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.075);
+            height: calc(2.5rem + 2px);
+        }
+
+        .border-left-primary {
+            border-left: 0.3rem solid #4e73df;
+            padding-left: 1.2rem;
+            border-radius: 4px;
+        }
+
+        .section-title {
+            color: #4e73df;
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #e3e6f0;
+            font-size: 1.2rem;
+        }
+
+        .invalid-feedback {
+            font-size: 0.875rem;
+            margin-top: 0.25rem;
+            display: none;
+        }
+    </style>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Handle view student button clicks
@@ -294,6 +462,115 @@
             document.getElementById('searchInput').addEventListener('keypress', function(e) {
                 if (e.key === 'Enter') {
                     document.getElementById('searchButton').click();
+                }
+            });
+
+            // Form validation
+            const form = document.getElementById('studentForm');
+            const contactNumberInput = document.getElementById('id_contact_number');
+            const cnicInput = document.getElementById('id_cnic');
+            const guardianContactInput = document.getElementById('id_guardian_contact');
+            const guardianCnicInput = document.getElementById('id_guardian_cnic');
+            const passwordInput = document.getElementById('id_password');
+            const confirmPasswordInput = document.getElementById('id_confirm_password');
+            const contactNumberError = document.getElementById('contact_number_error');
+            const cnicError = document.getElementById('cnic_error');
+            const guardianContactError = document.getElementById('guardian_contact_error');
+            const guardianCnicError = document.getElementById('guardian_cnic_error');
+            const confirmPasswordError = document.getElementById('confirm_password_error');
+
+            contactNumberInput.addEventListener('input', function() {
+                const value = this.value;
+                if (value && !/^\d{11}$/.test(value)) {
+                    this.classList.add('is-invalid');
+                    contactNumberError.style.display = 'block';
+                } else {
+                    this.classList.remove('is-invalid');
+                    contactNumberError.style.display = 'none';
+                }
+            });
+
+            cnicInput.addEventListener('input', function() {
+                const value = this.value;
+                if (value && !/^\d{13}$/.test(value)) {
+                    this.classList.add('is-invalid');
+                    cnicError.style.display = 'block';
+                } else {
+                    this.classList.remove('is-invalid');
+                    cnicError.style.display = 'none';
+                }
+            });
+
+            guardianContactInput.addEventListener('input', function() {
+                const value = this.value;
+                if (value && !/^\d{11}$/.test(value)) {
+                    this.classList.add('is-invalid');
+                    guardianContactError.style.display = 'block';
+                } else {
+                    this.classList.remove('is-invalid');
+                    guardianContactError.style.display = 'none';
+                }
+            });
+
+            guardianCnicInput.addEventListener('input', function() {
+                const value = this.value;
+                if (value && !/^\d{13}$/.test(value)) {
+                    this.classList.add('is-invalid');
+                    guardianCnicError.style.display = 'block';
+                } else {
+                    this.classList.remove('is-invalid');
+                    guardianCnicError.style.display = 'none';
+                }
+            });
+
+            confirmPasswordInput.addEventListener('input', function() {
+                const password = passwordInput.value;
+                const confirmPassword = this.value;
+                if (confirmPassword && password !== confirmPassword) {
+                    this.classList.add('is-invalid');
+                    confirmPasswordError.style.display = 'block';
+                } else {
+                    this.classList.remove('is-invalid');
+                    confirmPasswordError.style.display = 'none';
+                }
+            });
+
+            form.addEventListener('submit', function(e) {
+                let isValid = true;
+
+                if (contactNumberInput.value && !/^\d{11}$/.test(contactNumberInput.value)) {
+                    contactNumberInput.classList.add('is-invalid');
+                    contactNumberError.style.display = 'block';
+                    isValid = false;
+                }
+
+                if (cnicInput.value && !/^\d{13}$/.test(cnicInput.value)) {
+                    cnicInput.classList.add('is-invalid');
+                    cnicError.style.display = 'block';
+                    isValid = false;
+                }
+
+                if (guardianContactInput.value && !/^\d{11}$/.test(guardianContactInput.value)) {
+                    guardianContactInput.classList.add('is-invalid');
+                    guardianContactError.style.display = 'block';
+                    isValid = false;
+                }
+
+                if (guardianCnicInput.value && !/^\d{13}$/.test(guardianCnicInput.value)) {
+                    guardianCnicInput.classList.add('is-invalid');
+                    guardianCnicError.style.display = 'block';
+                    isValid = false;
+                }
+
+                if (passwordInput.value !== confirmPasswordInput.value) {
+                    confirmPasswordInput.classList.add('is-invalid');
+                    confirmPasswordError.style.display = 'block';
+                    isValid = false;
+                }
+
+                if (!isValid) {
+                    e.preventDefault();
+                    alert('Please correct the errors in the form before submitting.');
                 }
             });
         });

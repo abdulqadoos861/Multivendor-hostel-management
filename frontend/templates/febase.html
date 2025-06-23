@@ -269,6 +269,15 @@
                     </ul>
                 </div>
                 <div class="col-md-4 mb-4">
+                    <h5>Login</h5>
+                    <ul class="footer-links">
+                        <li><a href="{% url 'admin_login' %}">Admin</a></li>
+                        <li><a href="{% url 'warden:login' %}">Warden</a></li>
+                        <li><a href="{% url 'messincharge:mess_incharge_login' %}">Mess Incharge</a></li>
+                        <li><a href="{% url 'security:login' %}">Security</a></li>
+                    </ul>
+                </div>
+                <div class="col-md-4 mb-4">
                     <h5>Contact Us</h5>
                     <ul class="footer-links">
                         <li><i class="bi bi-geo-alt"></i> 123 Hostel Street, City</li>

@@ -1,0 +1,495 @@
+{% extends 'warden/warden_base.html' %}
+{% load static %}
+
+{% block extra_css %}
+<link rel="stylesheet" href="{% static 'warden/css/warden_styles.css' %}">
+{% endblock %}
+
+{% block header_title %}
+<i class="bi bi-arrow-left-right"></i> Change Room Requests
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <h1 class="h3 mb-4 text-gray-800">Change Room Requests</h1>
+    
+    <!-- Filters Section -->
+    <div class="card shadow mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Filter Requests</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3" id="filterForm">
+                <div class="col-md-3 col-sm-6">
+                    <label for="student_name" class="form-label">Student Name</label>
+                    <input type="text" class="form-control" id="student_name" name="student_name" 
+                           placeholder="Search by student name" value="{{ student_name_filter }}">
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <label for="room_number" class="form-label">Current Room Number</label>
+                    <input type="text" class="form-control" id="room_number" name="room_number" 
+                           placeholder="Search by room number" value="{{ room_number_filter }}">
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <label for="status" class="form-label">Status</label>
+                    <select class="form-select" id="status" name="status">
+                        <option value="">All Statuses</option>
+                        <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                        <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Approved</option>
+                        <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+                    </select>
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary me-2" id="filterButton">
+                        <i class="bi bi-funnel-fill me-1"></i> Apply Filters
+                    </button>
+                    <a href="{% url 'warden:change_room_requests' %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Hostel Info -->
+    <div class="card shadow mb-4">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Hostel Information</h5>
+        </div>
+        <div class="card-body">
+            <h6>{{ hostel.name }}</h6>
+            <p class="text-muted">{{ hostel.address }}</p>
+            <div class="mt-2">
+                <span class="badge bg-primary me-2">Total Requests: {{ total_requests }}</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Change Room Requests Table -->
+    <div class="card shadow mb-4">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Change Room Requests</h5>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover" id="requestsTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Request ID</th>
+                            <th>Student Name</th>
+                            <th>Current Room</th>
+                            <th>Requested Room Type</th>
+                            <th>Request Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for request in requests %}
+                        <tr>
+                            <td>{{ request.id }}</td>
+                            <td>{{ request.student.get_full_name }}</td>
+                            <td>{{ request.current_booking.room_assignment.room.room_number }}</td>
+                            <td>{{ request.requested_room_type|default:"Any" }}</td>
+                            <td>{{ request.request_date|date:"Y-m-d" }}</td>
+                            <td>
+                                {% if request.status == 'Pending' %}
+                                    <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Pending</span>
+                                {% elif request.status == 'Approved' %}
+                                    <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Approved</span>
+                                {% else %}
+                                    <span class="badge bg-danger"><i class="bi bi-x-circle me-1"></i>Rejected</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                <button type="button" class="btn btn-info btn-sm view-details-btn" 
+                                        data-bs-toggle="modal" 
+                                        data-bs-target="#requestDetailsModal"
+                                        data-request-id="{{ request.id }}">
+                                    <i class="bi bi-eye-fill me-1"></i> View Details
+                                </button>
+                                
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="7" class="text-center">No change room requests found for this hostel.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Change Room Request Details Modal -->
+<div class="modal fade" id="requestDetailsModal" tabindex="-1" aria-labelledby="requestDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="requestDetailsModalLabel"><i class="bi bi-arrow-left-right me-2"></i>Change Room Request Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="requestDetailsContent" class="row g-3">
+                    <!-- Student Information Card -->
+                    <div class="col-md-6">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header bg-light">
+                                <h6 class="card-title mb-0"><i class="bi bi-person-fill me-2 text-primary"></i>Student Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-2">
+                                    <strong>Name:</strong> <span id="detailStudentName" class="text-dark fw-medium"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Email:</strong> <span id="detailStudentEmail" class="text-dark fw-medium"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Contact:</strong> <span id="detailStudentContact" class="text-dark fw-medium"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Current Room Information Card -->
+                    <div class="col-md-6">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header bg-light">
+                                <h6 class="card-title mb-0"><i class="bi bi-building me-2 text-primary"></i>Current Room Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-2">
+                                    <strong>Hostel:</strong> <span id="detailHostelName" class="text-dark fw-medium"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Room:</strong> <span id="detailRoomInfo" class="text-dark fw-medium"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Floor:</strong> <span id="detailFloor" class="text-dark fw-medium"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Request Details Card -->
+                    <div class="col-md-6">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header bg-light">
+                                <h6 class="card-title mb-0"><i class="bi bi-clipboard-check me-2 text-primary"></i>Request Details</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-2">
+                                    <strong>Request Date:</strong> <span id="detailRequestDate" class="text-dark fw-medium"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Requested Room Type:</strong> <span id="detailRequestedRoomType" class="text-dark fw-medium"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Status:</strong> <span id="detailStatus" class="badge bg-warning text-dark"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <strong>Reason:</strong> <span id="detailReason" class="text-dark fw-medium"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Action Panel (for pending requests) -->
+                    <div class="col-md-6" id="actionPanel" style="display: none;">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-header bg-light">
+                                <h6 class="card-title mb-0"><i class="bi bi-gear me-2 text-primary"></i>Actions</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="mb-3">
+                                    <label for="availableRooms" class="form-label"><strong>Select New Room (for Approval)</strong></label>
+                                    <select class="form-select" id="availableRooms">
+                                        <option value="">-- Select Available Room --</option>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label for="adminNotes" class="form-label"><strong>Admin Notes / Rejection Reason</strong></label>
+                                    <textarea class="form-control" id="adminNotes" rows="2" placeholder="Enter notes or reason for rejection"></textarea>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <button type="button" class="btn btn-success" id="approveRequestBtn">
+                                        <i class="bi bi-check-circle me-1"></i> Approve Request
+                                    </button>
+                                    <button type="button" class="btn btn-danger" id="rejectRequestBtn">
+                                        <i class="bi bi-x-circle me-1"></i> Reject Request
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal"><i class="bi bi-x-circle me-1"></i>Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        let currentRequestId = null;
+
+        // Handle View Details button click for Change Room Request
+        document.querySelectorAll('.view-details-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                currentRequestId = this.getAttribute('data-request-id');
+                console.log('Request ID:', currentRequestId);
+                if (!currentRequestId) {
+                    alert('Request ID not found. Please check the button configuration.');
+                    return;
+                }
+
+                // Fetch request details from backend
+                fetch(`/warden/change-room-request-details/${currentRequestId}/`, {
+                    method: 'GET',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    }
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! Status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    // Student Information
+                    document.getElementById('detailStudentName').textContent = data.student_name;
+                    document.getElementById('detailStudentEmail').textContent = data.student_email;
+                    document.getElementById('detailStudentContact').textContent = data.student_contact;
+                    
+                    // Current Room Information
+                    document.getElementById('detailHostelName').textContent = data.hostel_name;
+                    document.getElementById('detailRoomInfo').textContent = data.room_info;
+                    document.getElementById('detailFloor').textContent = data.floor;
+                    
+                    // Request Details
+                    document.getElementById('detailRequestDate').textContent = data.request_date;
+                    document.getElementById('detailRequestedRoomType').textContent = data.requested_room_type;
+                    const statusElement = document.getElementById('detailStatus');
+                    statusElement.textContent = data.status;
+                    if (data.status === "Pending") {
+                        statusElement.className = "badge bg-warning text-dark";
+                        document.getElementById('actionPanel').style.display = 'block';
+                        // Fetch available rooms for pending requests
+                        fetchAvailableRooms(currentRequestId);
+                    } else if (data.status === "Approved") {
+                        statusElement.className = "badge bg-success";
+                        document.getElementById('actionPanel').style.display = 'none';
+                    } else {
+                        statusElement.className = "badge bg-danger";
+                        document.getElementById('actionPanel').style.display = 'none';
+                    }
+                    document.getElementById('detailReason').textContent = data.reason;
+                })
+                .catch(error => {
+                    console.error('Error fetching request details:', error);
+                    alert('Failed to load request details. Please try again.');
+                });
+            });
+        });
+
+        // Function to fetch available rooms
+        function fetchAvailableRooms(requestId) {
+            fetch(`/warden/get-available-rooms-for-change/?request_id=${requestId}`, {
+                method: 'GET',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                const availableRoomsSelect = document.getElementById('availableRooms');
+                availableRoomsSelect.innerHTML = '<option value="">-- Select Available Room --</option>';
+                if (data.available_rooms && data.available_rooms.length > 0) {
+                    data.available_rooms.forEach(room => {
+                        const option = document.createElement('option');
+                        option.value = room.id;
+                        option.textContent = `${room.room_number} (${room.room_type_name}) - Occupants: ${room.current_occupants}/${room.capacity}`;
+                        availableRoomsSelect.appendChild(option);
+                    });
+                } else {
+                    const option = document.createElement('option');
+                    option.value = "";
+                    option.textContent = "No available rooms";
+                    option.disabled = true;
+                    availableRoomsSelect.appendChild(option);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching available rooms:', error);
+                alert('Failed to load available rooms. Please try again.');
+            });
+        }
+
+        // Approve button in modal
+        document.getElementById('approveRequestBtn').addEventListener('click', function() {
+            if (!currentRequestId) {
+                alert('No request selected. Please close and reopen the details modal.');
+                return;
+            }
+            const selectedRoomId = document.getElementById('availableRooms').value;
+            const adminNotes = document.getElementById('adminNotes').value;
+            
+            if (!selectedRoomId) {
+                alert('Please select a room to assign.');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('request_id', currentRequestId);
+            formData.append('room_id', selectedRoomId);
+            formData.append('admin_notes', adminNotes);
+            
+            fetch('/warden/approve-room-change-request/', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCsrfToken(),
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message + " The student has been checked out from the previous room and assigned to the new room.");
+                    window.location.reload(); // Refresh the page to update the request status
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error approving request:', error);
+                alert('Failed to approve request. Please try again.');
+            });
+        });
+        
+        // Reject button in modal
+        document.getElementById('rejectRequestBtn').addEventListener('click', function() {
+            if (!currentRequestId) {
+                alert('No request selected. Please close and reopen the details modal.');
+                return;
+            }
+            const adminNotes = document.getElementById('adminNotes').value;
+            
+            if (!adminNotes.trim()) {
+                alert('Please provide a reason for rejection.');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('request_id', currentRequestId);
+            formData.append('admin_notes', adminNotes);
+            
+            fetch('/warden/reject-room-change-request/', {
+                method: 'POST',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRFToken': getCsrfToken(),
+                    'Accept': 'application/json'
+                },
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                    window.location.reload(); // Refresh the page to update the request status
+                } else {
+                    alert(`Error: ${data.message}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error rejecting request:', error);
+                alert('Failed to reject request. Please try again.');
+            });
+        });
+        
+        // Approve button in table
+        document.querySelectorAll('.approve-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const requestId = this.getAttribute('data-request-id');
+                alert(`To approve request ID: ${requestId}, please use the "View Details" modal to select a room.`);
+            });
+        });
+        
+        // Reject button in table
+        document.querySelectorAll('.reject-btn').forEach(button => {
+            button.addEventListener('click', function() {
+                const requestId = this.getAttribute('data-request-id');
+                const reason = prompt(`Enter reason for rejecting request ID: ${requestId}`);
+                if (reason) {
+                    const formData = new FormData();
+                    formData.append('request_id', requestId);
+                    formData.append('admin_notes', reason);
+                    
+                    fetch('/warden/reject-room-change-request/', {
+                        method: 'POST',
+                        headers: {
+                            'X-Requested-With': 'XMLHttpRequest',
+                            'X-CSRFToken': getCsrfToken(),
+                            'Accept': 'application/json'
+                        },
+                        body: formData
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! Status: ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.status === 'success') {
+                            alert(data.message);
+                            window.location.reload(); // Refresh the page to update the request status
+                        } else {
+                            alert(`Error: ${data.message}`);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error rejecting request:', error);
+                        alert('Failed to reject request. Please try again.');
+                    });
+                }
+            });
+        });
+
+        // Helper function to get CSRF token
+        function getCsrfToken() {
+            const cookieValue = document.cookie
+                .split('; ')
+                .find(row => row.startsWith('csrftoken='))
+                ?.split('=')[1];
+            return cookieValue;
+        }
+    });
+</script>
+{% endblock extra_js %}

@@ -178,6 +178,11 @@
                             </a>
                         </li>
                         <li class="nav-item">
+                            <a class="nav-link {% if 'change-room-requests' in request.path %}active{% endif %}" href="{% url 'warden:change_room_requests' %}">
+                                <i class="fas fa-arrow-left-right"></i> Change Room Requests
+                            </a>
+                        </li>
+                        <li class="nav-item">
                             <a class="nav-link {% if 'complaints' in request.path %}active{% endif %}" href="{% url 'warden:warden_complaints' %}">
                                 <i class="fas fa-comment-dots"></i> Complaints
                             </a>
