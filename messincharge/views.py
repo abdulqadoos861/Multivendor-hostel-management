@@ -2,11 +2,33 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
 from django.contrib import messages
 from django.contrib.auth import logout
+from django.db import models
 from coustom_admin.models import MessIncharge
 from messincharge.models import MessMenu , Expenses
 
 def messincharge(request):
-    return render(request, 'messincharge/minc_dashboard.html')
+    if not request.user.is_authenticated:
+        messages.error(request, 'You must be logged in to access this page.')
+        return redirect('messincharge:mess_incharge_login')
+    
+    try:
+        mess_incharge = MessIncharge.objects.get(user=request.user)
+        hostel_name = mess_incharge.hostel.name if mess_incharge.hostel else "Not Assigned"
+        
+        # Calculate statistics
+        from messincharge.models import MessStudent, Expenses
+        enrolled_students_count = MessStudent.objects.filter(hostel=mess_incharge.hostel, is_active=True).count()
+        total_expenses = Expenses.objects.filter(hostel_id=mess_incharge.hostel).aggregate(total=models.Sum('amount'))['total'] or 0
+        
+        context = {
+            'hostel_name': hostel_name,
+            'enrolled_students_count': enrolled_students_count,
+            'total_expenses': total_expenses,
+        }
+        return render(request, 'messincharge/minc_dashboard.html', context)
+    except MessIncharge.DoesNotExist:
+        messages.error(request, 'You are not registered as a Mess Incharge.')
+        return redirect('messincharge:mess_incharge_login')
 
 def mess_incharge_login(request):
     if request.method == 'POST':
@@ -14,13 +36,19 @@ def mess_incharge_login(request):
         password = request.POST.get('password')
         user = authenticate(request, username=username, password=password)
         if user is not None:
+            print(f"User {username} authenticated successfully. User ID: {user.id}, Is Staff: {user.is_staff}")
             try:
                 mess_incharge = MessIncharge.objects.get(user=user)
+                print(f"Mess Incharge profile found for user {username}. Associated User ID: {mess_incharge.user.id}")
                 login(request, user)
                 messages.success(request, 'Login successful.')
                 return redirect('messincharge:messincharge')  # Redirect to mess in-charge dashboard or index
             except MessIncharge.DoesNotExist:
+                print(f"No Mess Incharge profile found for user {username}.")
                 messages.error(request, 'You are not registered as a Mess Incharge.')
+        else:
+            print(f"Authentication failed for username: {username}")
+            messages.error(request, 'Invalid username or password.')
     return render(request, 'messincharge/mess_incharge_login.html')
 
 def mess_incharge_logout(request):
@@ -179,6 +207,12 @@ def settings(request):
             last_name = request.POST.get('last_name', '')
             email = request.POST.get('email', '')
             phone_number = request.POST.get('phone_number', '')
+            cnic = request.POST.get('cnic', '')
+            gender = request.POST.get('gender', '')
+            street = request.POST.get('street', '')
+            area = request.POST.get('area', '')
+            city = request.POST.get('city', '')
+            district = request.POST.get('district', '')
             
             try:
                 # Update user profile information
@@ -188,17 +222,17 @@ def settings(request):
                 user.email = email
                 user.save()
                 
-                # Update mess incharge phone number if provided
-                if phone_number:
-                    print(f"Attempting to update phone number to: {phone_number}")
-                    mess_incharge.phone_number = phone_number
-                    mess_incharge.save()
-                    print(f"Phone number updated to: {mess_incharge.phone_number}")
-                    messages.success(request, 'Profile and phone number updated successfully.')
-                    # Refresh the mess_incharge object from the database to ensure latest data
-                    mess_incharge.refresh_from_db()
-                else:
-                    messages.success(request, 'Profile updated successfully.')
+                # Update mess incharge profile with relevant fields
+                mess_incharge.contact_number = phone_number
+                mess_incharge.cnic = cnic
+                mess_incharge.gender = gender
+                mess_incharge.street = street
+                mess_incharge.area = area
+                mess_incharge.city = city
+                mess_incharge.district = district
+                mess_incharge.save()
+                
+                messages.success(request, 'Profile updated successfully.')
                 return redirect('messincharge:settings')
             except Exception as e:
                 messages.error(request, f'Error updating profile: {str(e)}')
@@ -223,20 +257,96 @@ def manage_students(request):
         messages.error(request, 'You are not registered as a Mess Incharge.')
         return redirect('messincharge:mess_incharge_login')
     
-    from coustom_admin.models import Student, BookingRequest
+    from coustom_admin.models import Student, BookingRequest, RoomAssignment
     from messincharge.models import MessStudent
-    # Fetch students assigned to the same hostel as the mess in-charge through BookingRequest
-    booking_requests = BookingRequest.objects.filter(hostel=mess_incharge.hostel, status='Approved')
-    student_ids = booking_requests.values_list('student_id', flat=True)
-    students = Student.objects.filter(id__in=student_ids)
+    from django.db.models import Q
+    
+    # Initialize search terms from request
+    all_search_term = request.GET.get('all_search', '')
+    enrolled_search_term = request.GET.get('enrolled_search', '')
+    
+    # Fetch students with active room assignments in the same hostel as the mess in-charge through BookingRequest
+    try:
+        if mess_incharge.hostel:
+            # Get BookingRequests with active RoomAssignments for the hostel
+            booking_requests = BookingRequest.objects.filter(
+                hostel=mess_incharge.hostel,
+                status='Approved'
+            ).exclude(
+                room_assignment__isnull=True
+            ).filter(
+                room_assignment__is_active=True,
+                room_assignment__room__hostel=mess_incharge.hostel
+            ).select_related('student', 'room_assignment__room', 'hostel')
+            student_user_ids = booking_requests.values_list('student_id', flat=True)
+            print(f"Hostel: {mess_incharge.hostel.name}, Booking Requests with Active Assignments: {booking_requests.count()}, Student User IDs: {list(student_user_ids)}")
+            
+            # Filter students based on search term for all students
+            students = Student.objects.filter(user_id__in=student_user_ids).select_related('user')
+            if all_search_term:
+                students = students.filter(
+                    Q(user__first_name__icontains=all_search_term) |
+                    Q(user__last_name__icontains=all_search_term) |
+                    Q(user__email__icontains=all_search_term) |
+                    Q(contact_number__icontains=all_search_term)
+                )
+            print(f"Total Students with Active Room Assignments: {students.count()}")
+            
+            # Prepare student data with additional details from BookingRequest and RoomAssignment
+            student_data = []
+            for student in students:
+                booking = next((br for br in booking_requests if br.student_id == student.user_id), None)
+                room = booking.room_assignment.room if booking and booking.room_assignment else None
+                student_data.append({
+                    'id': student.id,
+                    'user': student.user,
+                    'contact_number': student.contact_number,
+                    'hostel': booking.hostel if booking else None,
+                    'room_number': room.room_number if room else 'N/A',
+                })
+        else:
+            print("No hostel assigned to this mess incharge.")
+            messages.error(request, 'No hostel assigned to your profile. Please contact support.')
+            students = Student.objects.none()
+            student_data = []
+            student_ids = []
+    except Exception as e:
+        print(f"Error fetching student assignments: {str(e)}")
+        messages.error(request, 'Error fetching student assignments. Please contact support.')
+        students = Student.objects.none()
+        student_data = []
+        student_ids = []
     
     # Fetch students already enrolled for mess
     mess_student_ids = MessStudent.objects.filter(hostel=mess_incharge.hostel, is_active=True).values_list('student_id', flat=True)
-    enrolled_students = Student.objects.filter(id__in=mess_student_ids)
+    enrolled_students = Student.objects.filter(id__in=mess_student_ids).select_related('user')
+    if enrolled_search_term:
+        enrolled_students = enrolled_students.filter(
+            Q(user__first_name__icontains=enrolled_search_term) |
+            Q(user__last_name__icontains=enrolled_search_term) |
+            Q(user__email__icontains=enrolled_search_term) |
+            Q(contact_number__icontains=enrolled_search_term)
+        )
+    print(f"Total Enrolled Students for Mess: {enrolled_students.count()}")
+    
+    # Prepare enrolled student data with additional details
+    enrolled_student_data = []
+    for student in enrolled_students:
+        booking = next((br for br in booking_requests if br.student_id == student.user_id), None)
+        room = booking.room_assignment.room if booking and booking.room_assignment else None
+        enrolled_student_data.append({
+            'id': student.id,
+            'user': student.user,
+            'contact_number': student.contact_number,
+            'hostel': booking.hostel if booking else None,
+            'room_number': room.room_number if room else 'N/A',
+        })
     
     context = {
-        'students': students,
-        'enrolled_students': enrolled_students,
+        'students': student_data,
+        'enrolled_students': enrolled_student_data,
+        'all_search_term': all_search_term,
+        'enrolled_search_term': enrolled_search_term,
     }
     return render(request, 'messincharge/manage_students.html', context)
 

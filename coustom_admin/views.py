@@ -1126,6 +1126,8 @@ def manageWardens(request):
     View to display all wardens with their assigned hostels
     """
     wardens = Wardens.objects.select_related('user').prefetch_related('hostelwardens_set__hostel').all().order_by('-created_at')
+    logger.info(f"Fetching wardens only. Total wardens retrieved: {wardens.count()}")
+    logger.info(f"Request URL for manageWardens: {request.get_full_path()}")
     return render(request, "manageWardens.html", {"wardens": wardens})
 
 def addWarden(request):
@@ -1343,11 +1345,17 @@ def users(request):
     status = request.GET.get('status', '')
     search = request.GET.get('search', '')
     
+    # Apply role filter if specified
     if role:
         if role == 'warden':
-            users = users.filter(is_staff=True)
+            # Filter specifically for wardens by checking if they have a Warden profile
+            users = users.filter(is_staff=True, warden_profile__isnull=False)
         elif role == 'student':
             users = users.filter(is_staff=False)
+        elif role == 'mess_incharge':
+            users = users.filter(is_staff=True, messincharge__isnull=False)
+        elif role == 'security_guard':
+            users = users.filter(is_staff=True, securityguard__isnull=False)
     
     if status:
         if status == 'active':
@@ -2930,6 +2938,11 @@ def add_mess_incharge(request):
                 mess_incharge.created_at = timezone.now()
                 mess_incharge.save()
 
+                # Ensure no Wardens object is created for this user
+                from coustom_admin.models import Wardens
+                if Wardens.objects.filter(user=user).exists():
+                    Wardens.objects.filter(user=user).delete()
+
                 messages.success(request, 'Mess Incharge registered successfully')
                 return redirect('manage_mess_incharge')
             except Exception as e:
@@ -3099,6 +3112,11 @@ def add_security_guard(request):
                     created_at=timezone.now()
                 )
                 security_guard.save()
+
+                # Ensure no Wardens object is created for this user
+                from coustom_admin.models import Wardens
+                if Wardens.objects.filter(user=user).exists():
+                    Wardens.objects.filter(user=user).delete()
 
                 messages.success(request, 'Security Guard registered successfully')
                 return redirect('manage_security_guards')

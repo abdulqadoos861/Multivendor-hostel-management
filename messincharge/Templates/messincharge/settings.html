@@ -43,7 +43,36 @@
                         </div>
                         <div class="mb-3">
                             <label for="phone_number" class="form-label">Phone Number</label>
-                            <input type="text" name="phone_number" id="phone_number" class="form-control" value="{{ mess_incharge.phone_number }}" placeholder="Enter phone number">
+                            <input type="text" name="phone_number" id="phone_number" class="form-control" value="{{ mess_incharge.contact_number }}" placeholder="Enter phone number">
+                        </div>
+                        <div class="mb-3">
+                            <label for="cnic" class="form-label">CNIC</label>
+                            <input type="text" name="cnic" id="cnic" class="form-control" value="{{ mess_incharge.cnic }}" placeholder="Enter CNIC">
+                        </div>
+                        <div class="mb-3">
+                            <label for="gender" class="form-label">Gender</label>
+                            <select name="gender" id="gender" class="form-control">
+                                <option value="">Select Gender</option>
+                                <option value="Male" {% if mess_incharge.gender == 'Male' %}selected{% endif %}>Male</option>
+                                <option value="Female" {% if mess_incharge.gender == 'Female' %}selected{% endif %}>Female</option>
+                                <option value="Other" {% if mess_incharge.gender == 'Other' %}selected{% endif %}>Other</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="street" class="form-label">Street</label>
+                            <input type="text" name="street" id="street" class="form-control" value="{{ mess_incharge.street }}" placeholder="Enter street">
+                        </div>
+                        <div class="mb-3">
+                            <label for="area" class="form-label">Area</label>
+                            <input type="text" name="area" id="area" class="form-control" value="{{ mess_incharge.area }}" placeholder="Enter area">
+                        </div>
+                        <div class="mb-3">
+                            <label for="city" class="form-label">City</label>
+                            <input type="text" name="city" id="city" class="form-control" value="{{ mess_incharge.city }}" placeholder="Enter city">
+                        </div>
+                        <div class="mb-3">
+                            <label for="district" class="form-label">District</label>
+                            <input type="text" name="district" id="district" class="form-control" value="{{ mess_incharge.district }}" placeholder="Enter district">
                         </div>
                         <div class="d-grid gap-2 d-md-flex justify-content-md-end mt-4">
                             <button type="submit" class="btn btn-primary btn-lg"><i class="bi bi-save me-2"></i>Update Profile</button>

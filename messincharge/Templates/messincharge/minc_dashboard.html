@@ -1,11 +1,98 @@
 {% extends 'messincharge/minc_base.html' %}
 
-{% block title %}Mess Incharge Dashboard{% endblock %}
-
 {% block content %}
-    <h1>Mess Incharge Dashboard</h1>
-    <div class="welcome-message">
-        Welcome, {% if user.is_authenticated %}{{ user.username }}{% else %}Guest{% endif %}!
+<div class="container mt-4">
+    <div class="card shadow mb-4">
+        <div class="card-header bg-primary text-white d-flex align-items-center">
+            <i class="bi bi-house-door me-2" style="font-size: 1.5rem;"></i>
+            <h2 class="mb-0">Mess Incharge Dashboard</h2>
+        </div>
+        <div class="card-body">
+            <p class="lead mb-4">Welcome to the Mess Incharge Dashboard for {{ hostel_name }}. Manage your hostel mess operations efficiently.</p>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <div class="row row-cols-1 row-cols-md-3 g-4 mb-4">
+                <div class="col">
+                    <div class="card text-white bg-info h-100 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Enrolled Students</h5>
+                            <p class="card-text display-6">{{ enrolled_students_count }}</p>
+                        </div>
+                        <div class="card-footer">
+                            <a href="{% url 'messincharge:manage_students' %}" class="text-white text-decoration-none">View Students <i class="bi bi-arrow-right-circle"></i></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card text-white bg-warning h-100 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Total Expenses</h5>
+                            <p class="card-text display-6">Rs. {{ total_expenses }}</p>
+                        </div>
+                        <div class="card-footer">
+                            <a href="{% url 'messincharge:add_expenses' %}" class="text-white text-decoration-none">Manage Expenses <i class="bi bi-arrow-right-circle"></i></a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col">
+                    <div class="card text-white bg-success h-100 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title">Mess Menu</h5>
+                            <p class="card-text">Update weekly menu for your hostel.</p>
+                        </div>
+                        <div class="card-footer">
+                            <a href="{% url 'messincharge:mess_menu' %}" class="text-white text-decoration-none">Update Menu <i class="bi bi-arrow-right-circle"></i></a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">Quick Actions</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="d-grid gap-2">
+                                <a href="{% url 'messincharge:manage_students' %}" class="btn btn-outline-primary"><i class="bi bi-people me-2"></i>Manage Students</a>
+                                <a href="{% url 'messincharge:mess_menu' %}" class="btn btn-outline-success"><i class="bi bi-list-ul me-2"></i>Update Mess Menu</a>
+                                <a href="{% url 'messincharge:add_expenses' %}" class="btn btn-outline-warning"><i class="bi bi-currency-dollar me-2"></i>Add Expenses</a>
+                                <a href="{% url 'messincharge:settings' %}" class="btn btn-outline-info"><i class="bi bi-gear me-2"></i>Settings</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card shadow-sm mb-4">
+                        <div class="card-header bg-secondary text-white">
+                            <h5 class="mb-0">Recent Activity</h5>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted">No recent activity data available at the moment.</p>
+                            <!-- Placeholder for future implementation of recent activity log -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
-    <!-- Add dashboard content here -->
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add any dashboard-specific JavaScript here if needed in the future
+        console.log('Dashboard loaded');
+    });
+</script>
 {% endblock %}
