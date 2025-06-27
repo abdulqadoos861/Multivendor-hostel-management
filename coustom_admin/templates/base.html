@@ -512,12 +512,6 @@
         <nav class="sidebar-nav mt-4">
             <ul class="nav flex-column">
                 <li class="nav-item">
-                    <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                        <i class="bi bi-grid-fill"></i>
-                        Dashboard
-                    </a>
-                </li>
-                <li class="nav-item">
                     <a href="{% url 'hostels' %}" class="nav-link {% if request.resolver_match.url_name == 'hostels' %}active{% endif %}">
                         <i class="bi bi-building-fill"></i>
                         Hostels
@@ -599,6 +593,18 @@
                     <a href="{% url 'manage_security_guards' %}" class="nav-link {% if request.resolver_match.url_name == 'manage_security_guards' %}active{% endif %}">
                         <i class="bi bi-shield-lock-fill"></i>
                         Security Guards
+                    </a>
+                </li>
+                                <li class="nav-item">
+                    <a href="{% url 'monthly_fees' %}" class="nav-link {% if active_page == 'monthly_fees' %}active{% endif %}">
+                        <i class="nav-icon fas fa-wallet"></i>
+                        <p>Monthly Fees</p>
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'security_deposits' %}" class="nav-link {% if request.resolver_match.url_name == 'security_deposits' %}active{% endif %}">
+                        <i class="bi bi-shield-lock-fill"></i>
+                        Security Deposits
                     </a>
                 </li>
                 <li class="nav-item">

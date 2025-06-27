@@ -1,0 +1,114 @@
+{% extends "warden/warden_base.html" %}
+
+{% block title %}Monthly Fees - Warden - Sunrise Hostel{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Student Monthly Fees - {{ warden_hostel.name }}</h3>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <div class="d-flex justify-content-between mb-3">
+                                <form method="get" action="">
+                                    <div class="row">
+                                        <div class="col-md-4">
+                                            <div class="input-group mb-2">
+                                                <input type="text" name="search" class="form-control" placeholder="Search by student name..." value="{{ request.GET.search }}">
+                                                <div class="input-group-append">
+                                                    <button type="submit" class="btn btn-default"><i class="fas fa-search"></i></button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="input-group mb-2">
+                                                <select name="month" class="form-control">
+                                                    <option value="">All Months</option>
+                                                    {% for m, name in months %}
+                                                        <option value="{{ m }}" {% if request.GET.month == m|stringformat:"s" %}selected{% endif %}>{{ name }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="input-group mb-2">
+                                                <select name="year" class="form-control">
+                                                    <option value="">All Years</option>
+                                                    {% for y in years %}
+                                                        <option value="{{ y }}" {% if request.GET.year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
+                                                    {% endfor %}
+                                                </select>
+                                                <div class="input-group-append">
+                                                    <button type="submit" class="btn btn-default">Apply Filters</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </form>
+                                <a href="{% url 'warden:generate_monthly_fees' %}" class="btn btn-primary"><i class="fas fa-plus"></i> Generate Monthly Fees</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Month/Year</th>
+                                    <th>Rent</th>
+                                    <th>Mess Expenses</th>
+                                    <th>Electricity</th>
+                                    <th>Total Fee</th>
+                                    <th>Status</th>
+                                    <th>Due Date</th>
+                                    <th>Payment Date</th>
+                                    <th>Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for fee in fees %}
+                                <tr>
+                                    <td>{{ fee.student.user.get_full_name }}</td>
+                                    <td>{{ fee.get_month_display }}/{{ fee.year }}</td>
+                                    <td>{{ fee.monthly_rent }}</td>
+                                    <td>{{ fee.mess_expenses }}</td>
+                                    <td>{{ fee.electricity_bill }}</td>
+                                    <td>{{ fee.total_fee }}</td>
+                                    <td>
+                                        {% if fee.payment_status == 'Paid' %}
+                                            <span class="badge badge-success">{{ fee.payment_status }}</span>
+                                        {% elif fee.payment_status == 'Overdue' %}
+                                            <span class="badge badge-danger">{{ fee.payment_status }}</span>
+                                        {% else %}
+                                            <span class="badge badge-warning">{{ fee.payment_status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ fee.due_date }}</td>
+                                    <td>{{ fee.payment_date|default:"Not Paid" }}</td>
+                                    <td>
+                                        {% if fee.payment_status != 'Paid' %}
+                                            <a href="{% url 'warden:collect_monthly_fee' fee_id=fee.id %}" class="btn btn-sm btn-primary">Collect Fee</a>
+                                        {% else %}
+                                            <span class="text-muted">Paid</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="9" class="text-center">No fee records found for {{ warden_hostel.name }}.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% include "warden/warden_pagination.html" with page_obj=page_obj %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

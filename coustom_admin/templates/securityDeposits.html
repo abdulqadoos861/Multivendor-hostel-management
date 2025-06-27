@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+{% block header_title %}
+<i class="bi bi-shield-lock-fill"></i> Security Deposits
+{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <!-- Filters Section -->
+    <div class="card filter-card mb-4 fade-in">
+        <div class="card-header">
+            <h5 class="card-title mb-0">Filter Security Deposits</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" class="row g-3" id="filterForm">
+                <div class="col-md-3 col-sm-6">
+                    <label for="hostel" class="form-label">Hostel</label>
+                    <select class="form-select" id="hostel" name="hostel">
+                        <option value="">All Hostels</option>
+                        {% for hostel in hostels %}
+                        <option value="{{ hostel.id }}" {% if hostel_filter == hostel.id|stringformat:"s" %}selected{% endif %}>
+                            {{ hostel.name }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3 col-sm-12">
+                    <label for="search" class="form-label">Search</label>
+                    <input type="text" class="form-control" id="search" name="search" 
+                           placeholder="Search by student name" value="{{ search_query|default:'' }}">
+                </div>
+                <div class="col-12">
+                    <button type="submit" class="btn btn-primary me-2" id="filterButton">
+                        <i class="bi bi-funnel-fill me-1"></i> Apply Filters
+                    </button>
+                    <a href="{% url 'security_deposits' %}" class="btn btn-secondary">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                    </a>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Security Deposits Table -->
+    <div class="card bookings-card fade-in">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="card-title mb-0">Security Deposits</h5>
+            <span class="badge bg-primary">Total: {{ total_deposits }}</span>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-hover bookings-table">
+                    <thead>
+                        <tr>
+                            <th>Student ID</th>
+                            <th>Student Name</th>
+                            <th>Hostel</th>
+                            <th>Room Type</th>
+                            <th>Deposit Amount</th>
+                            <th>Payment Method</th>
+                            <th>Transaction ID</th>
+                            <th>Received By</th>
+                            <th>Date Paid</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for deposit in deposits %}
+                        <tr>
+                            <td>#{{ deposit.student.id }}</td>
+                            <td>{{ deposit.booking.student.get_full_name }}</td>
+                            <td>{{ deposit.booking.hostel.name }}</td>
+                            <td>{{ deposit.booking.room_type }}</td>
+                            <td>{{ deposit.amount }}</td>
+                            <td>{{ deposit.payment_method }}</td>
+                            <td>{{ deposit.transaction_id|default:'N/A' }}</td>
+                            <td>{{ deposit.received_by|default:'N/A' }}</td>
+                            <td>{{ deposit.date_paid|date:"Y-m-d H:i" }}</td>
+                            <td>{{ deposit.payment_status|default:'N/A' }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="10" class="text-center text-muted">No security deposits found</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+</div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Handle filter form submission
+const filterForm = document.getElementById('filterForm');
+if (filterForm) {
+    filterForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = this;
+        const hostel = form.querySelector('#hostel').value;
+        const search = form.querySelector('#search').value;
+        
+        const url = new URL(window.location.href);
+        if (hostel) url.searchParams.set('hostel', hostel);
+        else url.searchParams.delete('hostel');
+        if (search) url.searchParams.set('search', search);
+        else url.searchParams.delete('search');
+        
+        console.log('Filter URL:', url.toString());
+        window.location.href = url.toString();
+    });
+}
+</script>
+{% endblock %}

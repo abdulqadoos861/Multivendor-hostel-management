@@ -32,7 +32,13 @@
                 </div>
                 <div class="detail-item">
                     <label>Address:</label>
-                    <span>{{ student.address }}</span>
+                    <span>
+                        {% if student.street %}{{ student.street }}, {% endif %}
+                        {% if student.area %}{{ student.area }}, {% endif %}
+                        {% if student.city %}{{ student.city }}, {% endif %}
+                        {% if student.district %}{{ student.district }}{% endif %}
+                        {% if not student.street and not student.area and not student.city and not student.district %}Not provided{% endif %}
+                    </span>
                 </div>
                 <div class="detail-item">
                     <label>Gender:</label>
@@ -42,6 +48,27 @@
                     <label>Institute:</label>
                     <span>{{ student.institute }}</span>
                 </div>
+                <h3>Guardian Information</h3>
+                {% if student.guardian_name %}
+                    <div class="detail-item">
+                        <label>Guardian Name:</label>
+                        <span>{{ student.guardian_name }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Guardian Relation:</label>
+                        <span>{{ student.guardian_relation|default:"Not provided" }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Guardian Contact:</label>
+                        <span>{{ student.guardian_contact|default:"Not provided" }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <label>Guardian CNIC:</label>
+                        <span>{{ student.guardian_cnic|default:"Not provided" }}</span>
+                    </div>
+                {% else %}
+                    <p>No guardian information provided.</p>
+                {% endif %}
             {% else %}
                 <p>No profile information available. Please update your details.</p>
             {% endif %}
@@ -73,8 +100,20 @@
                     <input type="text" id="cnic" name="cnic" value="{{ student.cnic }}" required>
                 </div>
                 <div class="form-group">
-                    <label for="address">Address:</label>
-                    <textarea id="address" name="address" rows="3">{{ student.address }}</textarea>
+                    <label for="street">Street:</label>
+                    <input type="text" id="street" name="street" value="{{ student.street|default_if_none:'' }}">
+                </div>
+                <div class="form-group">
+                    <label for="area">Area:</label>
+                    <input type="text" id="area" name="area" value="{{ student.area|default_if_none:'' }}">
+                </div>
+                <div class="form-group">
+                    <label for="city">City:</label>
+                    <input type="text" id="city" name="city" value="{{ student.city|default_if_none:'' }}">
+                </div>
+                <div class="form-group">
+                    <label for="district">District:</label>
+                    <input type="text" id="district" name="district" value="{{ student.district|default_if_none:'' }}">
                 </div>
                 <div class="form-group">
                     <label for="gender">Gender:</label>
@@ -83,6 +122,23 @@
                         <option value="Female" {% if student.gender == 'Female' %}selected{% endif %}>Female</option>
                         <option value="Other" {% if student.gender == 'Other' %}selected{% endif %}>Other</option>
                     </select>
+                </div>
+                <h3>Guardian Information</h3>
+                <div class="form-group">
+                    <label for="guardian_name">Guardian Name:</label>
+                    <input type="text" id="guardian_name" name="guardian_name" value="{{ student.guardian_name|default_if_none:'' }}">
+                </div>
+                <div class="form-group">
+                    <label for="guardian_relation">Guardian Relation:</label>
+                    <input type="text" id="guardian_relation" name="guardian_relation" value="{{ student.guardian_relation|default_if_none:'' }}">
+                </div>
+                <div class="form-group">
+                    <label for="guardian_contact">Guardian Contact:</label>
+                    <input type="text" id="guardian_contact" name="guardian_contact" value="{{ student.guardian_contact|default_if_none:'' }}">
+                </div>
+                <div class="form-group">
+                    <label for="guardian_cnic">Guardian CNIC:</label>
+                    <input type="text" id="guardian_cnic" name="guardian_cnic" value="{{ student.guardian_cnic|default_if_none:'' }}">
                 </div>
                 <div class="form-group">
                     <label for="institute">Institute:</label>
@@ -211,6 +267,27 @@
             padding: 10px;
             border-radius: 5px;
             display: inline-block;
+        }
+        .attendance-table {
+            margin-top: 15px;
+            overflow-x: auto;
+        }
+        .attendance-table table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 15px;
+        }
+        .attendance-table th, .attendance-table td {
+            border: 1px solid #ced4da;
+            padding: 8px;
+            text-align: center;
+        }
+        .attendance-table th {
+            background-color: #e9ecef;
+            font-weight: 600;
+        }
+        .attendance-table td {
+            background-color: #f8f9fa;
         }
         @media (max-width: 768px) {
             .profile-container {

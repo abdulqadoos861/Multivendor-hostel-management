@@ -163,7 +163,7 @@ class BookingRequest(models.Model):
             
     @property
     def total_paid(self):
-        return self.payments.aggregate(total=Sum('amount'))['total'] or 0
+        return self.security_deposit.amount if hasattr(self, 'security_deposit') else 0
     
     @property
     def balance(self):
@@ -261,7 +261,7 @@ class RoomAssignment(models.Model):
         self.booking.save(update_fields=['status'])
 
 
-class Payment(models.Model):
+class SecurityDeposit(models.Model):
     PAYMENT_METHODS = [
         ('Cash', 'Cash'),
         ('Bank Transfer', 'Bank Transfer'),
@@ -277,44 +277,36 @@ class Payment(models.Model):
         ('Refunded', 'Refunded')
     ]
     
-    PAYMENT_TYPES = [
-        ('Rent', 'Rent'),
-        ('Security Deposit', 'Security Deposit'),
-        ('Other', 'Other')
-    ]
-    
-    booking = models.ForeignKey(BookingRequest, on_delete=models.CASCADE, related_name='payments')
+    booking = models.OneToOneField(BookingRequest, on_delete=models.CASCADE, related_name='security_deposit')
     amount = models.DecimalField(max_digits=12, decimal_places=2)
     payment_date = models.DateTimeField(auto_now_add=True)
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS)
-    payment_type = models.CharField(max_length=20, choices=PAYMENT_TYPES)
     payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS, default='Completed')
     transaction_id = models.CharField(max_length=100, blank=True, null=True)
     received_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
     notes = models.TextField(blank=True, null=True)
     is_verified = models.BooleanField(default=False)
     verification_date = models.DateTimeField(null=True, blank=True)
-    verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='verified_payments')
-    payment_date = models.DateTimeField(auto_now_add=True)
+    verified_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='verified_deposits')
     receipt_number = models.CharField(max_length=50, unique=True, null=True, blank=True)
     
     def save(self, *args, **kwargs):
         if not self.receipt_number:
-            # Generate receipt number: REC-YYYYMMDD-XXXXX
+            # Generate receipt number: SD-YYYYMMDD-XXXXX
             date_part = timezone.now().strftime('%Y%m%d')
-            last_payment = Payment.objects.filter(receipt_number__startswith=f'REC-{date_part}').order_by('-id').first()
+            last_deposit = SecurityDeposit.objects.filter(receipt_number__startswith=f'SD-{date_part}').order_by('-id').first()
             
-            if last_payment and last_payment.receipt_number:
-                last_num = int(last_payment.receipt_number.split('-')[-1])
+            if last_deposit and last_deposit.receipt_number:
+                last_num = int(last_deposit.receipt_number.split('-')[-1])
                 new_num = last_num + 1
             else:
                 new_num = 1
                 
-            self.receipt_number = f'REC-{date_part}-{new_num:05d}'
+            self.receipt_number = f'SD-{date_part}-{new_num:05d}'
         
         super().save(*args, **kwargs)
     
-    def verify_payment(self, verified_by_user):
+    def verify_deposit(self, verified_by_user):
         if not self.is_verified:
             self.is_verified = True
             self.verified_by = verified_by_user
@@ -324,12 +316,12 @@ class Payment(models.Model):
         return False
     
     def __str__(self):
-        return f"Payment of {self.amount} for {self.booking} - {self.get_payment_type_display()}"
+        return f"Security Deposit of {self.amount} for {self.booking}"
     
     class Meta:
         ordering = ['-payment_date']
-        verbose_name = 'Payment'
-        verbose_name_plural = 'Payments'
+        verbose_name = 'Security Deposit'
+        verbose_name_plural = 'Security Deposits'
 
 class MessIncharge(models.Model):
     user = models.OneToOneField(
@@ -355,3 +347,42 @@ class MessIncharge(models.Model):
     @property
     def email(self):
         return self.user.email
+
+
+class StudentMonthlyFee(models.Model):
+    PAYMENT_STATUS = [
+        ('Pending', 'Pending'),
+        ('Paid', 'Paid'),
+        ('Overdue', 'Overdue')
+    ]
+    
+    id = models.AutoField(primary_key=True)
+    student = models.ForeignKey(Student, on_delete=models.CASCADE, related_name='monthly_fees')
+    hostel = models.ForeignKey(Hostels, on_delete=models.CASCADE, related_name='student_fees')
+    month = models.PositiveIntegerField(choices=[(i, i) for i in range(1, 13)], help_text="Month of the fee (1-12)")
+    year = models.PositiveIntegerField(help_text="Year of the fee")
+    monthly_rent = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Monthly rent amount")
+    mess_expenses = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Mess expenses for the month")
+    electricity_bill = models.DecimalField(max_digits=10, decimal_places=2, default=0.00, help_text="Electricity bill for the month")
+    total_fee = models.DecimalField(max_digits=12, decimal_places=2, default=0.00, help_text="Total fee (rent + mess + electricity)")
+    payment_status = models.CharField(max_length=20, choices=PAYMENT_STATUS, default='Pending')
+    due_date = models.DateField(help_text="Due date for payment")
+    payment_date = models.DateField(null=True, blank=True, help_text="Date when payment was made")
+    transaction_id = models.CharField(max_length=100, blank=True, null=True, help_text="Transaction ID for payment")
+    notes = models.TextField(blank=True, null=True, help_text="Additional notes about this fee")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('student', 'month', 'year')
+        verbose_name = 'Student Monthly Fee'
+        verbose_name_plural = 'Student Monthly Fees'
+        ordering = ['-year', '-month']
+
+    def __str__(self):
+        return f"{self.student.user.get_full_name()} - Fee for {self.month}/{self.year} ({self.total_fee})"
+    
+    def save(self, *args, **kwargs):
+        # Calculate total fee before saving
+        self.total_fee = self.monthly_rent + self.mess_expenses + self.electricity_bill
+        super().save(*args, **kwargs)

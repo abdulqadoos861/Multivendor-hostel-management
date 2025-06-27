@@ -101,4 +101,13 @@ urlpatterns = [
     path('edit_security_guard/<int:guard_id>/', views.edit_security_guard, name='edit_security_guard'),
     path('delete_security_guard/<int:guard_id>/', views.delete_security_guard, name='delete_security_guard'),
     path('get_security_guards_data/', views.get_security_guards_data, name='get_security_guards_data'),
+    
+    # Security Deposits
+    path('security_deposits/', views.security_deposits, name='security_deposits'),
+    
+    # Monthly Fees Management
+    path('monthly_fees/', views.monthly_fees, name='monthly_fees'),
+    path('calculate_monthly_fees/', views.calculate_monthly_fees_view, name='calculate_monthly_fees'),
+    path('edit_monthly_fee/<int:fee_id>/', views.edit_monthly_fee, name='edit_monthly_fee'),
+    path('mark_fee_paid/<int:fee_id>/', views.mark_fee_paid, name='mark_fee_paid'),
 ]

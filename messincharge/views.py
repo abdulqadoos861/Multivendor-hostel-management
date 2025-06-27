@@ -342,9 +342,14 @@ def manage_students(request):
             'room_number': room.room_number if room else 'N/A',
         })
     
+    # Ensure enrolled_student_ids is passed to the template for status checking
+    enrolled_student_ids = list(mess_student_ids)
+    print(f"Enrolled Student IDs for Status Check: {enrolled_student_ids}")
+    
     context = {
         'students': student_data,
         'enrolled_students': enrolled_student_data,
+        'enrolled_student_ids': enrolled_student_ids,
         'all_search_term': all_search_term,
         'enrolled_search_term': enrolled_search_term,
     }
@@ -406,3 +411,146 @@ def add_mess_student(request):
     
     # This view might not need a separate template if integrated into manage_students
     return redirect('messincharge:manage_students')
+
+def mark_attendance(request):
+    if not request.user.is_authenticated:
+        messages.error(request, 'You must be logged in to access this page.')
+        return redirect('messincharge:mess_incharge_login')
+    
+    try:
+        mess_incharge = MessIncharge.objects.get(user=request.user)
+    except MessIncharge.DoesNotExist:
+        messages.error(request, 'You are not registered as a Mess Incharge.')
+        return redirect('messincharge:mess_incharge_login')
+    
+    from messincharge.models import MessStudent, MessAttendance
+    from datetime import datetime
+    
+    current_date = datetime.now().date()
+    
+    if request.method == 'POST':
+        date_str = request.POST.get('date', '')
+        try:
+            attendance_date = datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else current_date
+            if attendance_date != current_date:
+                messages.error(request, 'You can only mark attendance for the current day.')
+                return redirect('messincharge:mark_attendance')
+            for key, value in request.POST.items():
+                if key.startswith('attendance_'):
+                    parts = key.split('_')
+                    if len(parts) == 3:
+                        _, student_id, meal = parts
+                        mess_student = MessStudent.objects.get(id=student_id, hostel=mess_incharge.hostel, is_active=True)
+                        attendance, created = MessAttendance.objects.get_or_create(
+                            mess_student=mess_student,
+                            hostel=mess_incharge.hostel,
+                            date=attendance_date,
+                            defaults={
+                                'breakfast': False,
+                                'lunch': False,
+                                'dinner': False,
+                            }
+                        )
+                        if meal == 'breakfast':
+                            attendance.breakfast = value == 'on'
+                        elif meal == 'lunch':
+                            attendance.lunch = value == 'on'
+                        elif meal == 'dinner':
+                            attendance.dinner = value == 'on'
+                        attendance.save()
+            messages.success(request, f'Attendance marked successfully for {attendance_date}.')
+            return redirect('messincharge:mark_attendance')
+        except ValueError:
+            messages.error(request, 'Invalid date format. Please use YYYY-MM-DD.')
+        except MessStudent.DoesNotExist:
+            messages.error(request, 'Invalid student data received.')
+        except Exception as e:
+            messages.error(request, f'Error marking attendance: {str(e)}')
+    
+    # For GET request, fetch enrolled students and existing attendance for the selected date
+    selected_date = request.GET.get('date', current_date.isoformat())
+    try:
+        attendance_date = datetime.strptime(selected_date, '%Y-%m-%d').date()
+    except ValueError:
+        attendance_date = current_date
+        selected_date = attendance_date.isoformat()
+    
+    enrolled_students = MessStudent.objects.filter(hostel=mess_incharge.hostel, is_active=True).select_related('student__user')
+    attendance_records = MessAttendance.objects.filter(
+        mess_student__in=enrolled_students,
+        date=attendance_date
+    ).select_related('mess_student')
+    
+    # Prepare attendance data for template
+    attendance_data = {record.mess_student.id: record for record in attendance_records}
+    student_data = []
+    for student in enrolled_students:
+        record = attendance_data.get(student.id)
+        student_data.append({
+            'id': student.id,
+            'name': student.student.user.get_full_name(),
+            'breakfast': record.breakfast if record else False,
+            'lunch': record.lunch if record else False,
+            'dinner': record.dinner if record else False,
+        })
+    
+    context = {
+        'students': student_data,
+        'selected_date': selected_date,
+        'current_date': current_date,
+        'is_current_date': attendance_date == current_date,
+    }
+    return render(request, 'messincharge/mark_attendance.html', context)
+
+def manage_mess_charges(request):
+    if not request.user.is_authenticated:
+        messages.error(request, 'You must be logged in to access this page.')
+        return redirect('messincharge:mess_incharge_login')
+    
+    try:
+        mess_incharge = MessIncharge.objects.get(user=request.user)
+    except MessIncharge.DoesNotExist:
+        messages.error(request, 'You are not registered as a Mess Incharge.')
+        return redirect('messincharge:mess_incharge_login')
+    
+    from messincharge.models import MessCharges
+    from datetime import datetime
+    
+    if request.method == 'POST':
+        breakfast_rate = request.POST.get('breakfast_rate', '')
+        lunch_rate = request.POST.get('lunch_rate', '')
+        dinner_rate = request.POST.get('dinner_rate', '')
+        effective_from = request.POST.get('effective_from', '')
+        
+        try:
+            breakfast_rate = float(breakfast_rate)
+            lunch_rate = float(lunch_rate)
+            dinner_rate = float(dinner_rate)
+            effective_from = datetime.strptime(effective_from, '%Y-%m-%d').date() if effective_from else datetime.now().date()
+            
+            mess_charges = MessCharges(
+                hostel=mess_incharge.hostel,
+                breakfast_rate=breakfast_rate,
+                lunch_rate=lunch_rate,
+                dinner_rate=dinner_rate,
+                effective_from=effective_from,
+                created_by=request.user
+            )
+            mess_charges.save()
+            messages.success(request, 'Mess charges updated successfully.')
+            return redirect('messincharge:manage_mess_charges')
+        except ValueError as e:
+            messages.error(request, 'Invalid input. Please ensure rates are numbers and date is in correct format.')
+        except Exception as e:
+            messages.error(request, f'Error updating mess charges: {str(e)}')
+    
+    # Fetch existing mess charges for display
+    mess_charges = MessCharges.objects.filter(hostel=mess_incharge.hostel).order_by('-effective_from')
+    current_charges = mess_charges.first() if mess_charges else None
+    
+    context = {
+        'current_charges': current_charges,
+        'charges_history': mess_charges,
+        'current_date': datetime.now().date(),
+    }
+    return render(request, 'messincharge/manage_mess_charges.html', context)

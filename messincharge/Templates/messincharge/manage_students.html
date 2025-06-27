@@ -31,6 +31,9 @@
                 <div class="tab-content" id="studentTabsContent">
                     <div class="tab-pane fade show active" id="all-students" role="tabpanel" aria-labelledby="all-students-tab">
                         <h4 class="mt-3">All Students in Hostel</h4>
+                        <div class="alert alert-info mt-3" role="alert">
+                            <i class="bi bi-info-circle me-2"></i>Use the 'Add' button in the Action column to enroll students for mess.
+                        </div>
                         <div class="mb-3 input-group">
                             <form method="GET" action="{% url 'messincharge:manage_students' %}" class="input-group">
                                 <input type="text" name="all_search" id="searchAllStudents" class="form-control" placeholder="Search students by name, email, or phone..." value="{{ all_search_term }}">
@@ -62,27 +65,23 @@
                                             <td>{{ student.hostel.name|default:"N/A" }}</td>
                                             <td>{{ student.room_number }}</td>
                                             <td>
-                                                {% for enrolled in enrolled_students %}
-                                                    {% if enrolled.id == student.id %}
-                                                        <span class="badge bg-success">Enrolled</span>
-                                                    {% endif %}
-                                                {% empty %}
-                                                    <span class="badge bg-secondary">Not Enrolled</span>
-                                                {% endfor %}
+                                                {% if student.id in enrolled_student_ids %}
+                                                    <span class="badge bg-success">Enrolled for Mess</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary">Not Enrolled for Mess</span>
+                                                {% endif %}
                                             </td>
                                             <td>
                                                 <form method="POST" action="{% url 'messincharge:add_mess_student' %}">
                                                     {% csrf_token %}
                                                     <input type="hidden" name="student_id" value="{{ student.id }}">
-                                                    {% for enrolled in enrolled_students %}
-                                                        {% if enrolled.id == student.id %}
-                                                            <input type="hidden" name="action" value="remove">
-                                                            <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-dash-circle me-1"></i>Remove</button>
-                                                        {% endif %}
-                                                    {% empty %}
+                                                    {% if student.id in enrolled_student_ids %}
+                                                        <input type="hidden" name="action" value="remove">
+                                                        <button type="submit" class="btn btn-danger btn-sm"><i class="bi bi-dash-circle me-1"></i>Remove</button>
+                                                    {% else %}
                                                         <input type="hidden" name="action" value="add">
                                                         <button type="submit" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle me-1"></i>Add</button>
-                                                    {% endfor %}
+                                                    {% endif %}
                                                 </form>
                                             </td>
                                         </tr>

@@ -6,21 +6,35 @@
     <h2>Welcome to Student Dashboard</h2>
     <p>Here you can manage your hostel bookings, view your profile, and submit complaints.</p>
     
-    {% if room_info %}
-    <div class="room-info">
-        <h3>Your Current Room Assignment</h3>
-        <p><strong>Hostel:</strong> {{ room_info.hostel }}</p>
-        <p><strong>Floor:</strong> {{ room_info.floor }}</p>
-        <p><strong>Room Number:</strong> {{ room_info.room_number }}</p>
-    </div>
-    {% else %}
-    <div class="room-info">
-        <h3>Your Current Room Assignment</h3>
-        <p>You currently do not have an active room assignment.</p>
-    </div>
-    {% endif %}
-    
     <div class="dashboard-cards">
+        <div class="card student-card">
+            <h3>Student Card - Hostel Information</h3>
+            <div class="student-details">
+                <p><strong>Name:</strong> {{ student.user.first_name }} {{ student.user.last_name }}</p>
+                <p><strong>Username:</strong> {{ student.user.username }}</p>
+                <p><strong>Contact:</strong> {{ student.contact_number }}</p>
+                <p><strong>Institute:</strong> {{ student.institute }}</p>
+            </div>
+            <div class="hostel-details">
+                <h4>Hostel Assignment</h4>
+                {% if room_info %}
+                    <p><strong>Hostel:</strong> {{ room_info.hostel }}</p>
+                    <p><strong>Floor:</strong> {{ room_info.floor }}</p>
+                    <p><strong>Room Number:</strong> {{ room_info.room_number }}</p>
+                {% else %}
+                    <p>You currently do not have an active room assignment.</p>
+                {% endif %}
+            </div>
+        </div>
+        <div class="card">
+            <h3>Mess Information</h3>
+            {% if mess_info.enrolled %}
+                <p><strong>Hostel:</strong> {{ mess_info.hostel }}</p>
+                <p><strong>Status:</strong> {{ mess_info.status }}</p>
+            {% else %}
+                <p>You are not currently enrolled in any mess service.</p>
+            {% endif %}
+        </div>
         <div class="card">
             <h3>Profile</h3>
             <p>View and update your personal information.</p>
@@ -40,6 +54,11 @@
             <h3>Feedback</h3>
             <p>Provide feedback about hostel facilities and services.</p>
             <a href="{% url 'student_feedback' %}" class="card-link">Give Feedback</a>
+        </div>
+        <div class="card">
+            <h3>Fee Details</h3>
+            <p>View your monthly fee details and payment status.</p>
+            <a href="{% url 'student_fee_details' %}" class="card-link">View Fee Details</a>
         </div>
     </div>
     
@@ -74,9 +93,25 @@
             margin-bottom: 15px;
             font-size: 1.4rem;
         }
+        .card h4 {
+            color: #495057;
+            margin-top: 15px;
+            margin-bottom: 10px;
+            font-size: 1.2rem;
+        }
         .card p {
             color: #6c757d;
-            margin-bottom: 20px;
+            margin-bottom: 10px;
+        }
+        .student-card {
+            border-left: 5px solid #007bff;
+        }
+        .student-details {
+            margin-bottom: 15px;
+        }
+        .hostel-details {
+            border-top: 1px solid #e9ecef;
+            padding-top: 10px;
         }
         .card-link {
             display: inline-block;

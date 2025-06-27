@@ -1,0 +1,39 @@
+{% extends "warden/warden_base.html" %}
+
+{% block title %}Generate Monthly Fees - Warden - Sunrise Hostel{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Generate Monthly Fees - {{ warden_hostel.name }}</h3>
+                </div>
+                <div class="card-body">
+                    <form method="post" action="{% url 'warden:generate_monthly_fees' %}">
+                        {% csrf_token %}
+                        <div class="form-group mb-3">
+                            <label for="month">Month</label>
+                            <select name="month" id="month" class="form-control">
+                                {% for m, name in months %}
+                                    <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <!-- Year selection removed, always using current year -->
+                        <input type="hidden" name="year" value="{{ current_year }}">
+                        <div class="form-group mb-3">
+                            <label for="electricity_bill">Electricity Bill (Total for Hostel)</label>
+                            <input type="number" name="electricity_bill" id="electricity_bill" class="form-control" value="0.0" step="0.01" min="0">
+                        </div>
+                        <div class="d-flex justify-content-end">
+                            <button type="submit" class="btn btn-primary">Generate Fees</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

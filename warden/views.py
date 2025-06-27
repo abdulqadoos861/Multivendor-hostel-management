@@ -13,7 +13,7 @@ from django.urls import reverse, reverse_lazy
 from django.middleware.csrf import get_token, rotate_token
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods
-from django.db.models import Count, Prefetch, F, Q
+from django.db.models import Count, Prefetch, F, Q, Sum
 from django.utils import timezone
 from datetime import datetime, timedelta, date
 from django.db import transaction
@@ -131,6 +131,35 @@ class WardenDashboardView(LoginRequiredMixin, TemplateView):
                 # Calculate active room assignments for the assigned hostel
                 active_assignments = RoomAssignment.objects.filter(room__hostel=hostel, is_active=True).count()
                 context['active_assignments'] = active_assignments
+                
+                # Calculate total students currently assigned to rooms in this hostel
+                total_students_assigned = RoomAssignment.objects.filter(
+                    room__hostel=hostel,
+                    is_active=True
+                ).values('booking__student').distinct().count()
+                context['total_students_assigned'] = total_students_assigned
+                
+                # Calculate total security deposits collected for this hostel
+                from coustom_admin.models import SecurityDeposit
+                total_security_deposits = SecurityDeposit.objects.filter(
+                    booking__hostel=hostel
+                ).count()
+                total_security_amount = SecurityDeposit.objects.filter(
+                    booking__hostel=hostel
+                ).aggregate(total_amount=Sum('amount'))['total_amount'] or 0.0
+                context['total_security_deposits'] = total_security_deposits
+                context['total_security_amount'] = total_security_amount
+                
+                # Calculate total monthly fees collected for this hostel
+                from coustom_admin.models import StudentMonthlyFee
+                total_monthly_fees = StudentMonthlyFee.objects.filter(
+                    hostel=hostel, payment_status='Paid'
+                ).count()
+                total_monthly_fees_amount = StudentMonthlyFee.objects.filter(
+                    hostel=hostel, payment_status='Paid'
+                ).aggregate(total_amount=Sum('total_fee'))['total_amount'] or 0.0
+                context['total_monthly_fees'] = total_monthly_fees
+                context['total_monthly_fees_amount'] = total_monthly_fees_amount
                 
                 # Calculate complaints statistics if applicable
                 try:
@@ -411,11 +440,20 @@ def approve_booking(request):
         check_in_date_str = request.POST.get('check_in_date')
         check_out_date_str = request.POST.get('check_out_date')
         admin_notes = request.POST.get('admin_notes', '')
+        security_deposit_amount = request.POST.get('security_deposit_amount', '')
+        payment_method = request.POST.get('payment_method', 'Cash')  # Default to 'Cash' if not provided
+        transaction_id = request.POST.get('transaction_id', '')
 
         if not all([booking_id, room_id]):
             error_msg = 'Missing required fields for approval.'
             messages.error(request, error_msg)
             logger.warning(f"Missing required fields in approve_booking: booking_id={booking_id}, room_id={room_id}")
+            return JsonResponse({'status': 'error', 'message': error_msg}, status=400)
+
+        if not security_deposit_amount:
+            error_msg = 'Missing security deposit amount.'
+            messages.error(request, error_msg)
+            logger.warning(f"Missing security deposit amount: amount={security_deposit_amount}")
             return JsonResponse({'status': 'error', 'message': error_msg}, status=400)
 
         try:
@@ -445,9 +483,8 @@ def approve_booking(request):
                     logger.warning(f"Student {booking.student.id} already has another pending or approved booking")
                     return JsonResponse({'status': 'error', 'message': error_msg}, status=400)
 
-                # Update booking status and assign room
+                # Update booking status
                 booking.status = 'Approved'
-                booking.assigned_room = room
                 booking.admin_notes = admin_notes
                 booking.save()
 
@@ -465,7 +502,20 @@ def approve_booking(request):
                 room.current_occupants = F('current_occupants') + 1
                 room.save()
 
-            success_msg = 'Booking approved and room assigned successfully!'
+                # Create SecurityDeposit record
+                from coustom_admin.models import SecurityDeposit
+                SecurityDeposit.objects.create(
+                    booking=booking,
+                    amount=float(security_deposit_amount) if security_deposit_amount else 0.0,
+                    payment_date=timezone.now().date(),
+                    payment_method=payment_method,
+                    transaction_id=transaction_id if transaction_id else None,
+                    payment_status='Completed',  # Align with model default
+                    received_by=request.user
+                )
+                logger.info(f"Security deposit created for booking {booking_id} with amount {security_deposit_amount}")
+
+            success_msg = 'Booking approved, room assigned, and security deposit recorded successfully!'
             messages.success(request, success_msg)
             logger.info(f"Booking {booking_id} approved successfully for student {booking.student.id}")
             return JsonResponse({'status': 'success', 'message': success_msg})
@@ -481,9 +531,9 @@ def approve_booking(request):
             logger.error(f"Room not found for ID {room_id}")
             return JsonResponse({'status': 'error', 'message': error_msg}, status=404)
         except ValueError as ve:
-            error_msg = f'Invalid date format: {str(ve)}'
+            error_msg = f'Invalid date format or security deposit amount: {str(ve)}'
             messages.error(request, error_msg)
-            logger.error(f"Date format error in approve_booking for booking ID {booking_id}: {str(ve)}")
+            logger.error(f"Value error in approve_booking for booking ID {booking_id}: {str(ve)}")
             return JsonResponse({'status': 'error', 'message': error_msg}, status=400)
         except Exception as e:
             error_msg = f'Error approving booking: {str(e)}'
@@ -969,6 +1019,14 @@ def checkout_student(request, assignment_id):
                 booking = assignment.booking
                 booking.status = 'Completed'
                 booking.save()
+                
+                # Update security deposit status to refunded
+                from coustom_admin.models import SecurityDeposit
+                security_deposit = SecurityDeposit.objects.filter(booking=booking).first()
+                if security_deposit:
+                    security_deposit.payment_status = 'Refunded'
+                    security_deposit.save()
+                    logger.info(f"Security deposit status updated to Refunded for booking {booking.id}")
                 
                 # Decrement current occupants for the room
                 if room.current_occupants > 0:
@@ -1494,3 +1552,365 @@ def warden_complaints(request):
         'total_complaints': complaints.count(),
     }
     return render(request, 'warden/warden_complaints.html', context, using=None)
+
+@login_required
+@user_passes_test(lambda u: hasattr(u, 'warden_profile'))
+def security_deposits(request):
+    warden_profile = request.user.warden_profile
+    assigned_hostel = HostelWardens.objects.filter(warden=warden_profile).first().hostel if HostelWardens.objects.filter(warden=warden_profile).exists() else None
+    
+    if not assigned_hostel:
+        messages.error(request, 'You are not assigned to any hostel.')
+        return redirect('warden:dashboard')
+    
+    from coustom_admin.models import SecurityDeposit
+    deposits = SecurityDeposit.objects.filter(
+        booking__hostel=assigned_hostel
+    ).select_related('booking__student', 'booking', 'received_by').order_by('-payment_date')
+    
+    # Apply filters from GET parameters if needed
+    student_name = request.GET.get('student_name')
+    if student_name:
+        deposits = deposits.filter(
+            Q(booking__student__first_name__icontains=student_name) |
+            Q(booking__student__last_name__icontains=student_name)
+        )
+    
+    status_filter = request.GET.get('status')
+    if status_filter == 'pending':
+        deposits = deposits.filter(payment_status='Pending')
+    elif status_filter == 'approved':
+        deposits = deposits.filter(payment_status='Approved')
+    elif status_filter == 'refunded':
+        deposits = deposits.filter(payment_status='Refunded')
+    
+    context = {
+        'page_title': 'Security Deposits',
+        'deposits': deposits,
+        'total_deposits': deposits.count(),
+        'student_name_filter': student_name,
+        'status_filter': status_filter,
+    }
+    return render(request, 'warden/warden_security_deposits.html', context)
+
+@login_required
+@user_passes_test(lambda u: hasattr(u, 'warden_profile'))
+def security_deposit_details(request, deposit_id):
+    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return HttpResponseForbidden()
+        
+    try:
+        from coustom_admin.models import SecurityDeposit
+        deposit = SecurityDeposit.objects.select_related('booking__student', 'booking__hostel', 'received_by').get(id=deposit_id)
+        
+        # Ensure warden is authorized to view this deposit
+        warden_profile = request.user.warden_profile
+        assigned_hostel = HostelWardens.objects.filter(warden=warden_profile).first().hostel
+        if not assigned_hostel:
+            logger.error(f"No hostel assigned to warden for deposit_id={deposit_id}")
+            return JsonResponse({'error': 'No hostel assigned to your profile. Please contact an administrator.'}, status=403)
+            
+        if deposit.booking.hostel != assigned_hostel:
+            logger.warning(f"Unauthorized access attempt for deposit_id={deposit_id} by warden {request.user.username}")
+            return JsonResponse({'error': 'You are not authorized to view this deposit.'}, status=403)
+        
+        student = deposit.booking.student
+        if not student:
+            logger.error(f"No student associated with booking for deposit_id={deposit_id}")
+            return JsonResponse({'error': 'No student associated with this deposit.'}, status=404)
+            
+        student_name = f"{student.first_name} {student.last_name}" if student.first_name or student.last_name else student.username
+        student_email = student.email if student.email else "N/A"
+        student_contact = "N/A"
+        if hasattr(student, 'student'):
+            student_contact = getattr(student.student, 'contact_number', "N/A") or "N/A"
+        
+        data = {
+            'student_name': student_name,
+            'student_email': student_email,
+            'student_contact': student_contact,
+            'amount': str(deposit.amount) if deposit.amount else "N/A",
+            'payment_date': deposit.payment_date.strftime('%Y-%m-%d') if deposit.payment_date else "N/A",
+            'payment_method': deposit.payment_method if deposit.payment_method else "N/A",
+            'status': deposit.payment_status if deposit.payment_status else "N/A",
+            'transaction_id': deposit.transaction_id if deposit.transaction_id else "N/A",
+            'receipt_number': deposit.receipt_number if deposit.receipt_number else "N/A",
+            'received_by': deposit.received_by.get_full_name() if deposit.received_by else "N/A",
+            'notes': deposit.notes if deposit.notes else "No notes provided."
+        }
+        logger.info(f"Successfully retrieved details for deposit_id={deposit_id}")
+        return JsonResponse(data)
+    except SecurityDeposit.DoesNotExist:
+        logger.error(f"Security deposit not found for deposit_id={deposit_id}")
+        return JsonResponse({'error': 'Security deposit not found'}, status=404)
+    except AttributeError as ae:
+        logger.exception(f"AttributeError fetching security deposit details for deposit_id={deposit_id}: {str(ae)}")
+        return JsonResponse({'error': f'Attribute error occurred: {str(ae)}'}, status=500)
+    except Exception as e:
+        logger.exception(f"Unexpected error fetching security deposit details for deposit_id={deposit_id}: {str(e)}")
+        return JsonResponse({'error': f'An unexpected error occurred: {str(e)}'}, status=500)
+
+@login_required
+@user_passes_test(lambda u: hasattr(u, 'warden_profile'))
+def monthly_fees(request):
+    """
+    View to display all student monthly fees for the warden's assigned hostel with filtering options.
+    """
+    warden_profile = request.user.warden_profile
+    assigned_hostel = HostelWardens.objects.filter(warden=warden_profile).first().hostel if HostelWardens.objects.filter(warden=warden_profile).exists() else None
+    
+    if not assigned_hostel:
+        messages.error(request, 'You are not assigned to any hostel.')
+        return redirect('warden:dashboard')
+    
+    from coustom_admin.models import StudentMonthlyFee
+    import calendar
+    from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+    from django.utils import timezone
+    
+    # Get all monthly fees for the assigned hostel
+    fees = StudentMonthlyFee.objects.filter(hostel=assigned_hostel).select_related('student', 'student__user').all().order_by('-year', '-month', '-created_at')
+    
+    # Apply search filter if provided
+    search_query = request.GET.get('search', '')
+    if search_query:
+        fees = fees.filter(
+            Q(student__user__first_name__icontains=search_query) |
+            Q(student__user__last_name__icontains=search_query) |
+            Q(student__user__email__icontains=search_query) |
+            Q(transaction_id__icontains=search_query)
+        )
+    
+    # Apply month filter if provided
+    month_filter = request.GET.get('month', '')
+    if month_filter:
+        fees = fees.filter(month=month_filter)
+    
+    # Apply year filter if provided
+    year_filter = request.GET.get('year', '')
+    if year_filter:
+        fees = fees.filter(year=year_filter)
+    
+    # Prepare month choices for filter dropdown (only current and previous month)
+    current_date = timezone.now().date()
+    current_month = current_date.month
+    current_year = current_date.year
+    previous_month = current_month - 1 if current_month > 1 else 12
+    previous_year = current_year if current_month > 1 else current_year - 1
+    
+    months = [
+        (current_month, calendar.month_name[current_month]),
+        (previous_month, calendar.month_name[previous_month])
+    ]
+    years = [current_year, previous_year] if previous_year != current_year else [current_year]
+    
+    # Pagination
+    paginator = Paginator(fees, 10)  # Show 10 fees per page
+    page = request.GET.get('page')
+    try:
+        fees_page = paginator.page(page)
+    except PageNotAnInteger:
+        # If page is not an integer, deliver first page
+        fees_page = paginator.page(1)
+    except EmptyPage:
+        # If page is out of range, deliver last page of results
+        fees_page = paginator.page(paginator.num_pages)
+    
+    context = {
+        'page_title': 'Monthly Fees',
+        'warden_hostel': assigned_hostel,
+        'fees': fees_page,
+        'page_obj': fees_page,
+        'months': months,
+        'years': years,
+        'search_query': search_query,
+        'month_filter': month_filter,
+        'year_filter': year_filter,
+    }
+    
+    return render(request, "warden/monthly_fees.html", context)
+
+@login_required
+@user_passes_test(lambda u: hasattr(u, 'warden_profile'))
+def generate_monthly_fees(request):
+    """
+    View to generate monthly fees for students in the warden's assigned hostel.
+    """
+    warden_profile = request.user.warden_profile
+    assigned_hostel = HostelWardens.objects.filter(warden=warden_profile).first().hostel if HostelWardens.objects.filter(warden=warden_profile).exists() else None
+    
+    if not assigned_hostel:
+        messages.error(request, 'You are not assigned to any hostel.')
+        return redirect('warden:dashboard')
+    
+    from coustom_admin.models import StudentMonthlyFee, RoomAssignment, RoomTypeRate
+    from messincharge.models import MessAttendance, MessCharges, MessStudent
+    from django.utils import timezone
+    from datetime import date
+    import calendar
+    
+    if request.method == 'POST':
+        month = int(request.POST.get('month', timezone.now().month))
+        year = timezone.now().year  # Always use current year
+        electricity_bill = float(request.POST.get('electricity_bill', 0.0))
+        
+        # Check if the selected month is not the current or previous month of the current year
+        current_date = timezone.now().date()
+        selected_date = date(year, month, 1)
+        current_month_date = date(current_date.year, current_date.month, 1)
+        previous_month_date = date(current_date.year, current_date.month - 1, 1) if current_date.month > 1 else date(current_date.year - 1, 12, 1)
+        if selected_date > current_month_date:
+            messages.error(request, "You can only generate fees for the current or previous month.")
+            return redirect('warden:generate_monthly_fees')
+        elif selected_date != current_month_date and selected_date != previous_month_date:
+            messages.error(request, "You can only generate fees for the current or previous month.")
+            return redirect('warden:generate_monthly_fees')
+        
+        active_assignments = RoomAssignment.objects.filter(is_active=True, room__hostel=assigned_hostel)
+        total_assignments = active_assignments.count()
+        created_fees = 0
+        
+        if total_assignments == 0:
+            messages.warning(request, "No active room assignments found for this hostel. No fee records generated.")
+            return redirect('warden:monthly_fees')
+            
+        # Calculate per student electricity bill if total is provided
+        electricity_per_student = electricity_bill / total_assignments if electricity_bill > 0 and total_assignments > 0 else 0.0
+        
+        for assignment in active_assignments:
+            student = assignment.booking.student.student
+            hostel = assignment.room.hostel
+            
+            if StudentMonthlyFee.objects.filter(student=student, month=month, year=year).exists():
+                continue
+            
+            room_type = assignment.room.room_type
+            if room_type in ['Triple', 'Quad']:
+                room_type = 'Shared'
+            try:
+                rate = RoomTypeRate.objects.get(hostel=hostel, room_type=room_type)
+                monthly_rent = int(rate.per_head_rent)
+            except RoomTypeRate.DoesNotExist:
+                monthly_rent = int(assignment.room.rent)
+            
+            try:
+                mess_student = MessStudent.objects.get(student=student, hostel=hostel, is_active=True)
+                last_day = calendar.monthrange(year, month)[1]
+                start_date = date(year, month, 1)
+                end_date = date(year, month, last_day)
+                attendance_records = MessAttendance.objects.filter(
+                    mess_student=mess_student,
+                    date__range=[start_date, end_date]
+                ).aggregate(
+                    breakfast_count=Sum('breakfast'),
+                    lunch_count=Sum('lunch'),
+                    dinner_count=Sum('dinner')
+                )
+                
+                breakfast_count = attendance_records['breakfast_count'] or 0
+                lunch_count = attendance_records['lunch_count'] or 0
+                dinner_count = attendance_records['dinner_count'] or 0
+                
+                charges = MessCharges.objects.filter(
+                    hostel=hostel,
+                    effective_from__lte=end_date
+                ).order_by('-effective_from').first()
+                
+                if charges:
+                    mess_expenses = int(
+                        breakfast_count * 60 +
+                        lunch_count * 60 +
+                        dinner_count * 60
+                    )
+                else:
+                    mess_expenses = 0
+            except MessStudent.DoesNotExist:
+                mess_expenses = 0
+            
+            next_month = month + 1 if month < 12 else 1
+            next_year = year if month < 12 else year + 1
+            due_date = date(next_year, next_month, 10)
+            
+            fee = StudentMonthlyFee(
+                student=student,
+                hostel=hostel,
+                month=month,
+                year=year,
+                monthly_rent=monthly_rent,
+                mess_expenses=mess_expenses,
+                electricity_bill=electricity_per_student,
+                due_date=due_date
+            )
+            fee.save()
+            created_fees += 1
+        
+        if created_fees > 0:
+            messages.success(request, f"Generated {created_fees} new monthly fee records for {month}/{year}.")
+        else:
+            messages.warning(request, f"No new monthly fee records generated for {month}/{year}. All records already exist.")
+        return redirect('warden:monthly_fees')
+    
+    current_date = timezone.now().date()
+    current_month = current_date.month
+    current_year = current_date.year
+    previous_month = current_month - 1 if current_month > 1 else 12
+    previous_year = current_year if current_month > 1 else current_year - 1
+    
+    months = [
+        (current_month, calendar.month_name[current_month]),
+        (previous_month, calendar.month_name[previous_month])
+    ]
+    years = [current_year, previous_year] if previous_year != current_year else [current_year]
+    
+    context = {
+        'page_title': 'Generate Monthly Fees',
+        'warden_hostel': assigned_hostel,
+        'current_month': current_month,
+        'current_year': current_year,
+        'months': months,
+        'years': years,
+    }
+    return render(request, "warden/generate_monthly_fees.html", context)
+
+@login_required
+@user_passes_test(lambda u: hasattr(u, 'warden_profile'))
+def collect_monthly_fee(request, fee_id):
+    """
+    View to collect payment for a specific monthly fee.
+    """
+    warden_profile = request.user.warden_profile
+    assigned_hostel = HostelWardens.objects.filter(warden=warden_profile).first().hostel if HostelWardens.objects.filter(warden=warden_profile).exists() else None
+    
+    if not assigned_hostel:
+        messages.error(request, 'You are not assigned to any hostel.')
+        return redirect('warden:dashboard')
+    
+    from coustom_admin.models import StudentMonthlyFee
+    from django.utils import timezone
+    
+    try:
+        fee = StudentMonthlyFee.objects.get(id=fee_id, hostel=assigned_hostel)
+    except StudentMonthlyFee.DoesNotExist:
+        messages.error(request, 'Fee record not found or you are not authorized to access it.')
+        return redirect('warden:monthly_fees')
+    
+    if request.method == 'POST':
+        payment_method = request.POST.get('payment_method', 'Cash')
+        transaction_id = request.POST.get('transaction_id', '')
+        notes = request.POST.get('notes', '')
+        
+        fee.payment_status = 'Paid'
+        fee.payment_date = timezone.now().date()
+        fee.transaction_id = transaction_id if transaction_id else None
+        fee.notes = notes
+        fee.collected_by = request.user  # Store the user who collected the fee
+        fee.save()
+        
+        messages.success(request, f"Payment for {fee.student.user.get_full_name()} for {fee.month}/{fee.year} has been recorded.")
+        return redirect('warden:monthly_fees')
+    
+    context = {
+        'page_title': 'Collect Monthly Fee',
+        'fee': fee,
+    }
+    return render(request, "warden/collect_monthly_fee.html", context)

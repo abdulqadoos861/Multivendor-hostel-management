@@ -32,6 +32,7 @@ def student_dashboard(request):
     try:
         student = Student.objects.get(user_id=request.user.id)
         from coustom_admin.models import BookingRequest, RoomAssignment
+        from messincharge.models import MessStudent
         
         # Get active booking and room assignment information
         active_booking = BookingRequest.objects.filter(
@@ -52,9 +53,26 @@ def student_dashboard(request):
                     'floor': getattr(assignment.room, 'floor_number', 'N/A')
                 }
         
+        # Get mess enrollment information
+        mess_enrollment = MessStudent.objects.filter(student=student, is_active=True).first()
+        mess_info = None
+        if mess_enrollment:
+            mess_info = {
+                'enrolled': True,
+                'hostel': mess_enrollment.hostel.name if mess_enrollment.hostel else 'N/A',
+                'status': 'Active' if mess_enrollment.is_active else 'Inactive'
+            }
+        else:
+            mess_info = {
+                'enrolled': False,
+                'hostel': 'N/A',
+                'status': 'Not Enrolled'
+            }
+        
         return render(request, 'student_dashboard.html', {
             'student': student,
-            'room_info': room_info
+            'room_info': room_info,
+            'mess_info': mess_info
         })
     except Student.DoesNotExist:
         logout(request)
@@ -72,9 +90,16 @@ def student_profile(request):
                 # Update student details
                 student.contact_number = request.POST.get('contact_number')
                 student.cnic = request.POST.get('cnic')
-                student.address = request.POST.get('address')
+                student.street = request.POST.get('street')
+                student.area = request.POST.get('area')
+                student.city = request.POST.get('city')
+                student.district = request.POST.get('district')
                 student.gender = request.POST.get('gender')
                 student.institute = request.POST.get('institute')
+                student.guardian_name = request.POST.get('guardian_name')
+                student.guardian_cnic = request.POST.get('guardian_cnic')
+                student.guardian_relation = request.POST.get('guardian_relation')
+                student.guardian_contact = request.POST.get('guardian_contact')
                 student.save()
                 
                 # Update related User model fields
@@ -101,7 +126,44 @@ def student_profile(request):
                         messages.error(request, "New passwords do not match.")
                 else:
                     messages.error(request, "Current password is incorrect.")
-        return render(request, 'student_profile.html', {'student': student})
+        
+        # Fetch mess enrollment and attendance data
+        from messincharge.models import MessStudent, MessAttendance
+        from coustom_admin.models import BookingRequest, RoomAssignment
+        from datetime import datetime
+        
+        mess_enrollment = MessStudent.objects.filter(student=student, is_active=True).first()
+        mess_attendance = []
+        if mess_enrollment:
+            mess_attendance = MessAttendance.objects.filter(
+                mess_student=mess_enrollment
+            ).order_by('-date')[:7]  # Last 7 days of attendance
+        
+        # Get active booking and room assignment information
+        active_booking = BookingRequest.objects.filter(
+            student=request.user,
+            status='Approved'
+        ).first()
+        
+        room_info = None
+        if active_booking:
+            assignment = RoomAssignment.objects.filter(
+                booking=active_booking,
+                is_active=True
+            ).select_related('room__hostel').first()
+            if assignment and assignment.room:
+                room_info = {
+                    'hostel': assignment.room.hostel.name if assignment.room.hostel else 'N/A',
+                    'room_number': assignment.room.room_number if assignment.room.room_number else 'N/A',
+                    'floor': getattr(assignment.room, 'floor_number', 'N/A')
+                }
+        
+        return render(request, 'student_profile.html', {
+            'student': student,
+            'mess_enrollment': mess_enrollment,
+            'mess_attendance': mess_attendance,
+            'room_info': room_info
+        })
     except Student.DoesNotExist:
         logout(request)
         messages.error(request, "Access denied. This portal is for students only.")
@@ -346,6 +408,25 @@ def student_feedback(request):
             'student': student,
             'feedback_list': feedback_list,
             'assigned_hostel': assigned_hostel
+        })
+    except Student.DoesNotExist:
+        logout(request)
+        messages.error(request, "Access denied. This portal is for students only.")
+        return redirect('student_login')
+
+def student_fee_details(request):
+    if not request.user.is_authenticated:
+        return redirect('student_login')
+    try:
+        student = Student.objects.get(user_id=request.user.id)
+        from coustom_admin.models import StudentMonthlyFee
+        
+        # Fetch fee details for the student, ordered by year and month descending
+        fee_records = StudentMonthlyFee.objects.filter(student=student).order_by('-year', '-month')
+        
+        return render(request, 'student_fee_details.html', {
+            'student': student,
+            'fee_records': fee_records
         })
     except Student.DoesNotExist:
         logout(request)

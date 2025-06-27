@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block title %}Monthly Fees - Sunrise Hostel{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-md-12">
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Student Monthly Fees</h3>
+                    <div class="card-tools">
+                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#calculateFeesModal">
+                            <i class="fas fa-calculator"></i> Calculate Monthly Fees
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="row mb-3">
+                        <div class="col-md-12">
+                            <form method="get" action="">
+                                <div class="row">
+                                    <div class="col-md-3">
+                                        <div class="input-group mb-2">
+                                            <input type="text" name="search" class="form-control" placeholder="Search by student name..." value="{{ request.GET.search }}">
+                                            <div class="input-group-append">
+                                                <button type="submit" class="btn btn-default"><i class="fas fa-search"></i></button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="input-group mb-2">
+                                            <select name="hostel" class="form-control">
+                                                <option value="">All Hostels</option>
+                                                {% for hostel in hostels %}
+                                                    <option value="{{ hostel.id }}" {% if request.GET.hostel == hostel.id|stringformat:"s" %}selected{% endif %}>{{ hostel.name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="input-group mb-2">
+                                            <select name="month" class="form-control">
+                                                <option value="">All Months</option>
+                                                {% for m, name in months %}
+                                                    <option value="{{ m }}" {% if request.GET.month == m|stringformat:"s" %}selected{% endif %}>{{ name }}</option>
+                                                {% endfor %}
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <div class="input-group mb-2">
+                                            <select name="year" class="form-control">
+                                                <option value="">All Years</option>
+                                                {% for y in years %}
+                                                    <option value="{{ y }}" {% if request.GET.year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
+                                                {% endfor %}
+                                            </select>
+                                            <div class="input-group-append">
+                                                <button type="submit" class="btn btn-default">Apply Filters</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped">
+                            <thead>
+                                <tr>
+                                    <th>Student</th>
+                                    <th>Hostel</th>
+                                    <th>Month/Year</th>
+                                    <th>Rent</th>
+                                    <th>Mess Expenses</th>
+                                    <th>Electricity</th>
+                                    <th>Total Fee</th>
+                                    <th>Status</th>
+                                    <th>Due Date</th>
+                                    <th>Payment Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for fee in fees %}
+                                <tr>
+                                    <td>{{ fee.student.user.get_full_name }}</td>
+                                    <td>{{ fee.hostel.name }}</td>
+                                    <td>{{ fee.get_month_display }}/{{ fee.year }}</td>
+                                    <td>{{ fee.monthly_rent }}</td>
+                                    <td>{{ fee.mess_expenses }}</td>
+                                    <td>{{ fee.electricity_bill }}</td>
+                                    <td>{{ fee.total_fee }}</td>
+                                    <td>
+                                        {% if fee.payment_status == 'Paid' %}
+                                            <span class="badge badge-success">{{ fee.payment_status }}</span>
+                                        {% elif fee.payment_status == 'Overdue' %}
+                                            <span class="badge badge-danger">{{ fee.payment_status }}</span>
+                                        {% else %}
+                                            <span class="badge badge-warning">{{ fee.payment_status }}</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ fee.due_date }}</td>
+                                    <td>{{ fee.payment_date|default:"Not Paid" }}</td>
+                                    <td>
+                                        <a href="{% url 'edit_monthly_fee' fee.id %}" class="btn btn-sm btn-primary"><i class="fas fa-edit"></i> Edit</a>
+                                        {% if fee.payment_status != 'Paid' %}
+                                            <a href="{% url 'mark_fee_paid' fee.id %}" class="btn btn-sm btn-success"><i class="fas fa-check"></i> Mark Paid</a>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% empty %}
+                                <tr>
+                                    <td colspan="11" class="text-center">No fee records found.</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% include "pagination.html" with page_obj=page_obj %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Calculate Fees Modal -->
+<div class="modal fade" id="calculateFeesModal" tabindex="-1" aria-labelledby="calculateFeesModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="calculateFeesModalLabel">Calculate Monthly Fees</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form method="post" action="{% url 'calculate_monthly_fees' %}">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="calc_month" class="form-label">Month</label>
+                        <select class="form-select" id="calc_month" name="month">
+                            {% for m, name in months %}
+                                <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="calc_year" class="form-label">Year</label>
+                        <select class="form-select" id="calc_year" name="year">
+                            {% for y in years %}
+                                <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="calc_hostel" class="form-label">Hostel</label>
+                        <select class="form-select" id="calc_hostel" name="hostel">
+                            <option value="">All Hostels</option>
+                            {% for hostel in hostels %}
+                                <option value="{{ hostel.id }}">{{ hostel.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="electricity_bill" class="form-label">Electricity Bill (per student)</label>
+                        <input type="number" class="form-control" id="electricity_bill" name="electricity_bill" step="0.01" value="0.00">
+                    </div>
+                    <button type="submit" class="btn btn-primary">Calculate Fees</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

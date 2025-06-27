@@ -13,4 +13,6 @@ urlpatterns = [
     path('manage_students/', views.manage_students, name='manage_students'),
     path('add_mess_student/', views.add_mess_student, name='add_mess_student'),
     path('settings/', views.settings, name='settings'),
+    path('mark_attendance/', views.mark_attendance, name='mark_attendance'),
+    path('manage_mess_charges/', views.manage_mess_charges, name='manage_mess_charges'),
 ]

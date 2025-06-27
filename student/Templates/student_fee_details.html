@@ -1,0 +1,88 @@
+{% extends 'student_base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="card shadow mb-4">
+        <div class="card-header bg-primary text-white d-flex align-items-center">
+            <i class="bi bi-currency-dollar me-2" style="font-size: 1.5rem;"></i>
+            <h2 class="mb-0">Fee Details</h2>
+        </div>
+        <div class="card-body">
+            <p class="lead mb-4">View your monthly fee details and payment status.</p>
+            
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert {% if message.tags == 'error' %}alert-danger{% else %}alert-success{% endif %} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            <!-- Summary Card for Unpaid Fees -->
+            {% if unpaid_fees %}
+                <div class="card bg-light mb-4">
+                    <div class="card-header bg-warning text-dark d-flex align-items-center">
+                        <i class="bi bi-exclamation-triangle me-2"></i>
+                        <h5 class="mb-0">Unpaid Fees Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <h4 class="text-danger mb-3">Total Unpaid: Rs. {{ total_unpaid }}</h4>
+                        <p class="mb-3">You have unpaid fees. Please settle the dues at your earliest convenience.</p>
+                        <a href="#" class="btn btn-sm btn-primary">Pay Now</a>
+                    </div>
+                </div>
+            {% endif %}
+
+            {% if fee_records %}
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover align-middle">
+                        <thead class="table-dark">
+                            <tr>
+                                <th scope="col">Month/Year</th>
+                                <th scope="col">Monthly Rent (Rs.)</th>
+                                <th scope="col">Mess Expenses (Rs.)</th>
+                                <th scope="col">Electricity Bill (Rs.)</th>
+                                <th scope="col">Total Fee (Rs.)</th>
+                                <th scope="col">Due Date</th>
+                                <th scope="col">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for fee in fee_records %}
+                            <tr>
+                                <td>{{ fee.get_month_display }} {{ fee.year }}</td>
+                                <td>{{ fee.monthly_rent }}</td>
+                                <td>{{ fee.mess_expenses }}</td>
+                                <td>{{ fee.electricity_bill }}</td>
+                                <td class="fw-bold">{{ fee.total_fee }}</td>
+                                <td>{{ fee.due_date }}</td>
+                                <td>
+                                    {% if fee.is_paid %}
+                                        <span class="badge bg-success rounded-pill">Paid</span>
+                                    {% else %}
+                                        <span class="badge bg-danger rounded-pill">Unpaid</span>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <div class="alert alert-info mt-3" role="alert">
+                    <i class="bi bi-info-circle me-2"></i>No fee records available yet. Fee details will be updated monthly.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('Student Fee Details page loaded');
+    });
+</script>
+{% endblock %}

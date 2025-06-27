@@ -242,7 +242,7 @@
 
 <!-- Approve Booking Modal -->
 <div class="modal fade" id="approveModal" tabindex="-1" aria-labelledby="approveModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+    <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable modal-sm modal-md modal-lg">
         <div class="modal-content modal-custom fade-in">
             <div class="modal-header bg-success text-white">
                 <h5 class="modal-title" id="approveModalLabel">Approve Booking</h5>
@@ -257,10 +257,10 @@
                     </div>
                     
                     <div class="row mb-3">
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6 mb-2 mb-md-0">
                             <p><strong>Hostel:</strong> <span id="approveHostelName"></span></p>
                         </div>
-                        <div class="col-md-6">
+                        <div class="col-12 col-md-6">
                             <p><strong>Requested Room Type:</strong> <span id="approveRoomType"></span></p>
                         </div>
                     </div>
@@ -279,6 +279,37 @@
                         <textarea class="form-control" id="adminNotes" name="admin_notes" rows="3" placeholder="Add any notes regarding this approval"></textarea>
                     </div>
                     <input type="hidden" name="room_id" id="selectedRoomId" value="">
+                    
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <h6 class="mb-0"><i class="bi bi-credit-card me-2"></i>Security Deposit Details</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="securityDepositAmount" class="form-label">Security Deposit Amount (PKR)</label>
+                                <input type="number" class="form-control" id="securityDepositAmount" name="security_deposit_amount" min="0" step="0.01" required placeholder="Enter security deposit amount">
+                            </div>
+                            <div class="mb-3">
+                                <label for="paymentMethod" class="form-label">Payment Method</label>
+                                <select class="form-select" id="paymentMethod" name="payment_method" required>
+                                    <option value="" selected disabled>Select Payment Method</option>
+                                    <option value="Cash">Cash</option>
+                                    <option value="Bank Transfer">Bank Transfer</option>
+                                    <option value="EasyPaisa">EasyPaisa</option>
+                                    <option value="JazzCash">JazzCash</option>
+                                    <option value="Other">Other</option>
+                                </select>
+                            </div>
+                            <div class="mb-3" id="transactionIdContainer" style="display: none;">
+                                <label for="transactionId" class="form-label">Transaction ID</label>
+                                <input type="text" class="form-control" id="transactionId" name="transaction_id" placeholder="Enter transaction ID">
+                            </div>
+                            <div class="mb-3" id="staffNameContainer" style="display: none;">
+                                <label for="staffName" class="form-label">Received By (Staff Name)</label>
+                                <input type="text" class="form-control" id="staffName" name="staff_name" placeholder="Enter staff name who received the payment">
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
@@ -1033,6 +1064,38 @@ if (studentSearch) {
 // Initialize payment method fields
 updatePaymentMethodFields();
 
+ // Handle payment method change in approve modal
+function updatePaymentMethodFieldsInModal() {
+    const paymentMethodSelect = document.getElementById('paymentMethod');
+    if (!paymentMethodSelect) return;
+    
+    const paymentMethod = paymentMethodSelect.value;
+    const isCashPayment = paymentMethod === 'Cash';
+    const isOnlinePayment = ['Bank Transfer', 'EasyPaisa', 'JazzCash'].includes(paymentMethod);
+    
+    const staffNameContainer = document.getElementById('staffNameContainer');
+    const transactionIdContainer = document.getElementById('transactionIdContainer');
+    
+    if (staffNameContainer) {
+        staffNameContainer.style.display = isCashPayment ? 'block' : 'none';
+    }
+    
+    if (transactionIdContainer) {
+        transactionIdContainer.style.display = isOnlinePayment ? 'block' : 'none';
+    }
+    
+    const staffNameInput = document.getElementById('staffName');
+    const transactionIdInput = document.getElementById('transactionId');
+    
+    if (staffNameInput) {
+        staffNameInput.required = isCashPayment;
+    }
+    
+    if (transactionIdInput) {
+        transactionIdInput.required = isOnlinePayment;
+    }
+}
+
 // Handle approve modal show event
 const approveModal = document.getElementById('approveModal');
 if (approveModal) {
@@ -1047,6 +1110,15 @@ if (approveModal) {
         form.reset();
         document.getElementById('selectedRoomId').value = '';
         confirmBtn.disabled = true;
+        
+        // Reset payment method fields visibility
+        updatePaymentMethodFieldsInModal();
+        
+        // Add event listener for payment method change
+        const paymentMethodSelect = document.getElementById('paymentMethod');
+        if (paymentMethodSelect) {
+            paymentMethodSelect.addEventListener('change', updatePaymentMethodFieldsInModal);
+        }
         
         // Show loading state
         container.innerHTML = `
@@ -1086,6 +1158,10 @@ if (approveModal) {
                 // Update booking info
                 document.getElementById('approveHostelName').textContent = data.hostel_name;
                 document.getElementById('approveRoomType').textContent = data.requested_room_type;
+                // Store student ID if available in the response
+                if (data.student_id) {
+                    document.getElementById('approveForm').setAttribute('data-student-id', data.student_id);
+                }
                 
                 if (data.available_rooms.length > 0) {
                     // Create rooms table
@@ -1201,18 +1277,33 @@ if (approveModal) {
                 <span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>
                 Processing...`;
             
-            // Make sure we have the room ID and admin notes
+            // Make sure we have the room ID, admin notes, and security deposit details
             const adminNotes = document.getElementById('adminNotes')?.value || '';
+            const securityDepositAmount = document.getElementById('securityDepositAmount')?.value || '';
+            const paymentMethod = document.getElementById('paymentMethod')?.value || '';
+            const transactionId = document.getElementById('transactionId')?.value || '';
+            const staffName = document.getElementById('staffName')?.value || '';
+            const studentId = document.getElementById('approveForm').getAttribute('data-student-id') || '';
             
             // Create form data with required fields
             const requestData = new FormData();
             requestData.append('room_id', roomId);
             requestData.append('admin_notes', adminNotes);
+            requestData.append('security_deposit_amount', securityDepositAmount);
+            requestData.append('payment_method', paymentMethod);
+            if (transactionId) requestData.append('transaction_id', transactionId);
+            if (staffName) requestData.append('staff_name', staffName);
+            if (studentId) requestData.append('student_id', studentId);
             
             // Debug log
             console.log('Submitting form with:', {
                 room_id: roomId,
                 admin_notes: adminNotes,
+                security_deposit_amount: securityDepositAmount,
+                payment_method: paymentMethod,
+                transaction_id: transactionId,
+                staff_name: staffName,
+                student_id: studentId,
                 booking_id: bookingId
             });
             
@@ -1647,6 +1738,63 @@ if (approveModal) {
         border-radius: 1rem;
         border: 1px solid rgba(79, 70, 229, 0.2);
         box-shadow: var(--card-shadow);
+    }
+
+    /* Responsive modal adjustments */
+    @media (max-width: 576px) {
+        .modal-dialog {
+            margin: 0.5rem;
+            max-width: 100%;
+        }
+        .modal-body {
+            padding: 1rem;
+            font-size: 0.9rem;
+        }
+        .modal-footer {
+            padding: 0.5rem;
+            flex-direction: column;
+        }
+        .modal-footer .btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+        .modal-footer .btn:last-child {
+            margin-bottom: 0;
+        }
+        /* Specific adjustments for Approve Modal */
+        #approveModal .modal-body {
+            overflow-y: auto;
+            max-height: calc(100vh - 120px);
+        }
+        #approveModal .table-responsive {
+            font-size: 0.85rem;
+        }
+        #approveModal .table th, #approveModal .table td {
+            padding: 0.4rem;
+        }
+        #approveModal .form-control, #approveModal .form-select {
+            padding: 0.5rem;
+            font-size: 0.85rem;
+        }
+    }
+
+    @media (min-width: 576px) and (max-width: 768px) {
+        .modal-dialog {
+            max-width: 90%;
+        }
+        /* Specific adjustments for Approve Modal */
+        #approveModal .modal-body {
+            max-height: calc(100vh - 150px);
+        }
+        #approveModal .table th, #approveModal .table td {
+            padding: 0.6rem;
+        }
+    }
+
+    @media (min-width: 768px) and (max-width: 992px) {
+        #approveModal .modal-body {
+            max-height: calc(100vh - 180px);
+        }
     }
 
     .modal-header {

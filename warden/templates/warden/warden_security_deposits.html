@@ -1,0 +1,178 @@
+{% extends "warden/warden_base.html" %}
+
+{% block title %}Security Deposits - Warden Panel{% endblock %}
+
+{% block breadcrumbs %}
+<li class="breadcrumb-item active">Security Deposits</li>
+{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Security Deposits</h5>
+                <div>
+                    <span class="badge bg-primary">Total: {{ total_deposits }}</span>
+                </div>
+            </div>
+            <div class="card-body">
+                <!-- Filters -->
+                <div class="row mb-3">
+                    <div class="col-md-4">
+                        <form method="GET" class="form-inline">
+                            <div class="input-group w-100">
+                                <input type="text" name="student_name" class="form-control" placeholder="Search by student name..." value="{{ student_name_filter }}">
+                                <button type="submit" class="btn btn-outline-primary">Search</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="col-md-4">
+                        <form method="GET" class="form-inline">
+                            <div class="input-group w-100">
+                                <select name="status" class="form-control">
+                                    <option value="">All Statuses</option>
+                                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                                    <option value="approved" {% if status_filter == 'approved' %}selected{% endif %}>Approved</option>
+                                    <option value="refunded" {% if status_filter == 'refunded' %}selected{% endif %}>Refunded</option>
+                                </select>
+                                <button type="submit" class="btn btn-outline-primary">Filter</button>
+                            </div>
+                        </form>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <a href="{% url 'warden:security_deposits' %}" class="btn btn-outline-secondary">Clear Filters</a>
+                    </div>
+                </div>
+
+                <!-- Deposits Table -->
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Student</th>
+                                <th>Amount</th>
+                                <th>Payment Date</th>
+                                <th>Payment Method</th>
+                                <th>Status</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for deposit in deposits %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>
+                                    {% if deposit.booking.student %}
+                                        {{ deposit.booking.student.get_full_name }}
+                                    {% else %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td>{{ deposit.amount }}</td>
+                                <td>{{ deposit.payment_date|date:"Y-m-d" }}</td>
+                                <td>{{ deposit.payment_method|default:"N/A" }}</td>
+                                <td>
+                                    {% if deposit.payment_status == 'Pending' %}
+                                        <span class="badge bg-warning text-dark">{{ deposit.payment_status }}</span>
+                                    {% elif deposit.payment_status == 'Approved' %}
+                                        <span class="badge bg-success">{{ deposit.payment_status }}</span>
+                                    {% elif deposit.payment_status == 'Refunded' %}
+                                        <span class="badge bg-danger">{{ deposit.payment_status }}</span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">{{ deposit.payment_status|default:"Unknown" }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <button class="btn btn-sm btn-info view-deposit-btn" 
+                                            data-id="{{ deposit.id }}"
+                                            data-bs-toggle="modal" 
+                                            data-bs-target="#depositDetailsModal">
+                                        <i class="fas fa-eye"></i> View
+                                    </button>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="7" class="text-center">No security deposits found.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Deposit Details Modal -->
+<div class="modal fade" id="depositDetailsModal" tabindex="-1" aria-labelledby="depositDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="depositDetailsModalLabel">Security Deposit Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div id="deposit-details-content">
+                    <p>Loading deposit details...</p>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    $(document).ready(function() {
+        // View deposit details
+        $('.view-deposit-btn').click(function() {
+            var depositId = $(this).data('id');
+            $.ajax({
+                url: "{% url 'warden:security_deposit_details' deposit_id=0 %}".replace('0', depositId),
+                type: 'GET',
+                success: function(data) {
+                    if (data.error) {
+                        $('#deposit-details-content').html('<p class="text-danger">' + data.error + '</p>');
+                    } else {
+                        var content = `
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <h6>Student Information</h6>
+                                    <p><strong>Name:</strong> ${data.student_name}</p>
+                                    <p><strong>Email:</strong> ${data.student_email}</p>
+                                    <p><strong>Contact:</strong> ${data.student_contact}</p>
+                                </div>
+                                <div class="col-md-6">
+                                    <h6>Deposit Information</h6>
+                                    <p><strong>Amount:</strong> ${data.amount}</p>
+                                    <p><strong>Payment Date:</strong> ${data.payment_date}</p>
+                                    <p><strong>Payment Method:</strong> ${data.payment_method}</p>
+                                    <p><strong>Status:</strong> ${data.status}</p>
+                                    <p><strong>Transaction ID:</strong> ${data.transaction_id}</p>
+                                    <p><strong>Receipt Number:</strong> ${data.receipt_number}</p>
+                                </div>
+                            </div>
+                            <div class="row mt-3">
+                                <div class="col-12">
+                                    <h6>Notes</h6>
+                                    <p>${data.notes || 'No notes provided.'}</p>
+                                </div>
+                            </div>
+                        `;
+                        $('#deposit-details-content').html(content);
+                    }
+                },
+                error: function(xhr, status, error) {
+                    $('#deposit-details-content').html('<p class="text-danger">Error loading deposit details. Please try again. Error: ' + error + '</p>');
+                }
+            });
+        });
+    });
+</script>
+{% endblock %}

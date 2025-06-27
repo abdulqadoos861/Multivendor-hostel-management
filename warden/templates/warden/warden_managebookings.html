@@ -243,6 +243,34 @@
                             <label for="admin_notes" class="form-label">Comments/Notes (optional)</label>
                             <textarea class="form-control" id="admin_notes" name="admin_notes" rows="3" placeholder="Add any additional notes or comments regarding this approval."></textarea>
                         </div>
+                        <!-- Security Deposit Section -->
+                        <div class="mb-3">
+                            <label for="security_deposit_amount" class="form-label">Security Deposit Amount</label>
+                            <input type="number" class="form-control" id="security_deposit_amount" name="security_deposit_amount" placeholder="Enter security deposit amount" min="0" step="0.01">
+                        </div>
+                        <div class="mb-3">
+                            <label for="security_deposit_payment_method" class="form-label">Payment Method</label>
+                            <select class="form-select" id="security_deposit_payment_method" name="security_deposit_payment_method">
+                                <option value="">Select Payment Method</option>
+                                <option value="Cash">Cash</option>
+                                <option value="Bank Transfer">Bank Transfer</option>
+                                <option value="Credit Card">Credit Card</option>
+                                <option value="Debit Card">Debit Card</option>
+                                <option value="Online Payment">Online Payment</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="security_deposit_transaction_id" class="form-label">Transaction ID (if applicable)</label>
+                            <input type="text" class="form-control" id="security_deposit_transaction_id" name="security_deposit_transaction_id" placeholder="Enter transaction ID">
+                        </div>
+                        <div class="mb-3">
+                            <label for="security_deposit_date_paid" class="form-label">Date Paid</label>
+                            <input type="date" class="form-control" id="security_deposit_date_paid" name="security_deposit_date_paid">
+                        </div>
+                        <div class="mb-3">
+                            <label for="security_deposit_received_by" class="form-label">Received By</label>
+                            <input type="text" class="form-control" id="security_deposit_received_by" name="security_deposit_received_by" placeholder="Enter name of person who received the deposit">
+                        </div>
 
                      <button type="submit" class="btn btn-success">Approve</button>
                  </form>

@@ -12,6 +12,7 @@ from django.db.models.functions import TruncMonth, ExtractMonth, ExtractYear, Co
 from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.template.loader import render_to_string
 from django.core.mail import send_mail
+from decimal import Decimal
 from django.conf import settings
 import calendar
 import json
@@ -23,8 +24,7 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 from .forms import StudentRegistrationForm, BookingRequestForm, MessInchargeForm
-from .payment_forms import PaymentForm
-from .models import Payment, Hostels, RoomTypeRate, Rooms, BookingRequest, Student, RoomAssignment, Wardens, HostelWardens, MessIncharge
+from .models import Hostels, RoomTypeRate, Rooms, BookingRequest, Student, RoomAssignment, Wardens, HostelWardens, MessIncharge, SecurityDeposit
 from django.urls import reverse
 import json
 import re
@@ -210,7 +210,7 @@ def add_room(request):
             rent = None
             try:
                 rate = RoomTypeRate.objects.get(hostel_id=hostel_id, room_type=room_type)
-                rent = rate.per_head_rent * capacity
+                rent = rate.per_head_rent
             except RoomTypeRate.DoesNotExist:
                 messages.error(request, f'No fixed rate found for {room_type} in {hostel.name}. Please set rates first.')
                 return redirect('fixed_rates')
@@ -270,7 +270,7 @@ def update_room(request, room_id):
             rent = None
             try:
                 rate = RoomTypeRate.objects.get(hostel_id=hostel_id, room_type=room_type)
-                rent = rate.per_head_rent * capacity
+                rent = rate.per_head_rent 
             except RoomTypeRate.DoesNotExist:
                 messages.error(request, f'No fixed rate found for {room_type} in {hostel.name}. Please set rates first.')
                 return redirect('fixed_rates')
@@ -654,6 +654,14 @@ def checkout_assignment(request, assignment_id):
             booking = assignment.booking
             booking.status = 'Completed'
             booking.save()
+            
+            # Update security deposit status to refunded
+            from coustom_admin.models import SecurityDeposit
+            security_deposit = SecurityDeposit.objects.filter(booking=booking).first()
+            if security_deposit:
+                security_deposit.payment_status = 'Refunded'
+                security_deposit.save()
+                logger.info(f"Security deposit status updated to Refunded for booking {booking.id}")
             
             # Decrement current occupants for the room
             if room.current_occupants > 0:
@@ -2179,7 +2187,8 @@ def get_available_rooms(request, booking_id):
                     'capacity': room.capacity,
                     'current_occupants': room.current_occupants,
                     'available_beds': room.available_beds_annotated,
-                    'rent': str(room.rent) if room.rent else '0.00'
+                    'rent': str(room.rent) if room.rent else '0.00',
+                    'per_head_rent': str(float(room.rent) / room.capacity if room.rent and room.capacity > 0 else 0.00)
                 }
                 for room in available_rooms
             ]
@@ -2235,8 +2244,13 @@ def approve_booking(request, booking_id):
             
             room_id = request.POST.get('room_id')
             admin_notes = request.POST.get('admin_notes', '')
+            security_deposit_amount = request.POST.get('security_deposit_amount', '')
+            payment_method = request.POST.get('payment_method', '')
+            transaction_id = request.POST.get('transaction_id', '')
+            staff_name = request.POST.get('staff_name', '')
             
             logger.info(f"Room ID from form: {room_id}, Admin notes: {admin_notes}")
+            logger.info(f"Security Deposit Amount: {security_deposit_amount}, Payment Method: {payment_method}, Transaction ID: {transaction_id}, Staff Name: {staff_name}")
             
             if not room_id:
                 logger.warning("No room_id provided in request")
@@ -2244,6 +2258,14 @@ def approve_booking(request, booking_id):
                 return JsonResponse({
                     'status': 'error',
                     'message': 'Please select a room to assign.'
+                }, status=400)
+            
+            if not security_deposit_amount or not payment_method:
+                logger.warning("Security deposit details incomplete")
+                messages.error(request, 'Please provide complete security deposit details.')
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Please provide complete security deposit details.'
                 }, status=400)
             
             # Get the room with detailed error checking
@@ -2301,15 +2323,22 @@ def approve_booking(request, booking_id):
             logger.info("Starting transaction to update booking and room")
             
             try:
-                # Update booking status and assign room
+                # Update booking status, assign room, and record security deposit
                 with transaction.atomic():
                     try:
                         # First, update the booking
                         booking.status = 'Approved'
                         booking.assigned_room = room
                         booking.admin_notes = admin_notes
+                        # Set monthly_rent to per head rent for the room type
+                        try:
+                            rate = RoomTypeRate.objects.get(hostel_id=booking.hostel.id, room_type=booking.room_type)
+                            booking.monthly_rent = rate.per_head_rent
+                        except RoomTypeRate.DoesNotExist:
+                            logger.warning(f"No rate found for hostel {booking.hostel.id}, room type {booking.room_type}")
+                            booking.monthly_rent = room.rent / room.capacity if room.rent and room.capacity > 0 else 0.0
                         booking.save()
-                        logger.info(f"Updated booking {booking.id} to Approved with room {room.id}")
+                        logger.info(f"Updated booking {booking.id} to Approved with room {room.id} and monthly rent {booking.monthly_rent}")
                         
                         # Create room assignment record
                         RoomAssignment.objects.create(
@@ -2321,6 +2350,22 @@ def approve_booking(request, booking_id):
                             notes=f"Booking approved by {request.user.get_full_name() or request.user.username}"
                         )
                         logger.info(f"Created RoomAssignment for booking {booking.id} in room {room.id}")
+                        
+                        # Record security deposit
+                        from .models import SecurityDeposit
+                        security_deposit = SecurityDeposit(
+                            booking=booking,
+                            amount=float(security_deposit_amount),
+                            payment_method=payment_method,
+                            transaction_id=transaction_id if transaction_id else None,
+                            notes=f"Security deposit recorded during booking approval by {request.user.get_full_name() or request.user.username}",
+                            received_by=request.user,
+                            is_verified=True
+                        )
+                        if payment_method == 'Cash' and staff_name:
+                            security_deposit.notes += f"\nReceived by: {staff_name}"
+                        security_deposit.save()
+                        logger.info(f"Recorded security deposit for booking {booking.id}")
                         
                         # Then update room occupancy using F() expression to avoid race conditions
                         updated = Rooms.objects.filter(
@@ -2399,134 +2444,7 @@ def approve_booking(request, booking_id):
 
 
 
-@login_required
-def record_payment(request, booking_id):
-    """
-    Handle recording of payments for a booking.
-    Supports both GET (show form) and POST (process payment) requests.
-    Returns JSON for AJAX requests or renders template for regular requests.
-    """
-    booking = get_object_or_404(BookingRequest, id=booking_id)
-    
-    # For AJAX requests, return JSON response
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-    
-    if request.method == 'POST':
-        form = PaymentForm(request.POST)
-        if form.is_valid():
-            try:
-                with transaction.atomic():
-                    # Create payment record
-                    payment = form.save(commit=False)
-                    payment.booking = booking
-                    payment.received_by = request.user
-                    payment.save()
-                    
-                    # Update booking status if needed
-                    if booking.status == 'Pending' and payment.amount >= booking.security_deposit:
-                        booking.status = 'Approved'
-                        booking.save()
-                
-                response_data = {
-                    'success': True,
-                    'message': 'Payment recorded successfully!',
-                    'payment_id': payment.id,
-                    'receipt_number': payment.receipt_number,
-                    'payment_date': payment.payment_date.strftime('%Y-%m-%d %H:%M')
-                }
-                
-                if is_ajax:
-                    return JsonResponse(response_data)
-                
-                messages.success(request, response_data['message'])
-                return redirect('manage_booking')
-                
-            except Exception as e:
-                error_msg = f'Error recording payment: {str(e)}'
-                logger.error(error_msg)
-                
-                if is_ajax:
-                    return JsonResponse({
-                        'success': False,
-                        'message': 'An error occurred while recording the payment. Please try again.'
-                    }, status=500)
-                
-                messages.error(request, error_msg)
-                return redirect('manage_booking')
-        else:
-            # Form is invalid
-            error_msg = 'Please correct the errors below.'
-            if is_ajax:
-                return JsonResponse({
-                    'success': False,
-                    'message': error_msg,
-                    'errors': form.errors
-                }, status=400)
-            
-            messages.error(request, error_msg)
-    else:
-        # GET request - initialize form with default values
-        initial_data = {
-            'amount': booking.security_deposit if booking.status == 'Pending' else 0,
-            'payment_type': 'security' if booking.status == 'Pending' else 'rent',
-            'payment_method': 'cash',
-            'is_verified': True
-        }
-        form = PaymentForm(initial=initial_data)
-    
-    # Calculate payment summary
-    total_paid = booking.total_paid
-    balance = booking.balance
-    
-    # Get payment history
-    payments = Payment.objects.filter(booking=booking).order_by('-payment_date')
-    
-    context = {
-        'form': form,
-        'booking': booking,
-        'payments': payments,
-        'total_paid': total_paid,
-        'balance': balance,
-    }
-    
-    if is_ajax and request.method == 'GET':
-        # For AJAX GET requests, render just the form HTML
-        form_html = render_to_string('payment_form_partial.html', context, request=request)
-        return JsonResponse({
-            'success': True,
-            'form_html': form_html,
-            'title': f'Record Payment - {booking.student.user.get_full_name()}'
-        })
-    
-    # For regular GET requests, render the full page
-    return render(request, 'payment_form.html', context)
 
-@login_required
-def get_payment_history(request, booking_id):
-    """Get payment history for a booking"""
-    booking = get_object_or_404(BookingRequest, id=booking_id)
-    payments = Payment.objects.filter(booking=booking).order_by('-payment_date')
-    
-    payments_data = [{
-        'id': p.id,
-        'amount': float(p.amount),
-        'payment_date': p.payment_date.strftime('%Y-%m-%d %H:%M:%S'),
-        'payment_method': p.get_payment_method_display(),
-        'payment_type': p.get_payment_type_display(),
-        'transaction_id': p.transaction_id or 'N/A',
-        'received_by': p.received_by.get_full_name() if p.received_by else 'System',
-        'notes': p.notes or '',
-        'is_verified': p.is_verified,
-        'verification_date': p.verification_date.strftime('%Y-%m-%d %H:%M:%S') if p.verification_date else None,
-        'verified_by': p.verified_by.get_full_name() if p.verified_by else None
-    } for p in payments]
-    
-    return JsonResponse({
-        'status': 'success',
-        'payments': payments_data,
-        'total_paid': float(sum(p.amount for p in payments)),
-        'balance': float(booking.total_amount - sum(p.amount for p in payments)) if hasattr(booking, 'total_amount') else 0
-    })
 
 @login_required
 @user_passes_test(lambda u: u.is_staff, login_url='login')
@@ -3251,6 +3169,44 @@ def get_security_guards_data(request):
     })
 
 @login_required
+def security_deposits(request):
+    """
+    View to display all security deposits with filtering options.
+    """
+    from coustom_admin.models import SecurityDeposit, Hostels
+    
+    # Get all security deposits with related booking and student data
+    deposits = SecurityDeposit.objects.select_related('booking', 'booking__student', 'booking__hostel', 'received_by').all().order_by('-payment_date')
+    
+    # Apply search filter if provided
+    search_query = request.GET.get('search', '')
+    if search_query:
+        deposits = deposits.filter(
+            Q(booking__student__user__first_name__icontains=search_query) |
+            Q(booking__student__user__last_name__icontains=search_query) |
+            Q(booking__student__user__email__icontains=search_query) |
+            Q(transaction_id__icontains=search_query)
+        )
+    
+    # Apply hostel filter if provided
+    hostel_filter = request.GET.get('hostel', '')
+    if hostel_filter:
+        deposits = deposits.filter(booking__hostel_id=hostel_filter)
+    
+    # Get all hostels for filter dropdown
+    hostels = Hostels.objects.all().order_by('name')
+    
+    context = {
+        'deposits': deposits,
+        'total_deposits': deposits.count(),
+        'hostels': hostels,
+        'search_query': search_query,
+        'hostel_filter': hostel_filter,
+    }
+    
+    return render(request, "securityDeposits.html", context)
+
+@login_required
 def student_feedbacks(request):
     """
     View to display all feedbacks submitted by students.
@@ -3406,3 +3362,218 @@ def get_assignment_details(request, assignment_id):
     except Exception as e:
         logger.error(f"Unexpected error in get_assignment_details for id {assignment_id}: {str(e)}", exc_info=True)
         return JsonResponse({'error': f'Failed to load assignment details: {str(e)}'}, status=500)
+
+
+@login_required
+def monthly_fees(request):
+    """
+    View to display all student monthly fees with filtering options.
+    """
+    from coustom_admin.models import StudentMonthlyFee, Hostels
+    
+    # Get all monthly fees with related student and hostel data
+    fees = StudentMonthlyFee.objects.select_related('student', 'student__user', 'hostel').all().order_by('-year', '-month', '-created_at')
+    
+    # Apply search filter if provided
+    search_query = request.GET.get('search', '')
+    if search_query:
+        fees = fees.filter(
+            Q(student__user__first_name__icontains=search_query) |
+            Q(student__user__last_name__icontains=search_query) |
+            Q(student__user__email__icontains=search_query) |
+            Q(transaction_id__icontains=search_query)
+        )
+    
+    # Apply hostel filter if provided
+    hostel_filter = request.GET.get('hostel', '')
+    if hostel_filter:
+        fees = fees.filter(hostel_id=hostel_filter)
+    
+    # Apply month filter if provided
+    month_filter = request.GET.get('month', '')
+    if month_filter:
+        fees = fees.filter(month=month_filter)
+    
+    # Apply year filter if provided
+    year_filter = request.GET.get('year', '')
+    if year_filter:
+        fees = fees.filter(year=year_filter)
+    
+    # Get all hostels for filter dropdown
+    hostels = Hostels.objects.all().order_by('name')
+    
+    # Prepare month choices for filter dropdown (only current and previous month)
+    current_date = timezone.now().date()
+    current_month = current_date.month
+    current_year = current_date.year
+    previous_month = current_month - 1 if current_month > 1 else 12
+    previous_year = current_year if current_month > 1 else current_year - 1
+    
+    months = [
+        (current_month, calendar.month_name[current_month]),
+        (previous_month, calendar.month_name[previous_month])
+    ]
+    years = [current_year, previous_year] if previous_year != current_year else [current_year]
+    
+    # Pagination
+    paginator = Paginator(fees, 10)  # Show 10 fees per page
+    page = request.GET.get('page')
+    try:
+        fees_page = paginator.page(page)
+    except PageNotAnInteger:
+        # If page is not an integer, deliver first page
+        fees_page = paginator.page(1)
+    except EmptyPage:
+        # If page is out of range, deliver last page of results
+        fees_page = paginator.page(paginator.num_pages)
+    
+    context = {
+        'fees': fees_page,
+        'page_obj': fees_page,
+        'hostels': hostels,
+        'months': months,
+        'years': years,
+        'search_query': search_query,
+        'hostel_filter': hostel_filter,
+        'month_filter': month_filter,
+        'year_filter': year_filter,
+    }
+    
+    return render(request, "monthly_fees.html", context)
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff, login_url='login')
+def calculate_monthly_fees_view(request):
+    """
+    View to trigger the calculation of monthly fees for students.
+    """
+    if request.method == 'POST':
+        try:
+            month = int(request.POST.get('month', timezone.now().month))
+            year = int(request.POST.get('year', timezone.now().year))
+            electricity_bill = Decimal(request.POST.get('electricity_bill', '0.00'))
+            hostel_id = request.POST.get('hostel', '')
+            
+            # Check if fees already exist for the selected hostel, month, and year
+            from coustom_admin.models import StudentMonthlyFee, Hostels
+            if hostel_id:
+                hostel = Hostels.objects.get(id=hostel_id)
+                if StudentMonthlyFee.objects.filter(hostel_id=hostel_id, month=month, year=year).exists():
+                    messages.warning(request, f'Monthly fees for {calendar.month_name[month]} {year} have already been generated for {hostel.name}.')
+                    return redirect('monthly_fees')
+            else:
+                # Check for all hostels if no specific hostel is selected
+                hostels_with_fees = Hostels.objects.filter(studentmonthlyfee__month=month, studentmonthlyfee__year=year).distinct()
+                if hostels_with_fees.exists():
+                    hostel_names = ", ".join([hostel.name for hostel in hostels_with_fees])
+                    messages.warning(request, f'Monthly fees for {calendar.month_name[month]} {year} have already been generated for the following hostels: {hostel_names}.')
+                    return redirect('monthly_fees')
+            
+            # Call the management command to calculate fees
+            from django.core.management import call_command
+            call_command('calculate_monthly_fees', month=month, year=year, electricity=electricity_bill, hostel=hostel_id)
+            
+            messages.success(request, f'Monthly fees for {calendar.month_name[month]} {year} have been calculated successfully.')
+            return redirect('monthly_fees')
+        except Exception as e:
+            messages.error(request, f'Error calculating monthly fees: {str(e)}')
+            return redirect('monthly_fees')
+    
+    # For GET request, show the form
+    current_date = timezone.now().date()
+    current_month = current_date.month
+    current_year = current_date.year
+    previous_month = current_month - 1 if current_month > 1 else 12
+    previous_year = current_year if current_month > 1 else current_year - 1
+    
+    months = [
+        (current_month, calendar.month_name[current_month]),
+        (previous_month, calendar.month_name[previous_month])
+    ]
+    years = [current_year, previous_year] if previous_year != current_year else [current_year]
+    
+    context = {
+        'current_month': current_month,
+        'current_year': current_year,
+        'months': months,
+        'years': years,
+    }
+    return render(request, "monthly_fees.html", context)
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff, login_url='login')
+def edit_monthly_fee(request, fee_id):
+    """
+    View to edit a specific student monthly fee record.
+    """
+    from coustom_admin.models import StudentMonthlyFee
+    
+    fee = get_object_or_404(StudentMonthlyFee, id=fee_id)
+    
+    if request.method == 'POST':
+        try:
+            monthly_rent = float(request.POST.get('monthly_rent', fee.monthly_rent))
+            mess_expenses = float(request.POST.get('mess_expenses', fee.mess_expenses))
+            electricity_bill = float(request.POST.get('electricity_bill', fee.electricity_bill))
+            payment_status = request.POST.get('payment_status', fee.payment_status)
+            due_date = request.POST.get('due_date', fee.due_date)
+            payment_date = request.POST.get('payment_date', fee.payment_date)
+            transaction_id = request.POST.get('transaction_id', fee.transaction_id)
+            notes = request.POST.get('notes', fee.notes)
+            
+            fee.monthly_rent = monthly_rent
+            fee.mess_expenses = mess_expenses
+            fee.electricity_bill = electricity_bill
+            fee.payment_status = payment_status
+            fee.due_date = due_date if due_date else fee.due_date
+            fee.payment_date = payment_date if payment_date else fee.payment_date
+            fee.transaction_id = transaction_id if transaction_id else fee.transaction_id
+            fee.notes = notes if notes else fee.notes
+            fee.save()
+            
+            messages.success(request, f'Fee record for {fee.student.user.get_full_name()} updated successfully.')
+            return redirect('monthly_fees')
+        except Exception as e:
+            messages.error(request, f'Error updating fee record: {str(e)}')
+            return redirect('monthly_fees')
+    
+    context = {
+        'fee': fee,
+    }
+    return render(request, "monthly_fees.html", context)
+
+
+@login_required
+@user_passes_test(lambda u: u.is_staff, login_url='login')
+def mark_fee_paid(request, fee_id):
+    """
+    View to mark a specific student monthly fee as paid.
+    """
+    from coustom_admin.models import StudentMonthlyFee
+    
+    fee = get_object_or_404(StudentMonthlyFee, id=fee_id)
+    
+    if request.method == 'POST':
+        try:
+            payment_date = request.POST.get('payment_date', timezone.now().date())
+            transaction_id = request.POST.get('transaction_id', '')
+            notes = request.POST.get('notes', '')
+            
+            fee.payment_status = 'Paid'
+            fee.payment_date = payment_date if payment_date else timezone.now().date()
+            fee.transaction_id = transaction_id if transaction_id else fee.transaction_id
+            fee.notes = notes if notes else fee.notes
+            fee.save()
+            
+            messages.success(request, f'Fee for {fee.student.user.get_full_name()} marked as paid.')
+            return redirect('monthly_fees')
+        except Exception as e:
+            messages.error(request, f'Error marking fee as paid: {str(e)}')
+            return redirect('monthly_fees')
+    
+    context = {
+        'fee': fee,
+    }
+    return render(request, "monthly_fees.html", context)
