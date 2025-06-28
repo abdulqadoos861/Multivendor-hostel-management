@@ -215,8 +215,8 @@ def add_room(request):
                 messages.error(request, f'No fixed rate found for {room_type} in {hostel.name}. Please set rates first.')
                 return redirect('fixed_rates')
 
-            if Rooms.objects.filter(room_number=room_number).exclude(id=room.id if 'room' in locals() else None).exists():
-                messages.error(request, f'Room number {room_number} already exists.')
+            if Rooms.objects.filter(room_number=room_number, hostel=hostel).exclude(id=room.id if 'room' in locals() else None).exists():
+                messages.error(request, f'Room number {room_number} already exists in {hostel.name}.')
                 return redirect('add_room')
 
             room = Rooms(
@@ -275,8 +275,8 @@ def update_room(request, room_id):
                 messages.error(request, f'No fixed rate found for {room_type} in {hostel.name}. Please set rates first.')
                 return redirect('fixed_rates')
 
-            if Rooms.objects.filter(room_number=room_number).exclude(id=room.id).exists():
-                messages.error(request, f'Room number {room_number} already exists.')
+            if Rooms.objects.filter(room_number=room_number, hostel=hostel).exclude(id=room.id).exists():
+                messages.error(request, f'Room number {room_number} already exists in {hostel.name}.')
                 return redirect('add_room')
 
             room.hostel_id = hostel
@@ -295,6 +295,23 @@ def update_room(request, room_id):
         except Exception as e:
             messages.error(request, f'Error updating room: {str(e)}')
         return redirect('add_room')
+    elif request.method == 'GET':
+        try:
+            room_data = {
+                'status': 'success',
+                'room': {
+                    'id': room.id,
+                    'room_number': room.room_number,
+                    'floor_number': room.floor_number,
+                    'room_type': room.room_type,
+                    'description': room.description or '',
+                    'hostel_id': room.hostel.id,
+                    'hostel_name': room.hostel.name
+                }
+            }
+            return JsonResponse(room_data)
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
     else:
         return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=400)
 
@@ -3546,7 +3563,7 @@ def edit_monthly_fee(request, fee_id):
 
 
 @login_required
-@user_passes_test(lambda u: u.is_staff, login_url='login')
+@user_passes_test(lambda u: u.is_staff, login_url='admin_login')
 def mark_fee_paid(request, fee_id):
     """
     View to mark a specific student monthly fee as paid.
@@ -3577,3 +3594,61 @@ def mark_fee_paid(request, fee_id):
         'fee': fee,
     }
     return render(request, "monthly_fees.html", context)
+
+@login_required
+@user_passes_test(lambda u: u.is_staff, login_url='admin_login')
+def collect_monthly_fee(request, fee_id):
+    """
+    View to collect payment for a specific monthly fee in the admin app.
+    """
+    from coustom_admin.models import StudentMonthlyFee
+    from django.utils import timezone
+    from coustom_admin.payment_forms import MonthlyFeePaymentForm
+    
+    fee = get_object_or_404(StudentMonthlyFee, id=fee_id)
+    
+    if request.method == 'POST':
+        form = MonthlyFeePaymentForm(request.POST)
+        if form.is_valid():
+            payment_method = form.cleaned_data.get('payment_method', 'Cash')
+            transaction_id = form.cleaned_data.get('transaction_id', '')
+            notes = form.cleaned_data.get('notes', '')
+            amount = form.cleaned_data.get('amount', '')
+            
+            fee.payment_status = 'Paid'
+            fee.payment_date = timezone.now().date()
+            fee.transaction_id = transaction_id if transaction_id else None
+            fee.notes = notes
+            if amount:
+                try:
+                    fee.monthly_rent = float(amount)
+                except ValueError:
+                    pass  # If amount is invalid, keep the original value
+            fee.collected_by = request.user  # Store the user who collected the fee
+            fee.save()
+            
+            success_message = f"Payment recorded for {fee.student.user.get_full_name()}."
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'success',
+                    'message': success_message
+                })
+            else:
+                messages.success(request, success_message)
+                return redirect('monthly_fees')
+        else:
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'Form validation failed',
+                    'errors': form.errors
+                }, status=400)
+            messages.error(request, 'Form validation failed. Please correct the errors below.')
+    else:
+        form = MonthlyFeePaymentForm(initial={'amount': fee.monthly_rent})
+    
+    context = {
+        'fee': fee,
+        'form': form,
+    }
+    return render(request, "payment_form.html", context)

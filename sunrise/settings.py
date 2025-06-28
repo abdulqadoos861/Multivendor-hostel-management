@@ -128,6 +128,6 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Login settings
-LOGIN_URL = '/admin/'
+LOGIN_URL = 'admin_login'
 LOGIN_REDIRECT_URL = '/admin/dashboard/'
 LOGOUT_REDIRECT_URL = '/admin/'

@@ -110,4 +110,5 @@ urlpatterns = [
     path('calculate_monthly_fees/', views.calculate_monthly_fees_view, name='calculate_monthly_fees'),
     path('edit_monthly_fee/<int:fee_id>/', views.edit_monthly_fee, name='edit_monthly_fee'),
     path('mark_fee_paid/<int:fee_id>/', views.mark_fee_paid, name='mark_fee_paid'),
+    path('collect_monthly_fee/<int:fee_id>/', views.collect_monthly_fee, name='collect_monthly_fee'),
 ]

@@ -380,9 +380,14 @@ class StudentMonthlyFee(models.Model):
         ordering = ['-year', '-month']
 
     def __str__(self):
-        return f"{self.student.user.get_full_name()} - Fee for {self.month}/{self.year} ({self.total_fee})"
+        return f"{self.student.user.get_full_name()} - Fee for {self.get_month_display()}/{self.year} ({self.total_fee})"
     
     def save(self, *args, **kwargs):
         # Calculate total fee before saving
+        # Ensure all values are Decimal to prevent TypeError
+        from decimal import Decimal
+        self.monthly_rent = Decimal(str(self.monthly_rent)) if not isinstance(self.monthly_rent, Decimal) else self.monthly_rent
+        self.mess_expenses = Decimal(str(self.mess_expenses)) if not isinstance(self.mess_expenses, Decimal) else self.mess_expenses
+        self.electricity_bill = Decimal(str(self.electricity_bill)) if not isinstance(self.electricity_bill, Decimal) else self.electricity_bill
         self.total_fee = self.monthly_rent + self.mess_expenses + self.electricity_bill
         super().save(*args, **kwargs)

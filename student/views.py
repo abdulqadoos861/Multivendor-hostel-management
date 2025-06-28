@@ -424,10 +424,28 @@ def student_fee_details(request):
         # Fetch fee details for the student, ordered by year and month descending
         fee_records = StudentMonthlyFee.objects.filter(student=student).order_by('-year', '-month')
         
+        # Calculate total unpaid fees
+        unpaid_fees = fee_records.filter(payment_status__in=['Pending', 'Overdue'])
+        total_unpaid = sum(fee.total_fee for fee in unpaid_fees)
+        
         return render(request, 'student_fee_details.html', {
             'student': student,
-            'fee_records': fee_records
+            'fee_records': fee_records,
+            'unpaid_fees': unpaid_fees,
+            'total_unpaid': total_unpaid
         })
+    except Student.DoesNotExist:
+        logout(request)
+        messages.error(request, "Access denied. This portal is for students only.")
+        return redirect('student_login')
+
+def pay_fee(request):
+    if not request.user.is_authenticated:
+        return redirect('student_login')
+    try:
+        student = Student.objects.get(user_id=request.user.id)
+        messages.info(request, "Payment functionality is under development. Please contact the administration to settle your dues.")
+        return redirect('student_fee_details')
     except Student.DoesNotExist:
         logout(request)
         messages.error(request, "Access denied. This portal is for students only.")

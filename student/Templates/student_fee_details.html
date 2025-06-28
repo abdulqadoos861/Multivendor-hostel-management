@@ -29,7 +29,7 @@
                     <div class="card-body">
                         <h4 class="text-danger mb-3">Total Unpaid: Rs. {{ total_unpaid }}</h4>
                         <p class="mb-3">You have unpaid fees. Please settle the dues at your earliest convenience.</p>
-                        <a href="#" class="btn btn-sm btn-primary">Pay Now</a>
+                        <a href="{% url 'pay_fee' %}" class="btn btn-sm btn-primary">Pay Now</a>
                     </div>
                 </div>
             {% endif %}

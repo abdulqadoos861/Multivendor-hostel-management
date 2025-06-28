@@ -104,9 +104,9 @@
                                     <td>{{ fee.due_date }}</td>
                                     <td>{{ fee.payment_date|default:"Not Paid" }}</td>
                                     <td>
-                                        <a href="{% url 'edit_monthly_fee' fee.id %}" class="btn btn-sm btn-primary"><i class="fas fa-edit"></i> Edit</a>
+                                        <!-- Edit option removed as per request -->
                                         {% if fee.payment_status != 'Paid' %}
-                                            <a href="{% url 'mark_fee_paid' fee.id %}" class="btn btn-sm btn-success"><i class="fas fa-check"></i> Mark Paid</a>
+                                            <a href="{% url 'collect_monthly_fee' fee_id=fee.id %}" class="btn btn-sm btn-primary"><i class="fas fa-money-bill-wave"></i> Collect Fee</a>
                                         {% endif %}
                                     </td>
                                 </tr>

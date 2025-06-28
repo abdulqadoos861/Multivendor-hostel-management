@@ -1,40 +1,43 @@
-# This file has been commented out as the Payment model and related functionality have been removed.
-# If needed in the future, uncomment and update the code to reference the appropriate model (e.g., SecurityDeposit).
+from django import forms
 
-# from django import forms
-# from .models import Payment
-
-# class PaymentForm(forms.ModelForm):
-#     class Meta:
-#         model = Payment
-#         fields = ['amount', 'payment_method', 'payment_type', 'transaction_id', 'notes']
-#         widgets = {
-#             'amount': forms.NumberInput(attrs={
-#                 'class': 'form-control',
-#                 'step': '0.01',
-#                 'min': '0',
-#                 'required': True
-#             }),
-#             'payment_method': forms.Select(attrs={
-#                 'class': 'form-select',
-#                 'required': True
-#             }),
-#             'payment_type': forms.Select(attrs={
-#                 'class': 'form-select',
-#                 'required': True
-#             }),
-#             'transaction_id': forms.TextInput(attrs={
-#                 'class': 'form-control',
-#                 'placeholder': 'Leave blank for cash payments'
-#             }),
-#             'notes': forms.Textarea(attrs={
-#                 'class': 'form-control',
-#                 'rows': 2,
-#                 'placeholder': 'Any additional notes about this payment'
-#             })
-#         }
-#     
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-#         # Set required to False for transaction_id since it's optional for cash payments
-#         self.fields['transaction_id'].required = False
+class MonthlyFeePaymentForm(forms.Form):
+    amount = forms.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        widget=forms.NumberInput(attrs={
+            'class': 'form-control',
+            'step': '0.01',
+            'min': '0',
+            'required': True
+        })
+    )
+    payment_method = forms.ChoiceField(
+        choices=[('Cash', 'Cash'), ('Bank Transfer', 'Bank Transfer'), ('Online Payment', 'Online Payment')],
+        widget=forms.Select(attrs={
+            'class': 'form-select',
+            'required': True
+        })
+    )
+    payment_type = forms.ChoiceField(
+        choices=[('Monthly Fee', 'Monthly Fee')],
+        widget=forms.Select(attrs={
+            'class': 'form-select',
+            'required': True
+        })
+    )
+    transaction_id = forms.CharField(
+        max_length=100, 
+        required=False,
+        widget=forms.TextInput(attrs={
+            'class': 'form-control',
+            'placeholder': 'Leave blank for cash payments'
+        })
+    )
+    notes = forms.CharField(
+        required=False,
+        widget=forms.Textarea(attrs={
+            'class': 'form-control',
+            'rows': 2,
+            'placeholder': 'Any additional notes about this payment'
+        })
+    )
