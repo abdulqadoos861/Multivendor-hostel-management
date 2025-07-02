@@ -54,8 +54,8 @@
                         </div>
                     </div>
                     <div class="table-responsive">
-                        <table class="table table-bordered table-striped">
-                            <thead>
+                        <table class="table table-bordered table-striped table-hover">
+                            <thead class="thead-dark" style="position: sticky; top: 0; background-color: #fff; z-index: 1;">
                                 <tr>
                                     <th>Student</th>
                                     <th>Month/Year</th>
@@ -80,20 +80,20 @@
                                     <td>{{ fee.total_fee }}</td>
                                     <td>
                                         {% if fee.payment_status == 'Paid' %}
-                                            <span class="badge badge-success">{{ fee.payment_status }}</span>
+                                            <span class="badge bg-success text-white"><i class="fas fa-check me-1"></i>{{ fee.payment_status }}</span>
                                         {% elif fee.payment_status == 'Overdue' %}
-                                            <span class="badge badge-danger">{{ fee.payment_status }}</span>
+                                            <span class="badge bg-danger text-white"><i class="fas fa-times me-1"></i>{{ fee.payment_status }}</span>
                                         {% else %}
-                                            <span class="badge badge-warning">{{ fee.payment_status }}</span>
+                                            <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>{{ fee.payment_status }}</span>
                                         {% endif %}
                                     </td>
                                     <td>{{ fee.due_date }}</td>
                                     <td>{{ fee.payment_date|default:"Not Paid" }}</td>
                                     <td>
                                         {% if fee.payment_status != 'Paid' %}
-                                            <a href="{% url 'warden:collect_monthly_fee' fee_id=fee.id %}" class="btn btn-sm btn-primary">Collect Fee</a>
+                                            <a href="{% url 'warden:collect_monthly_fee' fee_id=fee.id %}" class="btn btn-sm btn-primary"><i class="fas fa-money-bill-wave me-1"></i>Collect Fee</a>
                                         {% else %}
-                                            <span class="text-muted">Paid</span>
+                                            <span class="text-muted"><i class="fas fa-check me-1"></i>Paid</span>
                                         {% endif %}
                                     </td>
                                 </tr>

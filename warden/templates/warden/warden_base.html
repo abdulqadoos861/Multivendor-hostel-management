@@ -200,6 +200,7 @@
                             <ul class="dropdown-menu" aria-labelledby="paymentsDropdown">
                                 <li><a class="dropdown-item {% if 'security-deposits' in request.path %}active{% endif %}" href="{% url 'warden:security_deposits' %}"><i class="fas fa-money-bill-wave"></i> Security Deposits</a></li>
                                 <li><a class="dropdown-item {% if 'monthly-fees' in request.path %}active{% endif %}" href="{% url 'warden:monthly_fees' %}"><i class="fas fa-receipt"></i> Monthly Fees</a></li>
+	                                <li><a class="dropdown-item"  href="{% url 'warden:manage_expenses' %}"><i class="fas fa-receipt"></i> Expenses</a></li>
                             </ul>
                         </li>
                     </ul>

@@ -33,6 +33,8 @@ urlpatterns = [
     path('get-available-rooms-for-change/', views.get_available_rooms_for_change, name='get_available_rooms_for_change'),
     path('approve-room-change-request/', views.approve_room_change_request, name='approve_room_change_request'),
     path('reject-room-change-request/', views.reject_room_change_request, name='reject_room_change_request'),
+    path('expenses/', views.manage_expenses, name='manage_expenses'),
+    path('expenses/<int:expense_id>/details/', views.expense_details, name='expense_details'),
     # Password reset URLs
     path('password_reset/', auth_views.PasswordResetView.as_view(template_name='warden/password_reset.html'), name='password_reset'),
     # Add more URL patterns here as needed,

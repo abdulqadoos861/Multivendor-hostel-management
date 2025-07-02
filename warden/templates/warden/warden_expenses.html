@@ -1,0 +1,307 @@
+{% extends 'warden/warden_base.html' %}
+{% load static %}
+
+{% block title %}Expenses{% endblock %}
+
+{% block content %}
+<div class="container mt-5">
+    <!-- Expenses Card -->
+    <div class="card">
+        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+            <h4 class="mb-0">Expenses List</h4>
+            <div class="d-flex">
+                <div class="input-group me-2" style="max-width: 300px;">
+                    <input type="text" id="searchInput" class="form-control" placeholder="Search expenses..." value="{{ request.GET.search|default:'' }}">
+                    <button class="btn btn-outline-light" type="button" id="searchButton">
+                        <i class="fas fa-search"></i>
+                    </button>
+                </div>
+                <div class="btn-group" role="group">
+                    <a href="?filter=all" class="btn btn-outline-light {% if request.GET.filter == 'all' or not request.GET.filter %}active{% endif %}">
+                        All
+                    </a>
+                    <a href="?filter=food" class="btn btn-outline-light {% if request.GET.filter == 'food' %}active{% endif %}">
+                        Food Supplies
+                    </a>
+                    <a href="?filter=utilities" class="btn btn-outline-light {% if request.GET.filter == 'utilities' %}active{% endif %}">
+                        Utilities
+                    </a>
+                </div>
+                <button class="btn btn-outline-light ms-2" data-bs-toggle="modal" data-bs-target="#addExpenseModal">
+                    <i class="fas fa-plus"></i> Add Expense
+                </button>
+            </div>
+        </div>
+        <div class="card-body">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+
+            {% if expenses %}
+                <div class="table-responsive">
+                    <table class="table table-striped">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Description</th>
+                                <th>Amount</th>
+                                <th>Date Incurred</th>
+                                <th>Created By</th>
+                                <th>Created At</th>
+                                <th>Receipt</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="expensesTable">
+                            {% for expense in expenses %}
+                                <tr>
+                                    <td>{{ expense.expense_id }}</td>
+                                    <td>{{ expense.description }}</td>
+                                    <td>{{ expense.amount }}</td>
+                                    <td>{{ expense.date_incurred }}</td>
+                                    <td>{{ expense.created_by.username }}</td>
+                                    <td>{{ expense.created_at }}</td>
+                                    <td>
+                                        {% if expense.receipt %}
+                                            <a href="{{ expense.receipt.url }}" target="_blank">View Receipt</a>
+                                        {% else %}
+                                            N/A
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        <button class="btn btn-sm btn-primary view-expense ms-1"
+                                                data-id="{{ expense.expense_id }}"
+                                                data-description="{{ expense.description }}"
+                                                data-amount="{{ expense.amount }}"
+                                                data-date-incurred="{{ expense.date_incurred }}"
+                                                data-created-by="{{ expense.created_by.username }}"
+                                                data-created-at="{{ expense.created_at }}"
+                                                data-receipt="{% if expense.receipt %}{{ expense.receipt.url }}{% endif %}"
+                                                data-bs-toggle="modal"
+                                                data-bs-target="#viewExpenseModal">
+                                            <i class="fas fa-eye"></i> View
+                                        </button>
+                                    </td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            {% else %}
+                <p class="text-muted">No expenses found.</p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Add Expense Modal -->
+    <div class="modal fade" id="addExpenseModal" tabindex="-1" aria-labelledby="addExpenseModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="addExpenseModalLabel">Add New Expense</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label for="description" class="form-label">Description</label>
+                            <input type="text" class="form-control" id="description" name="description" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="amount" class="form-label">Amount</label>
+                            <input type="number" class="form-control" id="amount" name="amount" step="0.01" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="date_incurred" class="form-label">Date Incurred</label>
+                            <input type="date" class="form-control" id="date_incurred" name="date_incurred" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="receipt" class="form-label">Receipt (optional)</label>
+                            <input type="file" class="form-control" id="receipt" name="receipt">
+                        </div>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        <button type="submit" class="btn btn-primary">Add Expense</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- View Expense Modal -->
+    <div class="modal fade" id="viewExpenseModal" tabindex="-1" aria-labelledby="viewExpenseModalLabel">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="viewExpenseModalLabel">Expense Details</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <p><strong>ID:</strong> <span id="view_id"></span></p>
+                            <p><strong>Description:</strong> <span id="view_description"></span></p>
+                            <p><strong>Amount:</strong> <span id="view_amount"></span></p>
+                            <p><strong>Date Incurred:</strong> <span id="view_date_incurred"></span></p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Created By:</strong> <span id="view_created_by"></span></p>
+                            <p><strong>Created At:</strong> <span id="view_created_at"></span></p>
+                            <p><strong>Receipt:</strong> <span id="view_receipt"></span></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success/Error Toast -->
+    <div class="position-fixed bottom-0 end-0 p-3" style="z-index: 11">
+        <div id="toast" class="toast" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="toast-header">
+                <strong class="me-auto" id="toast-title">Success</strong>
+                <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+            <div class="toast-body" id="toast-message"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize tooltips
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+
+    // Initialize popovers
+    var popoverTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="popover"]'));
+    var popoverList = popoverTriggerList.map(function (popoverTriggerEl) {
+        return new bootstrap.Popover(popoverTriggerEl);
+    });
+
+    // Initialize search functionality
+    const searchInput = document.getElementById('searchInput');
+    const searchButton = document.getElementById('searchButton');
+
+    if (searchButton) {
+        searchButton.addEventListener('click', performSearch);
+    }
+
+    if (searchInput) {
+        searchInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                performSearch();
+            }
+        });
+    }
+
+    // View Expense Modal Handler
+    document.querySelectorAll('.view-expense').forEach(button => {
+        button.addEventListener('click', function() {
+            const modal = document.getElementById('viewExpenseModal');
+            const expenseId = this.dataset.id;
+            modal.querySelector('.modal-title').textContent = `Expense #${expenseId}`;
+            
+            document.getElementById('view_id').textContent = this.dataset.id || 'N/A';
+            document.getElementById('view_description').textContent = this.dataset.description || 'N/A';
+            document.getElementById('view_amount').textContent = this.dataset.amount || 'N/A';
+            document.getElementById('view_date_incurred').textContent = this.dataset.dateIncurred || 'N/A';
+            document.getElementById('view_created_by').textContent = this.dataset.createdBy || 'N/A';
+            document.getElementById('view_created_at').textContent = this.dataset.createdAt || 'N/A';
+            
+            const receiptElement = document.getElementById('view_receipt');
+            if (this.dataset.receipt) {
+                receiptElement.innerHTML = `<a href="${this.dataset.receipt}" target="_blank">View Receipt</a>`;
+            } else {
+                receiptElement.textContent = 'N/A';
+            }
+        });
+    });
+});
+
+// Handle search
+function performSearch() {
+    const searchInput = document.getElementById('searchInput');
+    if (!searchInput) return;
+    
+    const searchTerm = searchInput.value.trim();
+    const currentUrl = new URL(window.location.href);
+    
+    if (searchTerm) {
+        currentUrl.searchParams.set('search', searchTerm);
+    } else {
+        currentUrl.searchParams.delete('search');
+    }
+    
+    const filterParam = new URLSearchParams(window.location.search).get('filter');
+    if (filterParam) {
+        currentUrl.searchParams.set('filter', filterParam);
+    }
+    
+    window.location.href = currentUrl.toString();
+}
+</script>
+
+<style>
+.card {
+    background: white;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+.card-header {
+    background: linear-gradient(90deg, #2563eb, #4f46e5);
+    padding: 1rem;
+    border-radius: 0.5rem 0.5rem 0 0;
+}
+.card-body {
+    padding: 1.5rem;
+}
+.btn-primary {
+    background: #2563eb;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 0.3rem;
+    transition: background 0.3s ease;
+}
+.btn-primary:hover {
+    background: #1e40af;
+}
+.form-label {
+    font-weight: 500;
+    color: #495057;
+}
+.form-control, .form-select {
+    border-radius: 0.3rem;
+    border-color: #ced4da;
+    box-shadow: inset 0 1px 1px rgba(0, 0, 0, 0.075);
+}
+.form-control:focus, .form-select:focus {
+    border-color: #80bdff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+.table-responsive {
+    overflow-x: auto;
+}
+.vertical-align-middle {
+    vertical-align: middle;
+}
+.table th {
+    background: #f1f5f9;
+}
+.alert {
+    margin-bottom: 1rem;
+}
+</style>
+{% endblock %}

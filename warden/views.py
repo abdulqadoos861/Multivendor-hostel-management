@@ -1914,3 +1914,110 @@ def collect_monthly_fee(request, fee_id):
         'fee': fee,
     }
     return render(request, "warden/collect_monthly_fee.html", context)
+
+
+@login_required
+@user_passes_test(lambda u: hasattr(u, 'warden_profile'))
+def manage_expenses(request):
+    """
+    View to display and manage expenses for the warden's assigned hostel.
+    """
+    warden_profile = request.user.warden_profile
+    assigned_hostel = HostelWardens.objects.filter(warden=warden_profile).first().hostel if HostelWardens.objects.filter(warden=warden_profile).exists() else None
+    
+    if not assigned_hostel:
+        messages.error(request, 'You are not assigned to any hostel.')
+        return redirect('warden:dashboard')
+    
+    from messincharge.models import Expenses
+    
+    # Get all expenses for the assigned hostel
+    expenses = Expenses.objects.filter(hostel_id=assigned_hostel).select_related('created_by').order_by('-created_at')
+    
+    # Apply search filter if provided
+    search_query = request.GET.get('search', '')
+    if search_query:
+        expenses = expenses.filter(
+            Q(description__icontains=search_query) |
+            Q(amount__icontains=search_query)
+        )
+    
+    # Apply filter if provided
+    filter_type = request.GET.get('filter', 'all')
+    if filter_type == 'food':
+        expenses = expenses.filter(description__icontains='food')
+    elif filter_type == 'utilities':
+        expenses = expenses.filter(description__icontains='utilities')
+    
+    if request.method == 'POST':
+        description = request.POST.get('description', '')
+        amount = request.POST.get('amount', '')
+        date_incurred = request.POST.get('date_incurred', '')
+        receipt = request.FILES.get('receipt', None)
+        
+        if description and amount and date_incurred:
+            try:
+                from datetime import datetime
+                date_incurred = datetime.strptime(date_incurred, '%Y-%m-%d').date()
+                expense = Expenses(
+                    hostel_id=assigned_hostel,
+                    description=description,
+                    amount=float(amount),
+                    date_incurred=date_incurred,
+                    created_by=request.user,
+                    receipt=receipt
+                )
+                expense.save()
+                messages.success(request, 'Expense added successfully.')
+                return redirect('warden:manage_expenses')
+            except ValueError as e:
+                messages.error(request, f'Error adding expense: Invalid date format or amount.')
+        else:
+            messages.error(request, 'Error adding expense: All fields are required.')
+    
+    context = {
+        'page_title': 'Manage Expenses',
+        'expenses': expenses,
+        'total_expenses': expenses.count(),
+        'search_query': search_query,
+        'filter_type': filter_type,
+        'hostel': assigned_hostel,
+    }
+    return render(request, 'warden/warden_expenses.html', context)
+
+
+@login_required
+@user_passes_test(lambda u: hasattr(u, 'warden_profile'))
+def expense_details(request, expense_id):
+    """
+    View to display details of a specific expense.
+    """
+    if not request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return HttpResponseForbidden()
+        
+    warden_profile = request.user.warden_profile
+    assigned_hostel = HostelWardens.objects.filter(warden=warden_profile).first().hostel if HostelWardens.objects.filter(warden=warden_profile).exists() else None
+    
+    if not assigned_hostel:
+        return JsonResponse({'error': 'You are not assigned to any hostel.'}, status=403)
+    
+    try:
+        from messincharge.models import Expenses
+        expense = Expenses.objects.select_related('hostel_id', 'created_by').get(expense_id=expense_id, hostel_id=assigned_hostel)
+        
+        data = {
+            'id': expense.expense_id,
+            'description': expense.description,
+            'amount': str(expense.amount),
+            'date_incurred': expense.date_incurred.strftime('%Y-%m-%d') if expense.date_incurred else 'N/A',
+            'hostel': expense.hostel_id.name,
+            'created_by': expense.created_by.username if expense.created_by else 'N/A',
+            'created_at': expense.created_at.strftime('%Y-%m-%d %H:%M') if expense.created_at else 'N/A',
+            'receipt': expense.receipt.url if expense.receipt else 'N/A'
+        }
+        return JsonResponse(data)
+    except Expenses.DoesNotExist:
+        return JsonResponse({'error': 'Expense not found or you are not authorized to view it.'}, status=404)
+    except Exception as e:
+        logger.exception(f"Error fetching expense details for expense_id={expense_id}: {str(e)}")
+        return JsonResponse({'error': f'An error occurred: {str(e)}'}, status=500)
