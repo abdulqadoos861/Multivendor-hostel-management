@@ -71,7 +71,7 @@
     </style>
 </head>
 <body>
-    {% extends "base.html" %}
+    {% extends "admin_base.html" %}
 
     {% block title %}Student Feedbacks{% endblock %}
 
@@ -99,7 +99,9 @@
                     <select name="hostel" id="hostel" class="form-select">
                         <option value="">All Hostels</option>
                         {% for hostel in hostels %}
-                            <option value="{{ hostel.id }}" {% if hostel_filter == hostel.id|stringformat:"s" %}selected{% endif %}>{{ hostel.name }}</option>
+                            <option value="{{ hostel.id }}" {% if request.GET.hostel == hostel.id|stringformat:"s" %}selected{% endif %}>{{ hostel.name }}</option>
+                        {% empty %}
+                            <option value="" disabled>No hostels available. Backend must pass 'hostels' data to the template for filtering to work.</option>
                         {% endfor %}
                     </select>
                 </div>
@@ -130,11 +132,12 @@
                                 <table class="table table-hover mb-0">
                                     <thead class="bg-light">
                                         <tr>
-                                            <th class="ps-4">Student</th>
-                                            <th>Hostel</th>
+                                            <th class="ps-4 sortable" data-sort="student">Student <i class="bi bi-sort-alpha-down"></i></th>
+                                            <th class="sortable" data-sort="hostel">Hostel <i class="bi bi-sort-alpha-down"></i></th>
                                             <th>Feedback</th>
-                                            <th>Rating</th>
-                                            <th>Date</th>
+                                            <th class="sortable" data-sort="rating">Rating <i class="bi bi-sort-numeric-down"></i></th>
+                                            <th class="sortable" data-sort="date">Date <i class="bi bi-sort-numeric-down"></i></th>
+                                            <th>Status</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -151,10 +154,18 @@
                                                 <td>{{ feedback.feedback_text|truncatewords:20 }}</td>
                                                 <td>
                                                     {% for i in "12345"|make_list %}
-                                                        <i class="bi bi-star-fill rating-star {% if forloop.counter <= feedback.rating %}text-warning{% else %}text-muted{% endif %}"></i>
+                                                        <i class="bi bi-star-fill rating-star {% if forloop.counter <= feedback.rating %}text-warning{% else %}text-muted{% endif %}" style="font-size: 1.2rem;"></i>
                                                     {% endfor %}
                                                 </td>
                                                 <td>{{ feedback.created_at|date:"Y-m-d H:i" }}</td>
+                                                <td>
+                                                    <span class="badge bg-{% if feedback.is_new %}danger{% else %}secondary{% endif %} p-2">
+                                                        {% if feedback.is_new %}New{% else %}Reviewed{% endif %}
+                                                    </span>
+                                                </td>
+                                                <td>
+                                                    <!-- View Details button removed as per user request -->
+                                                </td>
                                             </tr>
                                         {% endfor %}
                                     </tbody>
@@ -171,9 +182,37 @@
             </div>
         </div>
     </div>
+
+    <!-- Feedback Details Modal removed as per user request -->
     {% endblock %}
 
     <!-- Bootstrap Bundle with Popper -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Sorting functionality
+            document.querySelectorAll('.sortable').forEach(header => {
+                header.addEventListener('click', function() {
+                    const sortField = this.getAttribute('data-sort');
+                    const url = new URL(window.location);
+                    const currentSort = url.searchParams.get('sort') || '';
+                    const newSort = currentSort === sortField ? `-${sortField}` : sortField;
+                    url.searchParams.set('sort', newSort);
+                    window.location.href = url.toString();
+                });
+            });
+
+            // View details modal functionality removed as per user request
+
+            // Mark as reviewed button (placeholder)
+            document.querySelector('.mark-reviewed').addEventListener('click', function() {
+                const feedbackId = this.getAttribute('data-id');
+                // Placeholder for marking feedback as reviewed
+                alert(`Marked feedback ${feedbackId} as reviewed.`);
+                // In a real implementation, this would update the backend
+                window.location.reload();
+            });
+        });
+    </script>
 </body>
 </html>

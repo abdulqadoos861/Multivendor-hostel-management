@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'admin_base.html' %}
 {% load static %}
 
 {% block content %}
@@ -30,7 +30,7 @@
     </div>
 </div>
 
-<div class="card mt-4">
+    <div class="card mt-4">
     <div class="card-header">
         <h4>Current Fixed Rates</h4>
         <div class="row">
@@ -126,6 +126,17 @@ document.addEventListener('DOMContentLoaded', function() {
                 row.style.display = 'none';
             }
         });
+    }
+
+
+    // Helper function to get CSRF token
+    function getCsrfToken() {
+        const token = document.querySelector('input[name="csrfmiddlewaretoken"]');
+        if (!token) {
+            console.error('CSRF token not found. Ensure {% csrf_token %} is included in the form.');
+            return '';
+        }
+        return token.value;
     }
 
     filterHostel.addEventListener('change', filterTable);

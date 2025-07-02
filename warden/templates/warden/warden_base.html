@@ -25,54 +25,72 @@
             color: #333;
         }
         
-        /* Sidebar */
-        .sidebar {
-            min-height: 100vh;
-            background: linear-gradient(180deg, var(--primary-color), var(--secondary-color));
+        /* Navbar */
+        .navbar-warden {
+            background: linear-gradient(90deg, var(--primary-color), var(--secondary-color));
             color: white;
-            padding: 0;
-            box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.15);
+            padding: 0.5rem 1rem;
         }
         
-        .sidebar-header {
-            padding: 20px;
-            background-color: rgba(0, 0, 0, 0.1);
-            text-align: center;
+        .navbar-warden .navbar-brand {
+            font-size: 1.4rem;
+            font-weight: 700;
+            color: white;
+            padding: 0 20px;
+            display: flex;
+            align-items: center;
         }
         
-        .sidebar-header h3 {
-            margin: 0;
-            font-size: 1.2rem;
-            font-weight: 600;
+        .navbar-warden .navbar-brand i {
+            margin-right: 10px;
+            font-size: 1.6rem;
         }
         
-        .sidebar-menu {
-            padding: 15px 0;
+        .navbar-warden .nav-link {
+            color: rgba(255, 255, 255, 0.9);
+            padding: 12px 18px;
+            transition: all 0.3s ease;
+            border-radius: 4px;
+            margin: 0 5px;
         }
         
-        .nav-link {
-            color: rgba(255, 255, 255, 0.8);
-            padding: 12px 20px;
-            margin: 5px 10px;
-            border-radius: 5px;
-            transition: all 0.3s;
-        }
-        
-        .nav-link:hover, .nav-link.active {
-            background-color: rgba(255, 255, 255, 0.1);
+        .navbar-warden .nav-link:hover, .navbar-warden .nav-link.active {
+            background-color: rgba(255, 255, 255, 0.15);
             color: white;
             text-decoration: none;
+            transform: translateY(-1px);
         }
         
-        .nav-link i {
-            margin-right: 10px;
+        .navbar-warden .nav-link i {
+            margin-right: 8px;
             width: 20px;
             text-align: center;
+        }
+        
+        .navbar-warden .dropdown-menu {
+            background-color: var(--secondary-color);
+            border: none;
+            border-radius: 6px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            margin-top: 5px;
+        }
+        
+        .navbar-warden .dropdown-item {
+            color: rgba(255, 255, 255, 0.9);
+            padding: 10px 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .navbar-warden .dropdown-item:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+            color: white;
         }
         
         /* Main Content */
         .main-content {
             padding: 20px;
+            margin-top: 60px; /* Adjust for navbar height */
         }
         
         /* Card Styling */
@@ -128,13 +146,9 @@
         
         /* Responsive Adjustments */
         @media (max-width: 768px) {
-            .sidebar {
-                min-height: auto;
-                height: auto;
-            }
-            
             .main-content {
                 padding: 15px;
+                margin-top: 56px; /* Adjust for smaller navbar height on mobile */
             }
         }
     </style>
@@ -144,14 +158,15 @@
 </head>
 <body>
     <div class="container-fluid">
-        <div class="row">
-            <!-- Sidebar -->
-            <div class="col-md-3 col-lg-2 d-md-block sidebar collapse">
-                <div class="sidebar-header">
-                    <h3>Warden Panel</h3>
-                </div>
-                <div class="sidebar-menu">
-                    <ul class="nav flex-column">
+        <!-- Navbar -->
+        <nav class="navbar navbar-expand-lg navbar-warden fixed-top">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="{% url 'warden:dashboard' %}"><i class="fas fa-shield-alt"></i> Warden Panel</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#wardenNavbar" aria-controls="wardenNavbar" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="wardenNavbar">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         <li class="nav-item">
                             <a class="nav-link {% if request.path == '/warden/dashboard/' %}active{% endif %}" href="{% url 'warden:dashboard' %}">
                                 <i class="fas fa-tachometer-alt"></i> Dashboard
@@ -162,42 +177,34 @@
                                 <i class="fas fa-users"></i> Manage Students
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if 'bookings' in request.path %}active{% endif %}" href=" {% url 'warden:manage_booking' %} ">
-                                <i class="fas fa-book"></i> Manage Bookings
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle {% if 'rooms' in request.path or 'room-assignments' in request.path or 'change-room-requests' in request.path or 'bookings' in request.path %}active{% endif %}" href="#" id="roomsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-bed"></i> Room Management
                             </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if 'rooms' in request.path %}active{% endif %}" href="{% url 'warden:manage_rooms' %}">
-                                <i class="fas fa-bed"></i> Rooms
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if 'room-assignments' in request.path %}active{% endif %}" href="{% url 'warden:room_assignments' %}">
-                                <i class="fas fa-house-user"></i> Room Assignments
-                            </a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if 'change-room-requests' in request.path %}active{% endif %}" href="{% url 'warden:change_room_requests' %}">
-                                <i class="fas fa-arrow-left-right"></i> Change Room Requests
-                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="roomsDropdown">
+                                <li><a class="dropdown-item {% if 'rooms' in request.path %}active{% endif %}" href="{% url 'warden:manage_rooms' %}"><i class="fas fa-bed"></i> Rooms</a></li>
+                                <li><a class="dropdown-item {% if 'room-assignments' in request.path %}active{% endif %}" href="{% url 'warden:room_assignments' %}"><i class="fas fa-house-user"></i> Room Assignments</a></li>
+                                <li><a class="dropdown-item {% if 'change-room-requests' in request.path %}active{% endif %}" href="{% url 'warden:change_room_requests' %}"><i class="fas fa-arrow-left-right"></i> Change Room Requests</a></li>
+                                <li><a class="dropdown-item {% if 'bookings' in request.path %}active{% endif %}" href=" {% url 'warden:manage_booking' %} "><i class="fas fa-book"></i> Booking Management</a></li>
+                            </ul>
                         </li>
                         <li class="nav-item">
                             <a class="nav-link {% if 'complaints' in request.path %}active{% endif %}" href="{% url 'warden:warden_complaints' %}">
                                 <i class="fas fa-comment-dots"></i> Complaints
                             </a>
                         </li>
-                        <li class="nav-item">
-                            <a class="nav-link {% if 'security-deposits' in request.path %}active{% endif %}" href="{% url 'warden:security_deposits' %}">
-                                <i class="fas fa-money-bill-wave"></i> Security Deposits
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle {% if 'security-deposits' in request.path or 'monthly-fees' in request.path %}active{% endif %}" href="#" id="paymentsDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                <i class="fas fa-money-bill-wave"></i> Payments
                             </a>
+                            <ul class="dropdown-menu" aria-labelledby="paymentsDropdown">
+                                <li><a class="dropdown-item {% if 'security-deposits' in request.path %}active{% endif %}" href="{% url 'warden:security_deposits' %}"><i class="fas fa-money-bill-wave"></i> Security Deposits</a></li>
+                                <li><a class="dropdown-item {% if 'monthly-fees' in request.path %}active{% endif %}" href="{% url 'warden:monthly_fees' %}"><i class="fas fa-receipt"></i> Monthly Fees</a></li>
+                            </ul>
                         </li>
+                    </ul>
+                    <ul class="navbar-nav ms-auto">
                         <li class="nav-item">
-                            <a class="nav-link {% if 'monthly-fees' in request.path %}active{% endif %}" href="{% url 'warden:monthly_fees' %}">
-                                <i class="fas fa-receipt"></i> Monthly Fees
-                            </a>
-                        </li>
-                        <li class="nav-item mt-4">
                             <a class="nav-link text-danger" href="{% url 'warden:logout' %}">
                                 <i class="fas fa-sign-out-alt"></i> Logout
                             </a>
@@ -205,38 +212,38 @@
                     </ul>
                 </div>
             </div>
+        </nav>
 
-            <!-- Main Content -->
-            <main role="main" class="col-md-9 ml-sm-auto col-lg-10 px-4 main-content">
-                <!-- Messages -->
-                {% if messages %}
-                <div class="mt-3">
-                    {% for message in messages %}
-                    <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
-                    </div>
-                    {% endfor %}
+        <!-- Main Content -->
+        <main role="main" class="main-content">
+            <!-- Messages -->
+            {% if messages %}
+            <div class="mt-3">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                    {{ message }}
+                    <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
                 </div>
-                {% endif %}
+                {% endfor %}
+            </div>
+            {% endif %}
 
-                <!-- Page Title and Breadcrumbs -->
-                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
-                    <h1 class="h2">{% block page_title %}{% endblock %}</h1>
-                    <div class="btn-toolbar mb-2 mb-md-0">
-                        <nav aria-label="breadcrumb">
-                            <ol class="breadcrumb mb-0">
-                                <li class="breadcrumb-item"><a href="{% url 'warden:dashboard' %}">Home</a></li>
-                                {% block breadcrumbs %}{% endblock %}
-                            </ol>
-                        </nav>
-                    </div>
+            <!-- Page Title and Breadcrumbs -->
+            <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                <h1 class="h2">{% block page_title %}{% endblock %}</h1>
+                <div class="btn-toolbar mb-2 mb-md-0">
+                    <nav aria-label="breadcrumb">
+                        <ol class="breadcrumb mb-0">
+                            <li class="breadcrumb-item"><a href="{% url 'warden:dashboard' %}">Home</a></li>
+                            {% block breadcrumbs %}{% endblock %}
+                        </ol>
+                    </nav>
                 </div>
+            </div>
 
-                <!-- Page Content -->
-                {% block content %}{% endblock %}
-            </main>
-        </div>
+            <!-- Page Content -->
+            {% block content %}{% endblock %}
+        </main>
     </div>
 
     <!-- Bootstrap Bundle with Popper -->

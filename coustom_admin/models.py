@@ -8,12 +8,18 @@ from django.core.exceptions import ValidationError
 from django.db.models import F, Q, Sum
 
 class Hostels(models.Model):
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+    ]
+    
     name = models.CharField(max_length=100)
     address = models.TextField(max_length=250)
     gender = models.CharField(default="Male", choices=[('Male', 'Male'), ('Female', 'Female')])
     contact_number = models.CharField(max_length=11)
     total_floors = models.IntegerField()
     description = models.TextField(blank=True, null=True)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Active')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -339,6 +345,11 @@ class MessIncharge(models.Model):
     district = models.CharField(max_length=50, blank=True, null=True)
     gender = models.CharField(max_length=10, choices=[('Male', 'Male'), ('Female', 'Female'), ('Other', 'Other')])
     hostel = models.ForeignKey(Hostels, on_delete=models.CASCADE, related_name='mess_incharges')
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+    ]
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Active')
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

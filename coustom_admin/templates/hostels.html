@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'admin_base.html' %}
 {% block title %}Hostels{% endblock %}
 
 {% block header_title %}
@@ -14,31 +14,44 @@
 
     <!-- Hostel List Table -->
     <h3 class="table-title">Registered Hostels</h3>
+    <!-- Search and Filter Bar -->
+    <div class="input-group mb-3 fade-in">
+        <span class="input-group-text" id="search-addon"><i class="bi bi-search"></i></span>
+        <input type="text" class="form-control" id="searchHostels" placeholder="Search hostels by name or address..." aria-label="Search hostels" aria-describedby="search-addon">
+    </div>
     <div class="table-responsive fade-in">
         <table class="table table-bordered hostel-table">
             <thead class="table-header">
                 <tr>
-                    <th>Name</th>
-                    <th>Address</th>
+                    <th class="sortable" onclick="sortTable(0)">Name <i class="bi bi-sort-alpha-down"></i></th>
+                    <th class="d-none d-md-table-cell">Address</th>
                     <th>Gender</th>
-                    <th>Contact Number</th>
-                    <th>Total Floors</th>
-                    <th>Description</th>
-                    <th>Warden</th>
-                    <th>Created At</th>
+                    <th class="d-none d-lg-table-cell">Contact Number</th>
+                    <th class="d-none d-lg-table-cell">Total Floors</th>
+                    <th class="d-none d-md-table-cell">Description</th>
+                    <th class="sortable" onclick="sortTable(6)">Status <i class="bi bi-sort-alpha-down"></i></th>
+                    <th class="d-none d-lg-table-cell">Warden</th>
+                    <th class="d-none d-md-table-cell sortable" onclick="sortTable(8)">Created At <i class="bi bi-sort-numeric-down"></i></th>
                     <th>Action</th>
                 </tr>
             </thead>
-            <tbody>
+            <tbody id="hostelTableBody">
                 {% for hostel in hostels %}
                 <tr>
-                    <td>{{ hostel.name }}</td>
-                    <td>{{ hostel.address }}</td>
+                    <td class="fw-bold">{{ hostel.name }}</td>
+                    <td class="d-none d-md-table-cell">{{ hostel.address|truncatechars:50 }} {% if hostel.address|length > 50 %}<span class="text-muted" title="{{ hostel.address }}">...</span>{% endif %}</td>
                     <td>{{ hostel.gender|capfirst }}</td>
-                    <td>{{ hostel.contact_number }}</td>
-                    <td>{{ hostel.total_floors }}</td>
-                    <td>{{ hostel.description|default:"No description" }}</td>
+                    <td class="d-none d-lg-table-cell">{{ hostel.contact_number }}</td>
+                    <td class="d-none d-lg-table-cell">{{ hostel.total_floors }}</td>
+                    <td class="d-none d-md-table-cell">{{ hostel.description|default:"No description"|truncatechars:50 }} {% if hostel.description|length > 50 %}<span class="text-muted" title="{{ hostel.description }}">...</span>{% endif %}</td>
                     <td>
+                        {% if hostel.status == 'Active' %}
+                            <span class="badge bg-success status-badge"><i class="bi bi-check-circle me-1"></i>{{ hostel.status }}</span>
+                        {% else %}
+                            <span class="badge bg-danger status-badge"><i class="bi bi-x-circle me-1"></i>{{ hostel.status }}</span>
+                        {% endif %}
+                    </td>
+                    <td class="d-none d-lg-table-cell">
                         {% with hostel_warden=hostel.hostelwardens_set.first %}
                             {% if hostel_warden %}
                                 {{ hostel_warden.warden.name }}
@@ -47,9 +60,10 @@
                             {% endif %}
                         {% endwith %}
                     </td>
-                    <td>{{ hostel.created_at|date:"Y-m-d H:i:s" }}</td>
+                    <td class="d-none d-md-table-cell">{{ hostel.created_at|date:"Y-m-d H:i:s" }}</td>
                     <td class="action-buttons">
-                        <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#editHostelModal" onclick="populateEditModal(event)" 
+                        <div class="action-btn-group">
+                            <button type="button" class="btn btn-primary btn-sm action-btn-edit" data-bs-toggle="modal" data-bs-target="#editHostelModal" onclick="populateEditModal(event)" 
                                 data-id="{{ hostel.id }}" 
                                 data-name="{{ hostel.name|escapejs }}" 
                                 data-address="{{ hostel.address|escapejs|default:'' }}" 
@@ -57,23 +71,27 @@
                                 data-contact="{{ hostel.contact_number|escapejs }}" 
                                 data-floors="{{ hostel.total_floors }}" 
                                 data-description="{{ hostel.description|escapejs|default:'' }}">
-                            <i class="bi bi-pencil-fill me-1"></i> Edit
-                        </button>
-                        <button type="button" class="btn btn-danger btn-sm" onclick="confirmDelete('{{ hostel.id }}', '{{ hostel.name|escapejs }}')">
-                            <i class="bi bi-trash-fill me-1"></i> Delete
-                        </button>
-                        {% with hostel_warden=hostel.hostelwardens_set.first %}
-                            {% if hostel_warden %}
-                                <button type="button" class="btn btn-warning btn-sm" onclick="confirmRemoveWarden('{{ hostel.id }}', '{{ hostel.name|escapejs }}', '{{ hostel_warden.warden.name|escapejs }}')">
-                                    <i class="bi bi-person-x-fill me-1"></i> Remove Warden
-                                </button>
-                            {% endif %}
-                        {% endwith %}
+                                <i class="bi bi-pencil-fill"></i><span class="d-none d-xl-inline"> Edit</span>
+                            </button>
+                            <button type="button" class="btn btn-danger btn-sm action-btn-delete" onclick="confirmDelete('{{ hostel.id }}', '{{ hostel.name|escapejs }}')">
+                                <i class="bi bi-trash-fill"></i><span class="d-none d-xl-inline"> Delete</span>
+                            </button>
+                            {% with hostel_warden=hostel.hostelwardens_set.first %}
+                                {% if hostel_warden %}
+                                    <button type="button" class="btn btn-warning btn-sm action-btn-remove-warden" onclick="confirmRemoveWarden('{{ hostel.id }}', '{{ hostel.name|escapejs }}', '{{ hostel_warden.warden.name|escapejs }}')">
+                                        <i class="bi bi-person-x-fill"></i><span class="d-none d-xl-inline"> Remove Warden</span>
+                                    </button>
+                                {% endif %}
+                            {% endwith %}
+                            <button type="button" class="btn btn-{% if hostel.status == 'Active' %}danger{% else %}success{% endif %} btn-sm action-btn-status" onclick="toggleHostelStatus('{{ hostel.id }}', '{{ hostel.name|escapejs }}', '{{ hostel.status }}')">
+                                <i class="bi bi-power"></i><span class="d-none d-xl-inline"> {% if hostel.status == 'Active' %}Deactivate{% else %}Activate{% endif %}</span>
+                            </button>
+                        </div>
                     </td>
                 </tr>
                 {% empty %}
                 <tr>
-                    <td colspan="9" class="text-center text-muted">No hostels registered yet.</td>
+                    <td colspan="10" class="text-center text-muted">No hostels registered yet.</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -172,6 +190,13 @@
                                 <option value="female">Female</option>
                             </select>
                         </div>
+                        <div class="mb-3">
+                            <label for="edit_status" class="form-label">Status</label>
+                            <select class="form-select" id="edit_status" name="status" required>
+                                <option value="Active">Active</option>
+                                <option value="Inactive">Inactive</option>
+                            </select>
+                        </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
                             <button type="submit" class="btn btn-primary" id="editHostelButton">Update</button>
@@ -206,15 +231,15 @@
 
 <style>
     :root {
-        --primary-color: #4f46e5;
-        --secondary-color: #7c3aed;
-        --accent-color: #60a5fa;
-        --text-color: #1f2937;
-        --light-bg: #f1f5f9;
-        --success-color: #22c55e;
-        --danger-color: #ef4444;
-        --card-shadow: 0 6px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
-        --transition-speed: 0.3s;
+        --primary-color: #4338ca;
+        --secondary-color: #6d28d9;
+        --accent-color: #3b82f6;
+        --text-color: #1e293b;
+        --light-bg: #f8fafc;
+        --success-color: #10b981;
+        --danger-color: #dc2626;
+        --card-shadow: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+        --transition-speed: 0.25s;
     }
 
     .table-title {
@@ -236,43 +261,112 @@
     }
 
     .hostel-table {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(12px);
-        border-radius: 1rem;
-        box-shadow: var(--card-shadow);
-        border: 1px solid rgba(79, 70, 229, 0.2);
+        background: rgba(255, 255, 255, 0.98);
+        backdrop-filter: blur(15px);
+        border-radius: 1.25rem;
+        box-shadow: 0 8px 16px rgba(79, 70, 229, 0.1), 0 3px 6px rgba(0, 0, 0, 0.05);
+        border: 1px solid rgba(79, 70, 229, 0.15);
+        overflow: hidden;
     }
 
     .table-header {
         background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
         color: white;
+        position: relative;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
 
     .table-header th {
-        font-weight: 500;
-        padding: 1rem;
+        font-weight: 600;
+        padding: 0.6rem 0.9rem;
+        cursor: pointer;
+        position: relative;
+        transition: all var(--transition-speed);
+    }
+
+    .sortable:hover {
+        background: rgba(255, 255, 255, 0.15);
+        transform: scale(1.02);
+        color: #fff;
     }
 
     .hostel-table tbody tr {
         transition: all var(--transition-speed);
+        background: rgba(255, 255, 255, 0.6);
+        border-bottom: 1px solid rgba(79, 70, 229, 0.1);
+    }
+
+    .hostel-table tbody tr:nth-child(even) {
+        background: rgba(248, 250, 252, 0.6);
     }
 
     .hostel-table tbody tr:hover {
-        background: rgba(79, 70, 229, 0.1);
-        transform: translateY(-2px);
+        background: rgba(79, 70, 229, 0.08);
+        transform: translateY(-1px);
+        box-shadow: inset 0 0 8px rgba(79, 70, 229, 0.05);
     }
 
     .hostel-table td {
         vertical-align: middle;
-        padding: 0.75rem;
-        font-size: 0.9rem;
+        padding: 0.55rem 0.85rem;
+        font-size: 0.88rem;
+        color: var(--text-color);
+    }
+
+    .status-badge {
+        font-size: 0.82rem;
+        padding: 0.35rem 0.7rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05);
+        transition: all var(--transition-speed);
+    }
+
+    .status-badge:hover {
+        transform: scale(1.05);
+    }
+
+    .action-buttons {
+        display: flex;
+        justify-content: center;
+    }
+
+    .action-btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.3rem;
+        justify-content: center;
     }
 
     .action-buttons .btn {
-        margin-right: 0.5rem;
         border-radius: 0.5rem;
-        padding: 0.5rem 1rem;
-        font-size: 0.85rem;
+        padding: 0.35rem 0.6rem;
+        font-size: 0.8rem;
+        transition: all var(--transition-speed);
+        min-width: 2.5rem;
+    }
+
+    .action-buttons .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 3px 6px rgba(0, 0, 0, 0.1);
+    }
+
+    .action-btn-edit {
+        background: var(--primary-color);
+        color: white;
+    }
+
+    .action-btn-delete {
+        background: var(--danger-color);
+        color: white;
+    }
+
+    .action-btn-remove-warden {
+        background: #f59e0b; /* Bootstrap warning color */
+        color: white;
+    }
+
+    .action-btn-status {
+        min-width: 2.5rem;
     }
 
     .btn-primary {
@@ -483,15 +577,51 @@
         }
     }
 
+    .input-group.mb-3.fade-in {
+        border-radius: 0.75rem;
+        overflow: hidden;
+        box-shadow: 0 3px 6px rgba(79, 70, 229, 0.1);
+        border: 1px solid rgba(79, 70, 229, 0.2);
+    }
+
+    .input-group-text {
+        background: rgba(79, 70, 229, 0.1);
+        color: var(--primary-color);
+        border: none;
+        transition: all var(--transition-speed);
+    }
+
+    .input-group-text:hover {
+        background: rgba(79, 70, 229, 0.15);
+    }
+
+    #searchHostels {
+        border: none;
+        background: rgba(255, 255, 255, 0.9);
+        padding: 0.6rem 1rem;
+        transition: all var(--transition-speed);
+    }
+
+    #searchHostels:focus {
+        outline: none;
+        box-shadow: inset 0 0 5px rgba(79, 70, 229, 0.2);
+        background: white;
+    }
+
     /* Responsive Design */
     @media (max-width: 768px) {
         .hostel-table {
-            font-size: 0.85rem;
+            font-size: 0.8rem;
         }
 
         .action-buttons .btn {
-            padding: 0.4rem 0.8rem;
-            font-size: 0.8rem;
+            padding: 0.3rem 0.5rem;
+            font-size: 0.7rem;
+            min-width: 2rem;
+        }
+
+        .action-btn-group {
+            gap: 0.2rem;
         }
 
         .table-title {
@@ -751,16 +881,73 @@
             };
         };
 
-        // Smooth focus animation for inputs and selects
-        const inputs = document.querySelectorAll('.form-control, .form-select');
-        inputs.forEach(input => {
-            input.addEventListener('focus', function() {
-                this.style.transform = 'scale(1.02)';
-            });
-            input.addEventListener('blur', function() {
-                this.style.transform = 'scale(1)';
-            });
+    // Smooth focus animation for inputs and selects
+    const inputs = document.querySelectorAll('.form-control, .form-select');
+    inputs.forEach(input => {
+        input.addEventListener('focus', function() {
+            this.style.transform = 'scale(1.02)';
         });
+        input.addEventListener('blur', function() {
+            this.style.transform = 'scale(1)';
+        });
+    });
+
+    // Search functionality for hostels table
+    document.getElementById('searchHostels').addEventListener('input', function() {
+        const searchTerm = this.value.toLowerCase();
+        const rows = document.querySelectorAll('#hostelTableBody tr');
+        
+        rows.forEach(row => {
+            const name = row.cells[0].textContent.toLowerCase();
+            const address = row.cells[1].textContent.toLowerCase();
+            if (name.includes(searchTerm) || address.includes(searchTerm)) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+    });
+
+    // Table sorting functionality
+    window.sortTable = function(columnIndex) {
+        const table = document.querySelector('.hostel-table');
+        const tbody = document.getElementById('hostelTableBody');
+        const rows = Array.from(tbody.querySelectorAll('tr'));
+        const isAscending = table.getAttribute('data-sort-direction') !== 'asc';
+        const direction = isAscending ? 1 : -1;
+        
+        // Update sort direction attribute
+        table.setAttribute('data-sort-direction', isAscending ? 'asc' : 'desc');
+        
+        // Update sort icons
+        const headers = document.querySelectorAll('.sortable');
+        headers.forEach((header, index) => {
+            if (index === columnIndex) {
+                header.innerHTML = header.textContent.split(' ')[0] + (isAscending ? ' <i class="bi bi-sort-alpha-up"></i>' : ' <i class="bi bi-sort-alpha-down"></i>');
+            } else {
+                header.innerHTML = header.textContent.split(' ')[0] + ' <i class="bi bi-sort-alpha-down"></i>';
+            }
+        });
+        
+        rows.sort((a, b) => {
+            let aValue = a.cells[columnIndex].textContent.trim();
+            let bValue = b.cells[columnIndex].textContent.trim();
+            
+            // Special handling for date column
+            if (columnIndex === 8) {
+                aValue = new Date(aValue).getTime();
+                bValue = new Date(bValue).getTime();
+            }
+            
+            return aValue > bValue ? direction : -direction;
+        });
+        
+        // Clear and re-append sorted rows
+        while (tbody.firstChild) {
+            tbody.removeChild(tbody.firstChild);
+        }
+        rows.forEach(row => tbody.appendChild(row));
+    };
 
         // Function to populate edit modal with hostel data
         window.populateEditModal = function(event) {
@@ -772,6 +959,7 @@
             const contact_number = button.getAttribute('data-contact');
             const total_floors = button.getAttribute('data-floors');
             const description = button.getAttribute('data-description');
+            const status = button.getAttribute('data-status');
             
             // Set the form action URL with the hostel ID
             const editForm = document.getElementById('editHostelForm');
@@ -798,9 +986,97 @@
                 }
             }
             
+            // Set the status select
+            const statusSelect = document.getElementById('edit_status');
+            if (status) {
+                for (let i = 0; i < statusSelect.options.length; i++) {
+                    if (statusSelect.options[i].value === status) {
+                        statusSelect.selectedIndex = i;
+                        break;
+                    }
+                }
+            }
+            
             // Show the modal
             const editModal = new bootstrap.Modal(document.getElementById('editHostelModal'));
             editModal.show();
+        };
+        
+        // Toggle hostel status functionality
+        window.toggleHostelStatus = function(id, name, currentStatus) {
+            const newStatus = currentStatus === 'Active' ? 'Inactive' : 'Active';
+            const actionText = currentStatus === 'Active' ? 'deactivate' : 'activate';
+            const deleteModalElement = document.getElementById('deleteConfirmModal');
+            if (!deleteModalElement) {
+                console.error('Modal element not found');
+                alert('An error occurred. Please try again.');
+                return;
+            }
+            const deleteHostelNameElement = document.getElementById('deleteHostelName');
+            if (deleteHostelNameElement) {
+                deleteHostelNameElement.textContent = name;
+            }
+            const deleteModal = new bootstrap.Modal(deleteModalElement);
+            deleteModal.show();
+
+            // Update modal content for status toggle
+            const modalBody = document.querySelector('#deleteConfirmModal .modal-body p:first-of-type');
+            if (modalBody) {
+                modalBody.textContent = `Are you sure you want to ${actionText} "${name}"?`;
+            }
+
+            const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
+            if (confirmDeleteBtn) {
+                confirmDeleteBtn.textContent = currentStatus === 'Active' ? 'Deactivate' : 'Activate';
+                confirmDeleteBtn.classList.remove('btn-danger', 'btn-success');
+                confirmDeleteBtn.classList.add(currentStatus === 'Active' ? 'btn-danger' : 'btn-success');
+                confirmDeleteBtn.onclick = async function() {
+                    confirmDeleteBtn.disabled = true;
+                    confirmDeleteBtn.classList.add('btn-loading');
+                    confirmDeleteBtn.textContent = currentStatus === 'Active' ? 'Deactivating...' : 'Activating...';
+
+                    try {
+                        const response = await fetch(`{% url 'toggle_hostel_status' 0 %}`.replace('0', id), {
+                            method: 'POST',
+                            headers: {
+                                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value,
+                                'X-Requested-With': 'XMLHttpRequest'
+                            },
+                            credentials: 'same-origin'
+                        });
+
+                        const result = await response.json();
+                        const messageDiv = document.getElementById('deleteMessage');
+                        if (messageDiv) {
+                            messageDiv.textContent = result.message;
+                            messageDiv.classList.remove('d-none', 'alert-success', 'alert-danger');
+                            messageDiv.classList.add(result.status === 'success' ? 'alert-success' : 'alert-danger');
+                        }
+
+                        if (result.status === 'success') {
+                            setTimeout(() => {
+                                deleteModal.hide();
+                                window.location.reload();
+                            }, 1000);
+                        } else {
+                            confirmDeleteBtn.disabled = false;
+                            confirmDeleteBtn.classList.remove('btn-loading');
+                            confirmDeleteBtn.textContent = currentStatus === 'Active' ? 'Deactivate' : 'Activate';
+                        }
+                    } catch (error) {
+                        console.error('Toggle status error:', error);
+                        const messageDiv = document.getElementById('deleteMessage');
+                        if (messageDiv) {
+                            messageDiv.textContent = `An error occurred: ${error.message}`;
+                            messageDiv.classList.remove('d-none', 'alert-success');
+                            messageDiv.classList.add('alert-danger');
+                        }
+                        confirmDeleteBtn.disabled = false;
+                        confirmDeleteBtn.classList.remove('btn-loading');
+                        confirmDeleteBtn.textContent = currentStatus === 'Active' ? 'Deactivate' : 'Activate';
+                    }
+                };
+            }
         };
     });
 </script>

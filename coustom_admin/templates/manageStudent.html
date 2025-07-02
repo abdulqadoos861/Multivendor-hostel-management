@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'admin_base.html' %}
 {% load static %}
 
 {% block title %}Manage Students{% endblock %}
@@ -601,7 +601,9 @@ function performSearch() {
         currentUrl.searchParams.set('status', statusFilter);
     }
     
-    window.location.href = currentUrl.toString();
+    // Keep user on the same page with updated search parameters if needed
+    // No automatic redirect unless necessary
+    window.location.href = currentUrl.toString(); // This is necessary for search functionality
 }
 
 // Main DOM Content Loaded handler
@@ -804,14 +806,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 });
             })
             .then(data => {
-                if (data.redirect_url) {
-                    window.location.href = data.redirect_url;
-                } else {
-                    showAlert(data.message || 'Student added successfully!', 'success');
-                    studentForm.reset();
-                    document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
-                    document.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
-                }
+                // Do not redirect; show success message on the same page
+                showAlert(data.message || 'Student added successfully!', 'success');
+                studentForm.reset();
+                document.querySelectorAll('.is-invalid').forEach(el => el.classList.remove('is-invalid'));
+                document.querySelectorAll('.invalid-feedback').forEach(el => el.remove());
             })
             .catch(error => {
                 if (!document.querySelector('.invalid-feedback')) {
@@ -953,9 +952,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     showAlert(result.message || 'Student updated successfully!', 'success');
                     const modal = bootstrap.Modal.getInstance(document.getElementById('editStudentModal'));
                     if (modal) modal.hide();
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1000);
+                    // Do not reload or redirect; keep user on the same page
                 } else {
                     showAlert(result.message || 'Failed to update student', 'danger');
                 }

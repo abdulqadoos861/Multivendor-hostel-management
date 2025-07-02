@@ -1,174 +1,299 @@
-{% extends "base.html" %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sunrise Hostel - Monthly Fees</title>
+    <!-- Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary-color: #4f46e5;
+            --secondary-color: #7c3aed;
+            --accent-color: #60a5fa;
+            --text-color: #1f2937;
+            --light-bg: #f1f5f9;
+            --sidebar-width: 280px;
+            --header-height: 70px;
+            --success-color: #22c55e;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --card-shadow: 0 6px 12px rgba(0, 0, 0, 0.08), 0 2px 4px rgba(0, 0, 0, 0.04);
+            --transition-speed: 0.3s;
+        }
 
-{% block title %}Monthly Fees - Sunrise Hostel{% endblock %}
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: var(--light-bg);
+            color: var(--text-color);
+            overflow-x: hidden;
+            position: relative;
+        }
 
-{% block content %}
-<div class="container-fluid">
-    <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Student Monthly Fees</h3>
-                    <div class="card-tools">
+        .content-wrapper {
+            padding: 2.5rem;
+            min-height: calc(100vh - var(--header-height));
+            background: rgba(255, 255, 255, 0.5);
+            border-radius: 16px;
+            margin: 1rem;
+            box-shadow: var(--card-shadow);
+        }
+
+        .card {
+            border: none;
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+        }
+
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06);
+        }
+
+        .table {
+            background-color: #fff;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+        }
+
+        .table th {
+            background-color: rgba(79, 70, 229, 0.1);
+            color: var(--primary-color);
+            font-weight: 600;
+            border-bottom: 2px solid rgba(79, 70, 229, 0.2);
+        }
+
+        .table td {
+            color: #000; /* Data color kept black as requested */
+            vertical-align: middle;
+        }
+
+        .table-striped tbody tr:nth-of-type(odd) {
+            background-color: rgba(79, 70, 229, 0.03);
+        }
+
+        .filter-box {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 12px;
+            box-shadow: var(--card-shadow);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .btn-primary {
+            background-color: var(--primary-color);
+            border-color: var(--primary-color);
+            transition: background-color var(--transition-speed);
+        }
+
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+            border-color: var(--secondary-color);
+        }
+
+        .badge {
+            padding: 0.5em 0.75em;
+            border-radius: 50px;
+            font-weight: 500;
+        }
+
+        .badge-success {
+            background-color: var(--success-color);
+        }
+
+        .badge-warning {
+            background-color: var(--warning-color);
+        }
+
+        .badge-danger {
+            background-color: var(--danger-color);
+        }
+    </style>
+</head>
+<body>
+    {% extends "admin_base.html" %}
+
+    {% block title %}Monthly Fees - Sunrise Hostel{% endblock %}
+
+    {% block header_title %}Monthly Fees{% endblock %}
+
+    {% block content %}
+    <div class="container-fluid">
+        <div class="row mb-4">
+            <div class="col">
+                <h2 class="mb-0">Student Monthly Fees</h2>
+                <p class="text-muted">View and manage monthly fee records for students</p>
+            </div>
+        </div>
+
+        <!-- Filters -->
+        <div class="filter-box mb-4">
+            <h5 class="mb-3">Filters</h5>
+            <form method="get" action="">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <div class="input-group">
+                            <input type="text" name="search" class="form-control" placeholder="Search by student name..." value="{{ request.GET.search }}">
+                            <button type="submit" class="btn btn-default"><i class="fas fa-search"></i></button>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="hostel" class="form-select">
+                            <option value="">All Hostels</option>
+                            {% for hostel in hostels %}
+                                <option value="{{ hostel.id }}" {% if request.GET.hostel == hostel.id|stringformat:"s" %}selected{% endif %}>{{ hostel.name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <select name="month" class="form-select">
+                            <option value="">All Months</option>
+                            {% for m, name in months %}
+                                <option value="{{ m }}" {% if request.GET.month == m|stringformat:"s" %}selected{% endif %}>{{ name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="input-group">
+                            <select name="year" class="form-select">
+                                <option value="">All Years</option>
+                                {% for y in years %}
+                                    <option value="{{ y }}" {% if request.GET.year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
+                                {% endfor %}
+                            </select>
+                            <button type="submit" class="btn btn-default">Apply Filters</button>
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Monthly Fees List -->
+        <div class="row">
+            <div class="col">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h3 class="card-title mb-0">Monthly Fee Records</h3>
                         <button type="button" class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#calculateFeesModal">
                             <i class="fas fa-calculator"></i> Calculate Monthly Fees
                         </button>
                     </div>
-                </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-12">
-                            <form method="get" action="">
-                                <div class="row">
-                                    <div class="col-md-3">
-                                        <div class="input-group mb-2">
-                                            <input type="text" name="search" class="form-control" placeholder="Search by student name..." value="{{ request.GET.search }}">
-                                            <div class="input-group-append">
-                                                <button type="submit" class="btn btn-default"><i class="fas fa-search"></i></button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="input-group mb-2">
-                                            <select name="hostel" class="form-control">
-                                                <option value="">All Hostels</option>
-                                                {% for hostel in hostels %}
-                                                    <option value="{{ hostel.id }}" {% if request.GET.hostel == hostel.id|stringformat:"s" %}selected{% endif %}>{{ hostel.name }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="input-group mb-2">
-                                            <select name="month" class="form-control">
-                                                <option value="">All Months</option>
-                                                {% for m, name in months %}
-                                                    <option value="{{ m }}" {% if request.GET.month == m|stringformat:"s" %}selected{% endif %}>{{ name }}</option>
-                                                {% endfor %}
-                                            </select>
-                                        </div>
-                                    </div>
-                                    <div class="col-md-3">
-                                        <div class="input-group mb-2">
-                                            <select name="year" class="form-control">
-                                                <option value="">All Years</option>
-                                                {% for y in years %}
-                                                    <option value="{{ y }}" {% if request.GET.year == y|stringformat:"s" %}selected{% endif %}>{{ y }}</option>
-                                                {% endfor %}
-                                            </select>
-                                            <div class="input-group-append">
-                                                <button type="submit" class="btn btn-default">Apply Filters</button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </form>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Student</th>
+                                        <th>Hostel</th>
+                                        <th>Month/Year</th>
+                                        <th>Rent</th>
+                                        <th>Mess Expenses</th>
+                                        <th>Electricity</th>
+                                        <th>Total Fee</th>
+                                        <th>Status</th>
+                                        <th>Due Date</th>
+                                        <th>Payment Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for fee in fees %}
+                                    <tr>
+                                        <td>{{ fee.student.user.get_full_name }}</td>
+                                        <td>{{ fee.hostel.name }}</td>
+                                        <td>{{ fee.get_month_display }}/{{ fee.year }}</td>
+                                        <td>{{ fee.monthly_rent }}</td>
+                                        <td>{{ fee.mess_expenses }}</td>
+                                        <td>{{ fee.electricity_bill }}</td>
+                                        <td>{{ fee.total_fee }}</td>
+                                        <td>
+                                            {% if fee.payment_status == 'Paid' %}
+                                                <span class="badge badge-success">{{ fee.payment_status }}</span>
+                                            {% elif fee.payment_status == 'Overdue' %}
+                                                <span class="badge badge-danger">{{ fee.payment_status }}</span>
+                                            {% else %}
+                                                <span class="badge badge-warning">{{ fee.payment_status }}</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>{{ fee.due_date }}</td>
+                                        <td>{{ fee.payment_date|default:"Not Paid" }}</td>
+                                        <td>
+                                            <!-- Edit option removed as per request -->
+                                            {% if fee.payment_status != 'Paid' %}
+                                                <a href="{% url 'collect_monthly_fee' fee_id=fee.id %}" class="btn btn-sm btn-primary"><i class="fas fa-money-bill-wave"></i> Collect Fee</a>
+                                            {% endif %}
+                                        </td>
+                                    </tr>
+                                    {% empty %}
+                                    <tr>
+                                        <td colspan="11" class="text-center">No fee records found.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
+                        {% include "pagination.html" with page_obj=page_obj %}
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-bordered table-striped">
-                            <thead>
-                                <tr>
-                                    <th>Student</th>
-                                    <th>Hostel</th>
-                                    <th>Month/Year</th>
-                                    <th>Rent</th>
-                                    <th>Mess Expenses</th>
-                                    <th>Electricity</th>
-                                    <th>Total Fee</th>
-                                    <th>Status</th>
-                                    <th>Due Date</th>
-                                    <th>Payment Date</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {% for fee in fees %}
-                                <tr>
-                                    <td>{{ fee.student.user.get_full_name }}</td>
-                                    <td>{{ fee.hostel.name }}</td>
-                                    <td>{{ fee.get_month_display }}/{{ fee.year }}</td>
-                                    <td>{{ fee.monthly_rent }}</td>
-                                    <td>{{ fee.mess_expenses }}</td>
-                                    <td>{{ fee.electricity_bill }}</td>
-                                    <td>{{ fee.total_fee }}</td>
-                                    <td>
-                                        {% if fee.payment_status == 'Paid' %}
-                                            <span class="badge badge-success">{{ fee.payment_status }}</span>
-                                        {% elif fee.payment_status == 'Overdue' %}
-                                            <span class="badge badge-danger">{{ fee.payment_status }}</span>
-                                        {% else %}
-                                            <span class="badge badge-warning">{{ fee.payment_status }}</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ fee.due_date }}</td>
-                                    <td>{{ fee.payment_date|default:"Not Paid" }}</td>
-                                    <td>
-                                        <!-- Edit option removed as per request -->
-                                        {% if fee.payment_status != 'Paid' %}
-                                            <a href="{% url 'collect_monthly_fee' fee_id=fee.id %}" class="btn btn-sm btn-primary"><i class="fas fa-money-bill-wave"></i> Collect Fee</a>
-                                        {% endif %}
-                                    </td>
-                                </tr>
-                                {% empty %}
-                                <tr>
-                                    <td colspan="11" class="text-center">No fee records found.</td>
-                                </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
-                    {% include "pagination.html" with page_obj=page_obj %}
                 </div>
             </div>
         </div>
     </div>
-</div>
 
-<!-- Calculate Fees Modal -->
-<div class="modal fade" id="calculateFeesModal" tabindex="-1" aria-labelledby="calculateFeesModalLabel" aria-hidden="true">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="calculateFeesModalLabel">Calculate Monthly Fees</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <form method="post" action="{% url 'calculate_monthly_fees' %}">
-                    {% csrf_token %}
-                    <div class="mb-3">
-                        <label for="calc_month" class="form-label">Month</label>
-                        <select class="form-select" id="calc_month" name="month">
-                            {% for m, name in months %}
-                                <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>{{ name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="calc_year" class="form-label">Year</label>
-                        <select class="form-select" id="calc_year" name="year">
-                            {% for y in years %}
-                                <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="calc_hostel" class="form-label">Hostel</label>
-                        <select class="form-select" id="calc_hostel" name="hostel">
-                            <option value="">All Hostels</option>
-                            {% for hostel in hostels %}
-                                <option value="{{ hostel.id }}">{{ hostel.name }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label for="electricity_bill" class="form-label">Electricity Bill (per student)</label>
-                        <input type="number" class="form-control" id="electricity_bill" name="electricity_bill" step="0.01" value="0.00">
-                    </div>
-                    <button type="submit" class="btn btn-primary">Calculate Fees</button>
-                </form>
+    <!-- Calculate Fees Modal -->
+    <div class="modal fade" id="calculateFeesModal" tabindex="-1" aria-labelledby="calculateFeesModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="calculateFeesModalLabel">Calculate Monthly Fees</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="post" action="{% url 'calculate_monthly_fees' %}">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="calc_month" class="form-label">Month</label>
+                            <select class="form-select" id="calc_month" name="month">
+                                {% for m, name in calc_months %}
+                                    <option value="{{ m }}" {% if m == current_month %}selected{% endif %}>{{ name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="calc_year" class="form-label">Year</label>
+                            <select class="form-select" id="calc_year" name="year">
+                                {% for y in years %}
+                                    <option value="{{ y }}" {% if y == current_year %}selected{% endif %}>{{ y }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="calc_hostel" class="form-label">Hostel</label>
+                            <select class="form-select" id="calc_hostel" name="hostel">
+                                <option value="">All Hostels</option>
+                                {% for hostel in hostels %}
+                                    <option value="{{ hostel.id }}">{{ hostel.name }}</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="electricity_bill" class="form-label">Electricity Bill (per student)</label>
+                            <input type="number" class="form-control" id="electricity_bill" name="electricity_bill" step="0.01" value="0.00">
+                        </div>
+                        <button type="submit" class="btn btn-primary">Calculate Fees</button>
+                    </form>
+                </div>
             </div>
         </div>
     </div>
-</div>
-{% endblock %}
+    {% endblock %}
+
+    <!-- Bootstrap Bundle with Popper -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

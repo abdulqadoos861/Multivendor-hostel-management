@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}Manage Security Guards{% endblock %}
 
@@ -25,6 +25,7 @@
                                         <th>Name</th>
                                         <th>Contact</th>
                                         <th>Shift</th>
+                                        <th>Status</th>
                                         <th>Hostel</th>
                                         <th>Actions</th>
                                     </tr>
@@ -34,8 +35,15 @@
                                     <tr>
                                         <td>{{ guard.id }}</td>
                                         <td>{{ guard.name }}</td>
-                                        <td>{{ guard.contact }}</td>
+                                        <td>{{ guard.contact_number }}</td>
                                         <td>{{ guard.shift }}</td>
+<td>
+    {% if guard.user.is_active %}
+        <span class="badge bg-success">Active</span>
+    {% else %}
+        <span class="badge bg-danger">Inactive</span>
+    {% endif %}
+</td>
                                         <td>{{ guard.hostel.name }}</td>
                                         <td>
                                             <a href="{% url 'edit_security_guard' guard.user_id %}" class="btn btn-sm btn-warning">Edit</a>

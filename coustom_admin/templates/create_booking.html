@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'admin_base.html' %}
 {% load static %}
 
 {% block content %}
@@ -90,10 +90,8 @@ $(document).ready(function() {
                     `;
                 }
                 
-                // Redirect after a short delay
-                setTimeout(() => {
-                    window.location.href = '{% url "manage_booking" %}';
-                }, 1500);
+                // Keep the success message visible without redirecting
+                // No automatic redirect; user can navigate manually if needed
             } else {
                 // Handle form errors
                 let errorHtml = '';

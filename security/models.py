@@ -15,6 +15,11 @@ class SecurityGuard(models.Model):
     hostel = models.ForeignKey(Hostels, on_delete=models.CASCADE, related_name='security_guards', blank=True, null=True)
     shift = models.CharField(max_length=20, choices=[('Morning', 'Morning'), ('Evening', 'Evening'), ('Night', 'Night')], blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    STATUS_CHOICES = [
+        ('Active', 'Active'),
+        ('Inactive', 'Inactive'),
+    ]
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='Active')
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):

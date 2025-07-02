@@ -180,7 +180,7 @@ def warden_dashboard(request):
 
 @login_required
 def add_room(request):
-    hostels = Hostels.objects.all()
+    hostels = Hostels.objects.filter(status='Active')
     # Use select_related to fetch the related hostel data in a single query
     rooms = Rooms.objects.select_related('hostel').all()
 
@@ -340,7 +340,7 @@ def get_hostel_flats(request, hostel_id):
 
 @login_required
 def fixed_rates(request):
-    hostels = Hostels.objects.all()
+    hostels = Hostels.objects.filter(status='Active')
     room_types = ['Single', 'Double', 'Shared']
     
     if request.method == 'POST':
@@ -376,6 +376,8 @@ def fixed_rates(request):
 
     rates = RoomTypeRate.objects.all()
     return render(request, 'fixed_rates.html', {'hostels': hostels, 'room_types': room_types, 'rates': rates})
+
+
 
 @login_required
 def hostel_charges(request):
@@ -445,7 +447,7 @@ def Addhostel(request):
 
             hostel = Hostels(
                 name=name,
-                address=description or "",
+                address=address,
                 gender=gender,
                 contact_number=contact_number,
                 total_floors=total_floors,
@@ -736,7 +738,26 @@ def complaints(request):
     # Retrieve complaints submitted to admin
     try:
         from student.models import Complaint
-        complaints = Complaint.objects.all().order_by('-created_at')
+        complaints = Complaint.objects.all()
+        
+        # Apply filters from GET parameters
+        search_query = request.GET.get('search', '')
+        if search_query:
+            complaints = complaints.filter(
+                Q(student__user__first_name__icontains=search_query) |
+                Q(student__user__last_name__icontains=search_query) |
+                Q(description__icontains=search_query)
+            )
+        
+        hostel_filter = request.GET.get('hostel', '')
+        if hostel_filter:
+            complaints = complaints.filter(hostel_id=hostel_filter)
+        
+        status_filter = request.GET.get('status', '')
+        if status_filter:
+            complaints = complaints.filter(status=status_filter)
+        
+        complaints = complaints.order_by('-created_at')
     except Exception as e:
         messages.error(request, f'Error retrieving complaints: {str(e)}')
         complaints = []
@@ -750,9 +771,13 @@ def complaints(request):
     except Exception as e:
         messages.error(request, f'Error retrieving bookings: {str(e)}')
 
+    # Retrieve all hostels for filter dropdown
+    hostels = Hostels.objects.all().order_by('name')
+
     context = {
         'complaints': complaints,
         'bookings': bookings,
+        'hostels': hostels,
     }
     return render(request, "complaints.html", context)
 
@@ -1257,8 +1282,18 @@ def wardenlist(request):
 def getAvailableHostels(request, warden_id):
     if request.method == 'GET':
         try:
+            # Check if the warden already has a hostel assigned
+            warden_assigned = HostelWardens.objects.filter(warden_id=warden_id).exists()
+            if warden_assigned:
+                return JsonResponse({
+                    'status': 'success',
+                    'hostels': [],
+                    'warden_id': warden_id,
+                    'message': 'This warden already has a hostel assigned. Only one hostel per warden is allowed.'
+                })
+            
             assigned_hostel_ids = HostelWardens.objects.values_list('hostel_id', flat=True)
-            available_hostels = Hostels.objects.exclude(id__in=assigned_hostel_ids)
+            available_hostels = Hostels.objects.exclude(id__in=assigned_hostel_ids).filter(status='Active')
             
             hostels_data = [
                 {
@@ -1721,6 +1756,45 @@ def toggle_user_status(request, user_id):
             return JsonResponse(
                 {'status': 'error', 'message': str(e)},
                 status=400
+            )
+    
+    return JsonResponse(
+        {'status': 'error', 'message': 'Only POST method is allowed'},
+        status=405
+    )
+
+@login_required
+@csrf_exempt
+def toggle_hostel_status(request, id):
+    """
+    Toggle the status of a hostel.
+    Simply toggles the current status on a POST request.
+    """
+    if request.method == 'POST':
+        try:
+            # Get the hostel
+            hostel = Hostels.objects.get(id=id)
+            
+            # Toggle the hostel's status
+            hostel.status = 'Inactive' if hostel.status == 'Active' else 'Active'
+            hostel.save()
+            
+            status_text = 'activated' if hostel.status == 'Active' else 'deactivated'
+            return JsonResponse({
+                'status': 'success',
+                'message': f'Hostel {status_text} successfully',
+                'is_active': hostel.status
+            })
+            
+        except Hostels.DoesNotExist:
+            return JsonResponse(
+                {'status': 'error', 'message': 'Hostel not found'},
+                status=404
+            )
+        except Exception as e:
+            return JsonResponse(
+                {'status': 'error', 'message': str(e)},
+                status=500
             )
     
     return JsonResponse(
@@ -2890,8 +2964,10 @@ def add_mess_incharge(request):
             return redirect('add_mess_incharge')
     
     form = MessInchargeForm()
-    hostels = Hostels.objects.all()
-    return render(request, "add_mess_incharge.html", {"form": form, "hostels": hostels})
+    # Filter hostels to show only active ones without an assigned Mess Incharge
+    filtered_hostels = Hostels.objects.filter(status='Active').exclude(mess_incharges__isnull=False)
+    form.fields['hostel'].queryset = filtered_hostels
+    return render(request, "add_mess_incharge.html", {"form": form, "hostels": filtered_hostels})
 
 @login_required
 @csrf_exempt
@@ -2923,8 +2999,14 @@ def edit_mess_incharge(request, mess_incharge_id):
             messages.error(request, 'Form validation failed. Please correct the errors below.')
     else:
         form = MessInchargeForm(instance=mess_incharge)
-        hostels = Hostels.objects.all()
-        return render(request, "edit_mess_incharge.html", {"form": form, "mess_incharge": mess_incharge, "hostels": hostels})
+        # Filter hostels to show only active ones without an assigned Mess Incharge, or the currently assigned hostel
+        filtered_hostels = Hostels.objects.filter(
+            status='Active'
+        ).filter(
+            Q(mess_incharges__isnull=True) | Q(mess_incharges=mess_incharge)
+        )
+        form.fields['hostel'].queryset = filtered_hostels
+        return render(request, "edit_mess_incharge.html", {"form": form, "mess_incharge": mess_incharge, "hostels": filtered_hostels})
 
 @login_required
 @csrf_exempt
@@ -3015,6 +3097,12 @@ def add_security_guard(request):
                 return JsonResponse({'status': 'error', 'message': 'Email already registered'}, status=400)
 
             try:
+                hostel = Hostels.objects.get(id=hostel_id)
+                from security.models import SecurityGuard
+                # Check if a security guard already exists for this hostel and shift
+                if SecurityGuard.objects.filter(hostel=hostel, shift=shift).exists():
+                    return JsonResponse({'status': 'error', 'message': 'A security guard is already assigned to this hostel for the selected shift.'}, status=400)
+
                 user = User(
                     username=username,
                     email=email if email else '',
@@ -3030,8 +3118,6 @@ def add_security_guard(request):
                 security_group, _ = Group.objects.get_or_create(name='Security')
                 user.groups.add(security_group)
 
-                hostel = Hostels.objects.get(id=hostel_id)
-                from security.models import SecurityGuard
                 security_guard = SecurityGuard(
                     user=user,
                     name=name,
@@ -3053,7 +3139,14 @@ def add_security_guard(request):
                 if Wardens.objects.filter(user=user).exists():
                     Wardens.objects.filter(user=user).delete()
 
-                messages.success(request, 'Security Guard registered successfully')
+                response_data = {
+                    'status': 'success',
+                    'message': 'Security Guard registered successfully',
+                    'redirect_url': reverse('manage_security_guards')
+                }
+                if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                    return JsonResponse(response_data)
+                messages.success(request, response_data['message'])
                 return redirect('manage_security_guards')
             except Exception as e:
                 if 'user' in locals():
@@ -3063,7 +3156,7 @@ def add_security_guard(request):
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
     
-    hostels = Hostels.objects.all()
+    hostels = Hostels.objects.filter(status='Active')
     return render(request, "manageSecurityGuards.html", {"hostels": hostels})
 
 @login_required
@@ -3109,6 +3202,11 @@ def edit_security_guard(request, guard_id):
             shift = request.POST.get('shift')
             is_active = request.POST.get('is_active') == 'on'
 
+            hostel = Hostels.objects.get(id=hostel_id)
+            # Check if a security guard already exists for this hostel and shift, excluding the current guard
+            if SecurityGuard.objects.filter(hostel=hostel, shift=shift).exclude(user_id=guard_id).exists():
+                return JsonResponse({'status': 'error', 'message': 'A security guard is already assigned to this hostel for the selected shift.'}, status=400)
+
             security_guard.name = name
             security_guard.contact_number = contact_number
             security_guard.cnic = cnic
@@ -3117,7 +3215,7 @@ def edit_security_guard(request, guard_id):
             security_guard.city = city
             security_guard.district = district
             security_guard.gender = gender
-            security_guard.hostel = Hostels.objects.get(id=hostel_id)
+            security_guard.hostel = hostel
             security_guard.shift = shift
 
             if hasattr(security_guard, 'user') and security_guard.user:
@@ -3151,7 +3249,7 @@ def edit_security_guard(request, guard_id):
     else:
         from security.models import SecurityGuard
         security_guard = get_object_or_404(SecurityGuard, user_id=guard_id)
-        hostels = Hostels.objects.all()
+        hostels = Hostels.objects.filter(status='Active')
         return render(request, "editSecurityGuard.html", {"security_guard": security_guard, "hostels": hostels})
 
 @login_required
@@ -3267,6 +3365,38 @@ def student_feedbacks(request):
     }
     
     return render(request, "student_feedbacks.html", context)
+
+@login_required
+def get_feedback_details(request, feedback_id):
+    """
+    API endpoint to retrieve detailed feedback information by ID.
+    """
+    from student.models import Feedback
+    try:
+        feedback = Feedback.objects.select_related('user', 'hostel').get(id=feedback_id)
+        data = {
+            'status': 'success',
+            'feedback': {
+                'id': feedback.id,
+                'student': {
+                    'full_name': feedback.user.get_full_name() if feedback.user else 'Anonymous',
+                    'username': feedback.user.username if feedback.user else 'Anonymous',
+                    'email': feedback.user.email if feedback.user else 'N/A'
+                },
+                'hostel': {
+                    'name': feedback.hostel.name if feedback.hostel else 'Not Specified'
+                },
+                'rating': feedback.rating,
+                'feedback_text': feedback.feedback_text,
+                'status': 'New' if feedback.is_new else 'Reviewed',
+                'created_at': feedback.created_at.strftime('%Y-%m-%d %H:%M') if feedback.created_at else 'N/A'
+            }
+        }
+        return JsonResponse(data)
+    except Feedback.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Feedback not found'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @login_required
 def get_assignment_details(request, assignment_id):
@@ -3419,14 +3549,15 @@ def monthly_fees(request):
     # Get all hostels for filter dropdown
     hostels = Hostels.objects.all().order_by('name')
     
-    # Prepare month choices for filter dropdown (only current and previous month)
+    # Prepare month choices for filter dropdown (all months)
     current_date = timezone.now().date()
     current_month = current_date.month
     current_year = current_date.year
     previous_month = current_month - 1 if current_month > 1 else 12
     previous_year = current_year if current_month > 1 else current_year - 1
     
-    months = [
+    months = [(i, calendar.month_name[i]) for i in range(1, 13)]
+    calc_months = [
         (current_month, calendar.month_name[current_month]),
         (previous_month, calendar.month_name[previous_month])
     ]
@@ -3449,7 +3580,10 @@ def monthly_fees(request):
         'page_obj': fees_page,
         'hostels': hostels,
         'months': months,
+        'calc_months': calc_months,
         'years': years,
+        'current_month': current_month,
+        'current_year': current_year,
         'search_query': search_query,
         'hostel_filter': hostel_filter,
         'month_filter': month_filter,
@@ -3509,14 +3643,16 @@ def calculate_monthly_fees_view(request):
         (previous_month, calendar.month_name[previous_month])
     ]
     years = [current_year, previous_year] if previous_year != current_year else [current_year]
+    hostels = Hostels.objects.all().order_by('name')
     
     context = {
         'current_month': current_month,
         'current_year': current_year,
         'months': months,
         'years': years,
+        'hostels': hostels,
     }
-    return render(request, "monthly_fees.html", context)
+    return render(request, "calculate_monthly_fees.html", context)
 
 
 @login_required
@@ -3625,6 +3761,9 @@ def collect_monthly_fee(request, fee_id):
                 except ValueError:
                     pass  # If amount is invalid, keep the original value
             fee.collected_by = request.user  # Store the user who collected the fee
+            # Recalculate total_fee to ensure it includes all components
+            from decimal import Decimal
+            fee.total_fee = Decimal(str(fee.monthly_rent)) + fee.mess_expenses + fee.electricity_bill
             fee.save()
             
             success_message = f"Payment recorded for {fee.student.user.get_full_name()}."
@@ -3634,8 +3773,8 @@ def collect_monthly_fee(request, fee_id):
                     'message': success_message
                 })
             else:
-                messages.success(request, success_message)
-                return redirect('monthly_fees')
+                from urllib.parse import urlencode
+                return redirect('/admin/monthly_fees/?' + urlencode({'success_message': success_message}))
         else:
             if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
                 return JsonResponse({
@@ -3645,7 +3784,7 @@ def collect_monthly_fee(request, fee_id):
                 }, status=400)
             messages.error(request, 'Form validation failed. Please correct the errors below.')
     else:
-        form = MonthlyFeePaymentForm(initial={'amount': fee.monthly_rent})
+        form = MonthlyFeePaymentForm(initial={'amount': fee.total_fee})
     
     context = {
         'fee': fee,

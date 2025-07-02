@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}Edit Security Guard{% endblock %}
 
@@ -10,9 +10,10 @@
                 <div class="card-header">
                     <h3 class="card-title">Edit Security Guard</h3>
                 </div>
-                <div class="card-body">
-                    <form method="post">
+<div class="card-body">
+<form id="editSecurityGuardForm" method="post" action="{% url 'edit_security_guard' guard_id=security_guard.user_id %}">
                         {% csrf_token %}
+                        <div id="errorMessages" class="alert alert-danger" style="display: none;"></div>
                         <div class="mb-3">
                             <label for="name" class="form-label">Name</label>
                             <input type="text" class="form-control" id="name" name="name" value="{{ security_guard.name }}" required>
@@ -80,6 +81,49 @@
                         <a href="{% url 'manage_security_guards' %}" class="btn btn-secondary">Cancel</a>
                     </form>
                 </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    document.getElementById('editSecurityGuardForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const form = this;
+        const errorMessages = document.getElementById('errorMessages');
+        errorMessages.style.display = 'none';
+        errorMessages.innerHTML = '';
+
+        fetch(form.action, {
+            method: 'POST',
+            body: new FormData(form),
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+.then(data => {
+            if (data.status === 'success') {
+                const successMessage = document.createElement('div');
+                successMessage.className = 'alert alert-success';
+                successMessage.textContent = data.message;
+                errorMessages.style.display = 'none';
+                errorMessages.innerHTML = '';
+                form.parentNode.insertBefore(successMessage, form);
+                setTimeout(() => {
+                    successMessage.style.display = 'none';
+                    window.location.href = "{% url 'manage_security_guards' %}";
+                }, 3000);
+            } else {
+                errorMessages.style.display = 'block';
+                errorMessages.innerHTML = data.message;
+            }
+        })
+        .catch(error => {
+            errorMessages.style.display = 'block';
+            errorMessages.innerHTML = 'An error occurred. Please try again.';
+        });
+    });
+</script>
             </div>
         </div>
     </div>

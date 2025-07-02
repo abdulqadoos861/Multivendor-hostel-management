@@ -1,7 +1,7 @@
 from django.urls import path
 from django.contrib.auth import views as auth_views
 from django.views.generic import RedirectView
-from . import views
+from coustom_admin import views
 
 urlpatterns = [
     # Redirect root admin URL to login
@@ -22,6 +22,7 @@ urlpatterns = [
     path('add_hostel/', views.Addhostel, name='Addhostel'),
     path('update_hostel/<int:id>/', views.updateHostel, name='updateHostel'),
     path('delete_hostel/<int:id>/', views.deleteHostel, name='deleteHostel'),
+    path('toggle_hostel_status/<int:id>/', views.toggle_hostel_status, name='toggle_hostel_status'),
 
     # Room Management
     path('room_assignments/', views.room_assignments, name='room_assignments'),
@@ -111,4 +112,7 @@ urlpatterns = [
     path('edit_monthly_fee/<int:fee_id>/', views.edit_monthly_fee, name='edit_monthly_fee'),
     path('mark_fee_paid/<int:fee_id>/', views.mark_fee_paid, name='mark_fee_paid'),
     path('collect_monthly_fee/<int:fee_id>/', views.collect_monthly_fee, name='collect_monthly_fee'),
+    
+    # Feedback Management
+    path('feedback/<int:feedback_id>/details/', views.get_feedback_details, name='get_feedback_details'),
 ]

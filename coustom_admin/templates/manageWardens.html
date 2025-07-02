@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'admin_base.html' %}
 {% block title %}Manage Wardens{% endblock %}
 
 {% block header_title %}
@@ -30,6 +30,7 @@
                     <th>Name</th>
                     <th>Phone</th>
                     <th>Gender</th>
+                    <th>Status</th>
                     <th>Created At</th>
                     <th>Action</th>
                 </tr>
@@ -49,6 +50,13 @@
                     </td>
                     <td>{{ warden.contact_number }}</td>
                     <td>{{ warden.gender|capfirst }}</td>
+                    <td>
+                        {% if warden.user.is_active %}
+                            <span class="badge bg-success">Active</span>
+                        {% else %}
+                            <span class="badge bg-danger">Inactive</span>
+                        {% endif %}
+                    </td>
                     <td>{{ warden.created_at|date:"Y-m-d H:i:s" }}</td>
                     <td class="action-buttons">
                         <button type="button" class="btn btn-primary btn-sm edit-warden" data-bs-toggle="modal" 

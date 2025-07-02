@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+{% extends "admin_base.html" %}
 
 {% block title %}Manage Mess Incharge{% endblock %}
 
@@ -21,6 +21,7 @@
                                 <th scope="col">Contact Number</th>
                                 <th scope="col">Gender</th>
                                 <th scope="col">CNIC</th>
+                                <th scope="col">Status</th>
                                 <th scope="col">Hostel</th>
                                 <th scope="col">Address</th>
                                 <th scope="col">Actions</th>
@@ -34,6 +35,13 @@
                                     <td>{{ incharge.contact_number }}</td>
                                     <td>{{ incharge.gender }}</td>
                                     <td>{{ incharge.cnic }}</td>
+<td>
+    {% if incharge.user.is_active %}
+        <span class="badge bg-success">Active</span>
+    {% else %}
+        <span class="badge bg-danger">Inactive</span>
+    {% endif %}
+</td>
                                     <td>{{ incharge.hostel.name }}</td>
                                     <td>
                                         {% if incharge.street %}{{ incharge.street }}, {% endif %}

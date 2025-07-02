@@ -1,83 +1,152 @@
-{% extends 'base.html' %}
+{% extends 'admin_base.html' %}
 
 {% block content %}
 <div class="container-fluid">
+    <div class="row mb-4">
+        <div class="col">
+            <h2 class="mb-0">Manage Complaints</h2>
+            <p class="text-muted">View and manage complaints submitted by students</p>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filter-box mb-4">
+        <h5 class="mb-3">Filters</h5>
+        <form method="GET" class="row g-3">
+            <div class="col-md-4">
+                <label for="search" class="form-label">Search</label>
+                <input type="text" name="search" id="search" class="form-control" placeholder="Search by student or description..." value="{{ request.GET.search|default_if_none:'' }}">
+            </div>
+            <div class="col-md-3">
+                <label for="hostel" class="form-label">Hostel</label>
+                <select name="hostel" id="hostel" class="form-select">
+                    <option value="">All Hostels</option>
+                    {% for hostel in hostels %}
+                        <option value="{{ hostel.id }}" {% if request.GET.hostel == hostel.id|stringformat:"s" %}selected{% endif %}>{{ hostel.name }}</option>
+                    {% empty %}
+                        <option value="" disabled>No hostels available. Backend must pass 'hostels' data to the template for filtering to work.</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label for="status" class="form-label">Status</label>
+                <select name="status" id="status" class="form-select">
+                    <option value="">All Statuses</option>
+                    <option value="Pending" {% if request.GET.status == "Pending" %}selected{% endif %}>Pending</option>
+                    <option value="In Progress" {% if request.GET.status == "In Progress" %}selected{% endif %}>In Progress</option>
+                    <option value="Resolved" {% if request.GET.status == "Resolved" %}selected{% endif %}>Resolved</option>
+                </select>
+            </div>
+            <div class="col-md-2 d-flex align-items-end">
+                <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
+            </div>
+        </form>
+    </div>
+    <!-- Complaints List -->
     <div class="row">
-        <div class="col-md-12">
-            <div class="card">
-                <div class="card-header">
-                    <h3 class="card-title">Manage Complaints</h3>
-                </div>
-                <div class="card-body">
-                    <div class="row mb-3">
-                        <div class="col-md-6">
-                            <input type="text" id="searchComplaints" class="form-control" placeholder="Search complaints...">
+        <div class="col">
+            {% if complaints %}
+                <div class="card">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="bg-light">
+                                    <tr>
+                                        <th class="ps-4 sortable" data-sort="id">ID <i class="bi bi-sort-numeric-down"></i></th>
+                                        <th class="sortable" data-sort="student">Student <i class="bi bi-sort-alpha-down"></i></th>
+                                        <th class="sortable" data-sort="hostel">Hostel <i class="bi bi-sort-alpha-down"></i></th>
+                                        <th>Room</th>
+                                        <th>Category</th>
+                                        <th>Description</th>
+                                        <th class="sortable" data-sort="status">Status <i class="bi bi-sort-alpha-down"></i></th>
+                                        <th class="sortable" data-sort="date">Created At <i class="bi bi-sort-numeric-down"></i></th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for complaint in complaints %}
+                                        <tr>
+                                            <td class="ps-4">{{ complaint.complaint_id }}</td>
+                                            <td>{{ complaint.student.user.get_full_name }}</td>
+                                            <td>{{ complaint.hostel.name|default:"N/A" }}</td>
+                                            <td>{{ complaint.room.room_number|default:"N/A" }}</td>
+                                            <td>{{ complaint.category }}</td>
+                                            <td>{{ complaint.description|truncatechars:50 }}</td>
+                                            <td>
+                                                <span class="badge bg-{% if complaint.status == 'Pending' %}danger{% elif complaint.status == 'In Progress' %}warning{% else %}success{% endif %} p-2">
+                                                    {{ complaint.status }}
+                                                </span>
+                                            </td>
+                                            <td>{{ complaint.created_at|date:"Y-m-d H:i" }}</td>
+                                            <td>
+                                                <div class="d-flex gap-2">
+                                                    <a href="#" class="btn btn-sm btn-outline-primary view-details" data-id="{{ complaint.complaint_id }}" data-bs-toggle="modal" data-bs-target="#complaintModal">View Details</a>
+                                                    {% if complaint.status != 'Resolved' %}
+                                                        <button class="btn btn-sm btn-outline-secondary update-status" data-id="{{ complaint.complaint_id }}" data-bs-toggle="modal" data-bs-target="#updateStatusModal">Update Status</button>
+                                                    {% else %}
+                                                        <span class="text-muted small">Status Locked</span>
+                                                    {% endif %}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
                         </div>
-                        <div class="col-md-6 text-right">
-                            <select id="statusFilter" class="form-control w-auto d-inline-block">
-                                <option value="">All Statuses</option>
+                    </div>
+                </div>
+            {% else %}
+                <div class="alert alert-info text-center" role="alert">
+                    <i class="bi bi-info-circle me-2"></i>
+                    No complaints found matching your criteria.
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Complaint Details Modal -->
+    <div class="modal fade" id="complaintModal" tabindex="-1" aria-labelledby="complaintModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="complaintModalLabel">Complaint Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="complaintContent">
+                        <p>Loading complaint details...</p>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Update Status Modal -->
+    <div class="modal fade" id="updateStatusModal" tabindex="-1" aria-labelledby="updateStatusModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="updateStatusModalLabel">Update Complaint Status</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form method="POST" action="{% url 'complaints' %}" id="statusUpdateForm">
+                        {% csrf_token %}
+                        <input type="hidden" name="complaint_id" id="complaintId" value="">
+                        <div class="mb-3">
+                            <label for="statusSelect" class="form-label">Select New Status</label>
+                            <select name="status" id="statusSelect" class="form-select" required>
+                                <option value="">-- Select Status --</option>
                                 <option value="Pending">Pending</option>
                                 <option value="In Progress">In Progress</option>
                                 <option value="Resolved">Resolved</option>
                             </select>
                         </div>
-                    </div>
-                    <div class="table-responsive">
-                        <table class="complaints-table">
-                            <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>Student</th>
-                                    <th>Hostel</th>
-                                    <th>Room</th>
-                                    <th>Category</th>
-                                    <th>Description</th>
-                                    <th>Status</th>
-                                    <th>Created At</th>
-                                    <th>Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="complaintsTableBody">
-                                {% for complaint in complaints %}
-                                    <tr>
-                                        <td>{{ complaint.complaint_id }}</td>
-                                        <td>{{ complaint.student.user.get_full_name }}</td>
-                                        <td>{{ complaint.hostel.name|default:"N/A" }}</td>
-                                        <td>{{ complaint.room.room_number|default:"N/A" }}</td>
-                                        <td>{{ complaint.category }}</td>
-                                        <td>{{ complaint.description|truncatechars:50 }}</td>
-                                        <td>
-                                            <span class="badge badge-{% if complaint.status == 'Pending' %}danger{% elif complaint.status == 'In Progress' %}warning{% else %}success{% endif %} p-2">
-                                                {{ complaint.status }}
-                                            </span>
-                                        </td>
-                                        <td>{{ complaint.created_at|date:"Y-m-d H:i" }}</td>
-                                        <td>
-                                            {% if complaint.status == 'Resolved' %}
-                                                <span class="text-muted">Status Locked</span>
-                                            {% else %}
-                                                <form method="POST" action="{% url 'complaints' %}">
-                                                    {% csrf_token %}
-                                                    <input type="hidden" name="complaint_id" value="{{ complaint.complaint_id }}">
-                                                    <select name="status" required>
-                                                        <option value="">-- Update Status --</option>
-                                                        <option value="Pending">Pending</option>
-                                                        <option value="In Progress">In Progress</option>
-                                                        <option value="Resolved">Resolved</option>
-                                                    </select>
-                                                    <button type="submit">Update</button>
-                                                </form>
-                                            {% endif %}
-                                        </td>
-                                    </tr>
-                                {% empty %}
-                                    <tr>
-                                        <td colspan="9" class="text-center text-muted">No complaints found.</td>
-                                    </tr>
-                                {% endfor %}
-                            </tbody>
-                        </table>
-                    </div>
+                        <button type="submit" class="btn btn-primary w-100">Update Status</button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -85,62 +154,94 @@
 </div>
 
 <style>
-    h3 {
-        color: #007bff;
+    h2 {
+        color: var(--primary-color);
         margin-bottom: 10px;
     }
     p {
-        color: #6c757d;
-        margin-bottom: 30px;
+        color: var(--text-color);
+        margin-bottom: 20px;
     }
-    .complaints-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 20px;
+    .filter-box {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
+        padding: 1.5rem;
+        margin-bottom: 2rem;
     }
-    .complaints-table th, .complaints-table td {
-        padding: 12px;
-        text-align: left;
-        border-bottom: 1px solid #dee2e6;
-    }
-    .complaints-table th {
-        background-color: #e9ecef;
-        font-weight: 600;
-        color: #495057;
-    }
-    .complaints-table tr:hover {
-        background-color: #f8f9fa;
-    }
-    .complaints-table form {
-        display: flex;
-        gap: 10px;
-    }
-    .complaints-table select {
-        padding: 5px;
-        border: 1px solid #ced4da;
-        border-radius: 5px;
-    }
-    .complaints-table button {
-        padding: 5px 10px;
-        background-color: #007bff;
-        color: white;
+    .card {
         border: none;
-        border-radius: 5px;
+        border-radius: 12px;
+        box-shadow: var(--card-shadow);
+        transition: transform var(--transition-speed), box-shadow var(--transition-speed);
+    }
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1), 0 4px 8px rgba(0, 0, 0, 0.06);
+    }
+    .sortable {
         cursor: pointer;
-        font-size: 0.9rem;
-        transition: background-color 0.3s ease;
     }
-    .complaints-table button:hover {
-        background-color: #0056b3;
-    }
-    @media (max-width: 576px) {
-        .card-body {
-            padding: 15px;
-        }
-        .complaints-table th, .complaints-table td {
-            padding: 8px;
-            font-size: 0.9rem;
-        }
+    .sortable:hover {
+        color: var(--primary-color);
     }
 </style>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Sorting functionality
+        document.querySelectorAll('.sortable').forEach(header => {
+            header.addEventListener('click', function() {
+                const sortField = this.getAttribute('data-sort');
+                const url = new URL(window.location);
+                const currentSort = url.searchParams.get('sort') || '';
+                const newSort = currentSort === sortField ? `-${sortField}` : sortField;
+                url.searchParams.set('sort', newSort);
+                window.location.href = url.toString();
+            });
+        });
+
+        // View details modal
+        document.querySelectorAll('.view-details').forEach(button => {
+            button.addEventListener('click', function() {
+                const complaintId = this.getAttribute('data-id');
+                const row = this.closest('tr');
+                const student = row.cells[1].textContent;
+                const hostel = row.cells[2].textContent;
+                const room = row.cells[3].textContent;
+                const category = row.cells[4].textContent;
+                const description = row.cells[5].textContent.includes('...') ? 'Full description would be fetched from the server in a complete implementation.' : row.cells[5].textContent;
+                const status = row.cells[6].textContent.trim();
+                const createdAt = row.cells[7].textContent;
+
+                document.getElementById('complaintContent').innerHTML = `
+                    <h6>Complaint ID: ${complaintId}</h6>
+                    <div class="row">
+                        <div class="col-md-6">
+                            <p><strong>Student:</strong> ${student}</p>
+                            <p><strong>Hostel:</strong> ${hostel}</p>
+                            <p><strong>Room:</strong> ${room}</p>
+                            <p><strong>Category:</strong> ${category}</p>
+                        </div>
+                        <div class="col-md-6">
+                            <p><strong>Status:</strong> ${status}</p>
+                            <p><strong>Created At:</strong> ${createdAt}</p>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <h6>Description:</h6>
+                        <p>${description}</p>
+                    </div>
+                `;
+            });
+        });
+
+        // Update status modal
+        document.querySelectorAll('.update-status').forEach(button => {
+            button.addEventListener('click', function() {
+                const complaintId = this.getAttribute('data-id');
+                document.getElementById('complaintId').value = complaintId;
+            });
+        });
+    });
+</script>
 {% endblock %}
